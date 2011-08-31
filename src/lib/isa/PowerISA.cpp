@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -75,9 +72,9 @@ using std::ostream;
 
 //*************************** Forward Declarations ***************************
 
-static VMA
+static VMA 
 GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
-{
+{ 
   // N.B.: The GNU decoders assume that the address of 'insn_addr' is
   // the actual the VMA in order to calculate VMA-relative targets.
   VMA x = (di_vma - PTR_TO_BFDVMA(insn_addr)) + insn_vma;
@@ -85,7 +82,7 @@ GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
 }
 
 
-static void
+static void 
 GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 {
   GNUbu_disdata* data = (GNUbu_disdata*)di->application_data;
@@ -106,7 +103,7 @@ GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 //     BD-form: conditional branches
 //     I-form: unconditional branches
 //     XL-form: indirect branches, among other things
-//
+// 
 // unconditional branch:
 //   - relative [I]  {b:  branch}
 //   - absolute [I]  {ba: branch, absolute}
@@ -164,61 +161,60 @@ PowerISA::~PowerISA()
 
 
 ISA::InsnDesc
-PowerISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		      ushort GCC_ATTR_UNUSED sz)
+PowerISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   ISA::InsnDesc d;
 
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_big_powerpc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_big_powerpc(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
 
-  // NOTE:
+  // NOTE: 
   //   m_di->target  is set for relative branch/subroutine targets
   //   m_di->target2 is set for absolute branch/subroutine targets
   bool isIndirect = (m_di->target == 0) && (m_di->target2 == 0);
 
   switch (m_di->insn_type) {
     case dis_noninsn:
-      d.set(InsnDesc::INVALID);
+      d.Set(InsnDesc::INVALID);
       break;
     case dis_branch:
       if (isIndirect) {
-	d.set(InsnDesc::BR_UN_COND_IND);
+	d.Set(InsnDesc::BR_UN_COND_IND);
       }
       else {
-	d.set(InsnDesc::BR_UN_COND_REL);
+	d.Set(InsnDesc::BR_UN_COND_REL);
       }
       break;
     case dis_condbranch:
       if (isIndirect) {
-	d.set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
       }
       else {
-	d.set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
       }
       break;
     case dis_jsr:
       if (isIndirect) {
-	d.set(InsnDesc::SUBR_IND);
+	d.Set(InsnDesc::SUBR_IND);
       }
       else {
-	d.set(InsnDesc::SUBR_REL);
+	d.Set(InsnDesc::SUBR_REL);
       }
       break;
     case dis_condjsr:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
     case dis_return:
-      d.set(InsnDesc::SUBR_RET);
+      d.Set(InsnDesc::SUBR_RET);
       break;
     case dis_dref:
     case dis_dref2:
-      d.set(InsnDesc::MEM_OTHER);
+      d.Set(InsnDesc::MEM_OTHER);
       break;
     default:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
   }
   return d;
@@ -226,19 +222,19 @@ PowerISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-PowerISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
+PowerISA::GetInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 {
   // N.B.: The GNU decoders assume that the address of 'mi' is
   // actually the VMA in order to calculate VMA-relative targets.
 
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_big_powerpc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_big_powerpc(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
-
-  ISA::InsnDesc d = getInsnDesc(mi, opIndex, sz);
-  if (d.isBrRel() || d.isSubrRel()) {
-    // NOTE:
+  
+  ISA::InsnDesc d = GetInsnDesc(mi, opIndex, sz);
+  if (d.IsBrRel() || d.IsSubrRel()) {
+    // NOTE: 
     //   m_di->target  is set to the displacement for relative targets
     //   m_di->target2 is set to the absolute value for absolute targets
     if (m_di->target != 0) {
@@ -255,18 +251,15 @@ PowerISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 
 
 ushort
-PowerISA::getInsnNumDelaySlots(MachInsn* GCC_ATTR_UNUSED mi,
-			       ushort GCC_ATTR_UNUSED opIndex,
-			       ushort GCC_ATTR_UNUSED sz)
-{
+PowerISA::GetInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
+{ 
   // POWER does not have an architectural delay slot
   return 0;
 }
 
 
 void
-PowerISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		 ushort GCC_ATTR_UNUSED opIndex)
+PowerISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

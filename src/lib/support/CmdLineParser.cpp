@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -61,9 +58,16 @@
 
 //************************* System Include Files ****************************
 
-#include <cstdlib> // for strtol
-#include <cstring>
-#include <cerrno> 
+#ifdef NO_STD_CHEADERS
+# include <stdlib.h>
+# include <string.h>
+# include <errno.h>
+#else
+# include <cstdlib> // for strtol
+# include <cstring>
+# include <cerrno> 
+using namespace std; // For compatibility with non-std C headers
+#endif
 
 #include <algorithm> // for sort
 
@@ -89,28 +93,26 @@ static string MISSING_ARG = "Missing argument for switch: ";
 // lt_OptArgDesc: Used to sort CmdLineParser::OptArgDesc
 struct lt_OptArgDesc
 {
-  // return true if x < y; false otherwise
-  bool operator()(const CmdLineParser::OptArgDesc& x,
-		  const CmdLineParser::OptArgDesc& y) const
+  // return true if x1 < x2; false otherwise
+  bool operator()(const CmdLineParser::OptArgDesc& x1, 
+		  const CmdLineParser::OptArgDesc& x2) const
   {
-    // There are three possibilities:
+    // There are three possibilities, listed in order of preference:
     //   - both long switches are present 
     //   - both short switches are present
     //   - one short and one long switch
-    if (x.swLong && y.swLong) {
-      return (strcmp(x.swLong, y.swLong) < 0);
+    if (x1.swLong && x2.swLong) {
+      return (strcmp(x1.swLong, x2.swLong) < 0);
     }
-    else if (x.swShort != 0 && y.swShort != 0) {
-      return (x.swShort < y.swShort);
-    }
+    else if (x1.swShort != 0 && x2.swShort != 0) {
+      return (x1.swShort < x2.swShort);
+    } 
     else {
-      if (x.swLong && y.swShort != 0) {
-	char y_str[2] = { y.swShort , '\0' };
-	return (strcmp(x.swLong, y_str) < 0);
-      }
+      if (x1.swLong && x2.swShort != 0) {
+	return (x1.swLong[0] < x2.swShort);
+      } 
       else {
-	char x_str[2] = { x.swShort , '\0' };
-	return (strcmp(x_str, y.swLong) < 0);
+	return (x1.swShort < x2.swLong[0]);
       }
     }
   }
@@ -123,41 +125,26 @@ private:
 
 // isDashDash
 static inline bool
-isDashDash(const char* str)
-{
-  return (strcmp(str, "--") == 0);
-}
+isDashDash(const char* str) { return (strcmp(str, "--") == 0); }
 
 
 // IsSwitch, IsLongSwitch, IsShortSwitch: Assumes str is non-NULL!  Note also
 // that the test for short switch is not quite complete and depends on
 // testing for a long switch first!
 static inline bool
-isLongSwitch(const char* str)
-{
-  return (strncmp(str, "--", 2) == 0);
-}
+isLongSwitch(const char* str) { return (strncmp(str, "--", 2) == 0); }
 
 static inline bool
-isShortSwitch(const char* str)
-{
-  return (*str == '-');
-}
+isShortSwitch(const char* str) { return (*str == '-'); }
 
 static inline bool
-isSwitch(const char* str)
-{
-  return (isLongSwitch(str) || isShortSwitch(str));
-}
+isSwitch(const char* str) { return (isLongSwitch(str) || isShortSwitch(str)); }
 
 
 // isArg: Verifies that we should interpret 'str' as an argument.
 // Should be non-NULL;
 static inline bool
-isArg(const char* str)
-{
-  return (!isSwitch(str) && !isDashDash(str));
-}
+isArg(const char* str) { return (!isSwitch(str) && !isDashDash(str)); }
 
 
 //****************************************************************************
@@ -192,7 +179,7 @@ CmdLineParser::Ctor()
 
 CmdLineParser::~CmdLineParser() 
 { 
-  reset();
+  Reset();
 }
 
 
@@ -200,11 +187,11 @@ void
 CmdLineParser::parse(const OptArgDesc* optArgDescsOrig, 
 		     int argc, const char* const argv[])
 { 
-  reset();
+  Reset();
   command = argv[0]; // always do first so it will be available after errors
   
-  checkForErrors(optArgDescsOrig);  
-  const OptArgDesc* optArgDescs = createSortedCopy(optArgDescsOrig);
+  CheckForErrors(optArgDescsOrig);  
+  const OptArgDesc* optArgDescs = CreateSortedCopy(optArgDescsOrig);
   
   bool endOfOpts = false;  // are we at end of optional args?
   
@@ -232,13 +219,13 @@ CmdLineParser::parse(const OptArgDesc* optArgDescsOrig,
       // the next element of argv.
       
       // 1. Separate switch from any argument embedded within
-      SwDesc swdesc = makeSwitchDesc(str);
+      SwDesc swdesc = MakeSwitchDesc(str);
       if (swdesc.sw.empty()) {
 	throw ParseError(MISSING_SWITCH); // must have been '-'
       }
       
       // 2. Find option descriptor from switch (checks for duplicate matches)
-      const OptArgDesc* d = findOptDesc(optArgDescs, swdesc);
+      const OptArgDesc* d = FindOptDesc(optArgDescs, swdesc);
       if (!d) {
 	throw ParseError(UNKNOWN_SWITCH + swdesc.sw);
       }
@@ -250,7 +237,7 @@ CmdLineParser::parse(const OptArgDesc* optArgDescsOrig,
 	    + swdesc.sw + "'";
 	  throw ParseError(msg);
 	}
-      }
+      } 
       else if (d->kind == ARG_REQ || d->kind == ARG_OPT) {
 	if (swdesc.arg.empty()) {
 	  int nexti = i + 1;
@@ -263,22 +250,22 @@ CmdLineParser::parse(const OptArgDesc* optArgDescsOrig,
 	      i = nexti; // increment iteration
 	    }
 	  }
-	}
+	} 
 	if (swdesc.arg.empty() && d->kind == ARG_REQ) {
 	  throw ParseError(MISSING_ARG + swdesc.sw);
 	}
       }
       
       // 4. Add option switch and any argument to map
-      addOption(*d, swdesc);
+      AddOption(*d, swdesc);
     }
     else { 
       // -------------------------------------------------------
       // A regular argument
       // -------------------------------------------------------
       arguments.push_back(string(str));
-    }
-  }
+    } 
+  } 
   
   delete[] optArgDescs;
 }
@@ -390,9 +377,7 @@ CmdLineParser::getArg(unsigned int i) const
 long
 CmdLineParser::toLong(const string& str)
 {
-  if (str.empty()) {
-    throw InternalError("ToLong");
-  }
+  if (str.empty()) { throw InternalError("ToLong"); }
   
   try {
     return StrUtil::toLong(str);
@@ -406,9 +391,7 @@ CmdLineParser::toLong(const string& str)
 uint64_t
 CmdLineParser::toUInt64(const string& str)
 {
-  if (str.empty()) {
-    throw InternalError("ToUInt64");
-  }
+  if (str.empty()) { throw InternalError("ToUInt64"); }
   
   try {
     return StrUtil::toUInt64(str);
@@ -422,9 +405,7 @@ CmdLineParser::toUInt64(const string& str)
 double   
 CmdLineParser::toDbl(const string& str)
 {
-  if (str.empty()) {
-    throw InternalError("ToDbl");
-  }
+  if (str.empty()) { throw InternalError("ToDbl"); }
   
   try {
     return StrUtil::toDbl(str);
@@ -443,7 +424,7 @@ CmdLineParser::isOptArg_long(const char* option)
   try {
     CmdLineParser::toLong(string(option));
   }
-  catch (const CmdLineParser::Exception& /*ex*/) {
+  catch (const CmdLineParser::Exception& x) {
     return false;
   }
   return true;
@@ -452,7 +433,7 @@ CmdLineParser::isOptArg_long(const char* option)
 //****************************************************************************
 
 bool
-CmdLineParser::parseArg_bool(const string& value, const char* errTag)
+CmdLineParser::parseArg_bool(const string& value, const char* err_note)
 {
   const string& x = value;
   if (x == "true" || x == "1" || x == "yes" || x == "on") {
@@ -462,9 +443,9 @@ CmdLineParser::parseArg_bool(const string& value, const char* errTag)
     return false;
   }
   else {
-    string msg = "Expected boolean value but received: '" + x + "'";
-    if (errTag) {
-      msg = string(errTag) + ": " + msg;
+    string msg = "Expected boolean value but received: " + x;
+    if (err_note) {
+      msg = string(err_note) + ": " + msg;
     }
     throw Exception(msg);
   }
@@ -502,9 +483,9 @@ CmdLineParser::ddump() const
 
 //****************************************************************************
 
-// reset: Clear data to prepare for parsing
+// Reset: Clear data to prepare for parsing
 void
-CmdLineParser::reset()
+CmdLineParser::Reset()
 {
   for (SwitchToArgMap::iterator it = switchToArgMap.begin();
        it != switchToArgMap.end(); ++it) {
@@ -516,20 +497,18 @@ CmdLineParser::reset()
 }
 
 
-// createSortedCopy: create a sorted NULL-terminated copy of
+// CreateSortedCopy: create a sorted NULL-terminated copy of
 // 'optArgDescs'.  WARNING: the OptArgDesc objects are bitwise-copied.
 const CmdLineParser::OptArgDesc* 
-CmdLineParser::createSortedCopy(const OptArgDesc* optArgDescs)
+CmdLineParser::CreateSortedCopy(const OptArgDesc* optArgDescs)
 {
   // Find the size, not including the NULL-terminator
-  unsigned int sz = 0;
-  for (const OptArgDesc* p = optArgDescs; *p != OptArgDesc_NULL; ++p) {
-    ++sz;
-  }
+  unsigned int sz = 0; 
+  for (const OptArgDesc* p = optArgDescs; *p != OptArgDesc_NULL; ++p) { ++sz; }
   
   // Make a copy of 'optArgDescs'
-  OptArgDesc* copy = new OptArgDesc[sz + 1];
-  unsigned int i = 0;
+  OptArgDesc* copy = new OptArgDesc[sz+1];
+  unsigned int i = 0; 
   for (const OptArgDesc* p = optArgDescs; *p != OptArgDesc_NULL; ++p, ++i) {
     copy[i] = *p; // bitwise copy is ok
   }
@@ -544,13 +523,13 @@ CmdLineParser::createSortedCopy(const OptArgDesc* optArgDescs)
 }
 
 
-// checkForErrors: Checks argument descriptor for errors
+// CheckForErrors: Checks argument descriptor for errors
 void
-CmdLineParser::checkForErrors(const OptArgDesc* optArgDescs)
+CmdLineParser::CheckForErrors(const OptArgDesc* optArgDescs)
 {
   // FIXME
   //   - detect duplicate option entries.  Not pressing because
-  //   findOptDesc() will effectively do this.
+  //   FindOptDesc() will effectively do this.
   
   // Check individual descriptors
   string msg;
@@ -563,7 +542,7 @@ CmdLineParser::checkForErrors(const OptArgDesc* optArgDescs)
 
     if (p->swLong) {
       sw = p->swLong; 
-    }
+    } 
     else {
       sw = p->swShort;
     }
@@ -589,11 +568,11 @@ CmdLineParser::checkForErrors(const OptArgDesc* optArgDescs)
 }
 
 
-// makeSwitchDesc: Given an option string from argv (potentially
+// MakeSwitchDesc: Given an option string from argv (potentially
 // containing both an option and an argument), create a SwDesc,
 // separating switch text from any argument text.
 CmdLineParser::SwDesc
-CmdLineParser::makeSwitchDesc(const char* str)
+CmdLineParser::MakeSwitchDesc(const char* str)
 {
   // 1. Find pointers for begin/end of switch and argument
   unsigned int len = strlen(str);
@@ -611,14 +590,14 @@ CmdLineParser::makeSwitchDesc(const char* str)
     begSw = str + 2;       // bump past '--'
     endSw = (begArg) ? (begArg - 2) : (strEnd - 1);
     isLong = true;
-  }
+  } 
   else if (isShortSwitch(str)) {
     // test for -f[arg]
     begArg = (len > 2) ? (str + 2) : NULL;   // starts after '-f'
     endArg = (begArg) ? (strEnd - 1) : NULL; // ends right before '\0'
     begSw  = (len > 1) ? (str + 1) : NULL;   // starts after '-'
     endSw  = begSw;                          // single character
-  }
+  } 
   else {
     throw InternalError("Programming Error!");
   }
@@ -626,24 +605,20 @@ CmdLineParser::makeSwitchDesc(const char* str)
   // 2. Copy switch and argument substrings
   SwDesc swdesc;
   swdesc.isLong = isLong;
-  for (const char* p = begSw; p && p <= endSw; ++p) {
-    swdesc.sw += *p;
-  }
-  for (const char* p = begArg; p && p <= endArg; ++p) {
-    swdesc.arg += *p;
-  }
+  for (const char* p = begSw; p && p <= endSw; ++p) { swdesc.sw += *p; }
+  for (const char* p = begArg; p && p <= endArg; ++p) { swdesc.arg += *p; }
   
   return swdesc;
 }
 
 
-// findOptDesc: Given a *sorted* NULL-terminated array of OptArgDesc and
+// FindOptDesc: Given a *sorted* NULL-terminated array of OptArgDesc and
 // an option switch, return a reference to the appropriate OptArgDesc.
 // If 'errOnMultipleMatches' is true, checks to make sure we don't
 // match more than one descriptor (useful for testing long argument
 // abbreviation).
 const CmdLineParser::OptArgDesc*
-CmdLineParser::findOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
+CmdLineParser::FindOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
 			   bool errOnMultipleMatches)
 {
   // Note: Because there will never be very many options, we simply
@@ -663,7 +638,7 @@ CmdLineParser::findOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
 	odesc = p;
 	break;
       }
-    }
+    } 
     else {
       if (p->swShort != 0 && p->swShort == swdesc.sw[0]) {
 	odesc = p;
@@ -671,63 +646,59 @@ CmdLineParser::findOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
       }
     }
   }
-  if (!odesc) {
-    return NULL;
-  }
+  if (!odesc) { return NULL; }
   
   // We have a match. Check for more matches ==> ambiguity.
   const OptArgDesc* m = NULL;
-  if (errOnMultipleMatches 
-      && (m = findOptDesc((odesc + 1), swdesc, false))) {
+  if (errOnMultipleMatches && (m = FindOptDesc((odesc+1), swdesc, false))) {
     // Special case to handle a long option that is a substring of
     // another. If the long option switch exactly matches 'odesc' and
     // it is different than 'm' then we do not want to generate an
     // ambiguous option error.
-    bool isOk = (swdesc.isLong
-		 && (strcmp(odesc->swLong, swdesc.sw.c_str()) == 0)
-		 && (strcmp(odesc->swLong, m->swLong) != 0));
-    if (!isOk) {
-      string msg = "Switch `";
+    bool ok = (swdesc.isLong && (strcmp(odesc->swLong, swdesc.sw.c_str()) == 0)
+	       && (strcmp(odesc->swLong, m->swLong) != 0));
+    if (!ok) {
+      string msg = "Switch `"; 
       msg += swdesc.sw; msg += "' matches two different options: ";
       if (swdesc.isLong) {
 	msg += odesc->swLong; msg += ", "; msg += m->swLong;
-      }
+      } 
       else {
 	msg += odesc->swShort; msg += ", "; msg += m->swShort;
       }
       throw ParseError(msg);
-    }
+    } 
   }
   
   return odesc;
 }
 
 
-// addOption: Records the option switch and its (possibly optional)
+// AddOption: Records the option switch and its (possibly optional)
 // argument in the switch->argument map.  In order to support easy
 // lookup, both the *canonical* long and short form of the switches
 // are entered in the map.
 void
-CmdLineParser::addOption(const OptArgDesc& odesc, const SwDesc& swdesc)
+CmdLineParser::AddOption(const OptArgDesc& odesc, const SwDesc& swdesc)
 {
   if (odesc.swShort != 0) {
     string swShort(1, odesc.swShort);
-    addOption(odesc, swShort, swdesc.arg);
+    AddOption(odesc, swShort, swdesc.arg);
   }
   if (odesc.swLong) {
     string swLong(odesc.swLong);
-    addOption(odesc, swLong, swdesc.arg);
+    AddOption(odesc, swLong, swdesc.arg);
   }
 }
 
 
-// addOption: Records the option switch and its (possibly optional)
+// AddOption: Records the option switch and its (possibly optional)
 // argument in the switch->argument map.  If the switch is not in the
 // map, it is inserted with the available argument or NULL.  If it is
 // already the map, the option descriptor defines how to handle
 // duplicates.
 void
-CmdLineParser::addOption(const OptArgDesc& odesc,
+CmdLineParser::AddOption(const OptArgDesc& odesc,
 			 const string& sw, const string& arg)
 {
   SwitchToArgMap::iterator it = switchToArgMap.find(sw);
@@ -735,7 +706,7 @@ CmdLineParser::addOption(const OptArgDesc& odesc,
     // Insert in map
     string* theArg = (arg.empty()) ? NULL : new string(arg);
     switchToArgMap.insert(SwitchToArgMap::value_type(sw, theArg));
-  }
+  } 
   else {
     // Handle duplicates
     string* theArg = (*it).second;
@@ -747,14 +718,14 @@ CmdLineParser::addOption(const OptArgDesc& odesc,
     if (!arg.empty()) {
       if (!theArg) {
 	theArg = new string(arg);
-      }
+      } 
       else {
 	if (odesc.dupKind == DUPOPT_CLOB) {
 	  *theArg = arg;
-	}
+	} 
 	else if (odesc.dupKind == DUPOPT_CAT) {
 	  *theArg += odesc.dupArgSep + arg;
-	}
+	} 
       }
     }
   }

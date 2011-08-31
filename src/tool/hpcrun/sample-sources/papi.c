@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -62,8 +59,6 @@
 #include <unistd.h>
 #include <ucontext.h>
 #include <stdbool.h>
-
-#include <pthread.h>
 
 /******************************************************************************
  * libmonitor
@@ -99,7 +94,6 @@
 
 #define OVERFLOW_MODE 0
 #define WEIGHT_METRIC 0
-#define DEFAULT_THRESHOLD  2000000L
 
 /******************************************************************************
  * forward declarations 
@@ -132,30 +126,6 @@ METHOD_FN(init)
 }
 
 static void
-METHOD_FN(thread_init)
-{
-  TMSG(PAPI, "thread init");
-  int retval = PAPI_thread_init(pthread_self);
-  if (retval != PAPI_OK) {
-    EEMSG("PAPI_thread_init NOT ok, retval = %d", retval);
-    monitor_real_abort();
-  }
-  TMSG(PAPI, "thread init OK");
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
-  TMSG(PAPI, "register thread");
-  int retval = PAPI_register_thread();
-  if (retval != PAPI_OK) {
-    EEMSG("PAPI_register_thread NOT ok, retval = %d", retval);
-    monitor_real_abort();
-  }
-  TMSG(PAPI, "register thread ok");
-}
-
-static void
 METHOD_FN(start)
 {
   thread_data_t *td = hpcrun_get_thread_data();
@@ -169,16 +139,6 @@ METHOD_FN(start)
   }
 
   TD_GET(ss_state)[self->evset_idx] = START;
-}
-
-static void
-METHOD_FN(thread_fini_action)
-{
-  TMSG(PAPI, "unregister thread");
-  int retval = PAPI_unregister_thread();
-  char msg[] = "!!NOT PAPI_OK!! (code = -9999999)\n";
-  snprintf(msg, sizeof(msg)-1, "!!NOT PAPI_OK!! (code = %d)", retval);
-  TMSG(PAPI, "unregister thread returns %s", retval == PAPI_OK, "PAPI_OK", msg);
 }
 
 static void
@@ -234,7 +194,7 @@ METHOD_FN(supports_event,const char *ev_str)
   int ec;
   long th;
 
-  hpcrun_extract_ev_thresh(ev_str, sizeof(evtmp), evtmp, &th, DEFAULT_THRESHOLD);
+  extract_ev_thresh(ev_str, sizeof(evtmp), evtmp, &th);
   return PAPI_event_name_to_code(evtmp, &ec) == PAPI_OK;
 }
  
@@ -245,6 +205,9 @@ METHOD_FN(process_event_list, int lush_metrics)
   int i, ret;
   int num_lush_metrics = 0;
 
+#ifdef OLD_SS
+  char *evlist = self->evl.evl_spec;
+#endif
   char* evlist = METHOD_CALL(self, get_event_str);
   for (event = start_tok(evlist); more_tok(); event = next_tok()) {
     char name[1024];
@@ -252,10 +215,7 @@ METHOD_FN(process_event_list, int lush_metrics)
     long thresh;
 
     TMSG(PAPI,"checking event spec = %s",event);
-    if (! hpcrun_extract_ev_thresh(event, sizeof(name), name, &thresh, DEFAULT_THRESHOLD)) {
-      AMSG("WARNING: %s using default threshold %ld, "
-	   "better to use an explicit threshold.", name, DEFAULT_THRESHOLD);
-    }
+    extract_ev_thresh(event, sizeof(name), name, &thresh);
     ret = PAPI_event_name_to_code(name, &evcode);
     if (ret != PAPI_OK) {
       EMSG("unexpected failure in PAPI process_event_list(): "
@@ -287,7 +247,7 @@ METHOD_FN(process_event_list, int lush_metrics)
     PAPI_event_code_to_name(self->evl.events[i].event, buffer);
     TMSG(PAPI, "metric for event %d = %s", i, buffer);
     hpcrun_set_metric_info_and_period(metric_id, strdup(buffer),
-				      MetricFlags_ValFmt_Int,
+				      HPCRUN_MetricFlag_Async,
 				      self->evl.events[i].thresh);
 
     // FIXME:LUSH: need a more flexible metric interface
@@ -299,7 +259,7 @@ METHOD_FN(process_event_list, int lush_metrics)
       lush_agents->metric_idleness = mid_idleness;
 
       hpcrun_set_metric_info_and_period(mid_idleness, "idleness",
-					MetricFlags_ValFmt_Real,
+					HPCRUN_MetricFlag_Async | HPCRUN_MetricFlag_Real,
 					self->evl.events[i].thresh);
     }
   }
@@ -482,8 +442,6 @@ papi_event_handler(int event_set, void *pc, long long ovec,
     return;
   }
 
-  TMSG(PAPI_SAMPLE,"papi event happened, ovec = %ld",ovec);
-
   int ret = PAPI_get_overflow_event_index(event_set, ovec, my_events,
 					  &my_event_count);
   if (ret != PAPI_OK) {
@@ -493,11 +451,19 @@ papi_event_handler(int event_set, void *pc, long long ovec,
   for (i = 0; i < my_event_count; i++) {
     // FIXME: SUBTLE ERROR: metric_id may not be same from hpcrun_new_metric()!
     // This means lush's 'time' metric should be *last*
-
     int metric_id = hpcrun_event2metric(&_papi_obj, my_events[i]);
-
+#if 0
+    struct event_metrics_map{
+      int num_metrics;
+      int* metric_ids;
+    }
+    event_metrics_map m = hpcrun_event2metric_map(YOUR_SAMPLE_SOURCE_OBJ, YOUR_EVENT);
+    for(int i = 0; i < m.num_metrics; i++) {
+      hpcrun_sample_callpath(context, m.metric_ids[i], (uint64_t) YOUR_DATA
+			     0/*skipInner*/, 0/*isSync*/);
+    }
+#endif
     TMSG(PAPI_SAMPLE,"sampling call path for metric_id = %d", metric_id);
-
     hpcrun_sample_callpath(context, metric_id, 1/*metricIncr*/, 
 			   0/*skipInner*/, 0/*isSync*/);
   }

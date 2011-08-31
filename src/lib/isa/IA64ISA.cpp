@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -77,7 +74,7 @@ using std::ostream;
 
 //****************************************************************************
 
-static MachInsn*
+static MachInsn* 
 ConvertMIToOpMI(MachInsn* mi, ushort opIndex)
 {
   // Do not change; the GNU decoders depend upon these particular
@@ -88,15 +85,15 @@ ConvertMIToOpMI(MachInsn* mi, ushort opIndex)
 }
 
 
-static VMA
-GNUvma2vma(bfd_vma di_vma, MachInsn* GCC_ATTR_UNUSED insn_addr, VMA insn_vma)
-{
+static VMA 
+GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
+{ 
   VMA x = (VMA)di_vma + insn_vma;
   return x;
 }
 
 
-static void
+static void 
 GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 {
   GNUbu_disdata* data = (GNUbu_disdata*)di->application_data;
@@ -140,58 +137,58 @@ IA64ISA::~IA64ISA()
 
 
 ISA::InsnDesc
-IA64ISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort GCC_ATTR_UNUSED sz)
+IA64ISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   MachInsn* gnuMI = ConvertMIToOpMI(mi, opIndex);
   InsnDesc d;
 
-  if (cacheLookup(gnuMI) == NULL) {
+  if (CacheLookup(gnuMI) == NULL) {
     int size = print_insn_ia64(PTR_TO_BFDVMA(gnuMI), m_di);
-    cacheSet(gnuMI, (ushort)size);
+    CacheSet(gnuMI, size);
   }
 
   switch(m_di->insn_type) {
     case dis_noninsn:
-      d.set(InsnDesc::INVALID);
+      d.Set(InsnDesc::INVALID);
       break;
     case dis_branch:
       if (m_di->target != 0) {
-        d.set(InsnDesc::BR_UN_COND_REL);
+        d.Set(InsnDesc::BR_UN_COND_REL);
       }
       else {
-        d.set(InsnDesc::BR_UN_COND_IND);
+        d.Set(InsnDesc::BR_UN_COND_IND);
       }
       break;
     case dis_condbranch:
       // N.B.: On the Itanium it is possible to have a one-bundle loop
       // (where the third slot branches to the first slot)!
       if (m_di->target != 0 || opIndex != 0) {
-        d.set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
+        d.Set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
       }
       else {
-        d.set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
+        d.Set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
       }
       break;
     case dis_jsr:
       if (m_di->target != 0) {
-        d.set(InsnDesc::SUBR_REL);
+        d.Set(InsnDesc::SUBR_REL);
       }
       else {
-        d.set(InsnDesc::SUBR_IND);
+        d.Set(InsnDesc::SUBR_IND);
       }
       break;
     case dis_condjsr:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
     case dis_return:
-      d.set(InsnDesc::SUBR_RET);
+      d.Set(InsnDesc::SUBR_RET);
       break;
     case dis_dref:
     case dis_dref2:
-      d.set(InsnDesc::MEM_OTHER);
+      d.Set(InsnDesc::MEM_OTHER);
       break;
     default:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
   }
   return d;
@@ -199,16 +196,15 @@ IA64ISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort GCC_ATTR_UNUSED sz)
 
 
 VMA
-IA64ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex,
-			  ushort GCC_ATTR_UNUSED sz)
+IA64ISA::GetInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 {
   MachInsn* gnuMI = ConvertMIToOpMI(mi, opIndex);
 
-  if (cacheLookup(gnuMI) == NULL) {
+  if (CacheLookup(gnuMI) == NULL) {
     int size = print_insn_ia64(PTR_TO_BFDVMA(gnuMI), m_di);
-    cacheSet(gnuMI, (ushort)size);
+    CacheSet(gnuMI, size);
   }
-
+  
   // The target field is only set on instructions with targets.
   // N.B.: On the Itanium it is possible to have a one-bundle loop
   // (where the third slot branches to the first slot)!
@@ -222,12 +218,12 @@ IA64ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex,
 
 
 ushort
-IA64ISA::getInsnNumOps(MachInsn* mi)
+IA64ISA::GetInsnNumOps(MachInsn* mi)
 {
   // Because of the MLX template and data, we can't just return 3 here.
-  if (cacheLookup(mi) == NULL) {
+  if (CacheLookup(mi) == NULL) {
     int size = print_insn_ia64(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+    CacheSet(mi, size);
   }
 
   return (ushort)(m_di->target2);
@@ -235,8 +231,7 @@ IA64ISA::getInsnNumOps(MachInsn* mi)
 
 
 void
-IA64ISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		ushort GCC_ATTR_UNUSED opIndex)
+IA64ISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

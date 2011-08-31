@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 /*
@@ -116,8 +113,6 @@
 
 // FIXME: there is no good way for sighandler to find self.
 static sample_source_t *myself = NULL;
-
-#define DEFAULT_THRESHOLD  1000000L
 
 //----------------------------------------------------------------------
 // Helper functions
@@ -224,17 +219,6 @@ METHOD_FN(init)
   TMSG(UPC, "BGP_UPC_Initialize");
 }
 
-static void
-METHOD_FN(thread_init)
-{
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
-}
-
-
 static bool
 METHOD_FN(supports_event, const char *ev_str)
 {
@@ -245,7 +229,7 @@ METHOD_FN(supports_event, const char *ev_str)
     METHOD_CALL(self, init);
   }
 
-  hpcrun_extract_ev_thresh(ev_str, EVENT_NAME_SIZE, buf, &threshold, DEFAULT_THRESHOLD);
+  extract_ev_thresh(ev_str, EVENT_NAME_SIZE, buf, &threshold);
   return bgp_event_name_to_code(buf) != -1;
 }
 
@@ -258,7 +242,7 @@ METHOD_FN(process_event_list, int lush_metrics)
   int k, code, metric_id, nevents;
 
   for (event = start_tok(self->evl.evl_spec); more_tok(); event = next_tok()) {
-    hpcrun_extract_ev_thresh(event, EVENT_NAME_SIZE, name, &threshold, DEFAULT_THRESHOLD);
+    extract_ev_thresh(event, EVENT_NAME_SIZE, name, &threshold);
     code = bgp_event_name_to_code(name);
     if (code < 0) {
       EMSG("unexpected failure in UPC process_event_list(): "
@@ -277,7 +261,7 @@ METHOD_FN(process_event_list, int lush_metrics)
     threshold = self->evl.events[k].thresh;
     BGP_UPC_Get_Event_Name(code, EVENT_NAME_SIZE, name);
     hpcrun_set_metric_info_and_period(metric_id, strdup(name),
-				      MetricFlags_ValFmt_Int, threshold);
+				      HPCRUN_MetricFlag_Async, threshold);
     self->evl.events[k].metric_id = metric_id;
     TMSG(UPC, "add event %s(%d), threshold %ld, metric %d",
 	 name, code, threshold, metric_id);
@@ -342,11 +326,6 @@ METHOD_FN(start)
 
   TD_GET(ss_state)[self->evset_idx] = START;
   TMSG(UPC, "BGP_UPC_Start on core 0");
-}
-
-static void
-METHOD_FN(thread_fini_action)
-{
 }
 
 static void

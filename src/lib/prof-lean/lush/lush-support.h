@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -71,6 +68,7 @@
 #include <string.h>
 
 //*************************** User Include Files ****************************
+
 
 //*************************** Forward Declarations **************************
 
@@ -175,16 +173,19 @@ union lush_assoc_info_u {
   } u;
 };
 
-// 
-// lush assoc_info selectors, manipulators, constants
-//
-
 extern lush_assoc_info_t lush_assoc_info_NULL;
 
 static inline unsigned
 lush_assoc_class(lush_assoc_t as) 
 {
   return ((as) & LUSH_ASSOC_CLASS_MASK);
+}
+
+static inline bool 
+lush_assoc_class_eq(lush_assoc_t x, lush_assoc_t y)
+{
+  return ( ((x) == (y)) /* handles x == y == LUSH_ASSOC_NULL */
+	   || (lush_assoc_class(x) & lush_assoc_class(y)) );
 }
 
 static inline bool 
@@ -205,53 +206,11 @@ lush_assoc_is_a_to_1(lush_assoc_t as)
   return (lush_assoc_class(as) & LUSH_ASSOC_CLASS_a_to_1);
 }
 
-static inline uint32_t
-lush_assoc_info__get_path_len(lush_assoc_info_t x)
-{
-  return (x).u.len;
-}
 
 static inline lush_assoc_t 
 lush_assoc_info__get_assoc(lush_assoc_info_t x)
 {
   return x.u.as;
-}
-
-//
-// comparison ops, (mainly) for cct sibling splay tree operations
-//
-static inline bool
-lush_assoc_info__path_len_eq(lush_assoc_info_t x, lush_assoc_info_t y)
-{
-  return lush_assoc_info__get_path_len(x) == lush_assoc_info__get_path_len(y);
-}
-
-static inline bool 
-lush_assoc_class_eq(lush_assoc_t x, lush_assoc_t y)
-{
-  return ( ((x) == (y)) /* handles x == y == LUSH_ASSOC_NULL */
-	   || (lush_assoc_class(x) & lush_assoc_class(y)) );
-}
-
-static inline bool
-lush_assoc_info_eq(lush_assoc_info_t x, lush_assoc_info_t y)
-{
-  return lush_assoc_class_eq(x.u.as, y.u.as) && lush_assoc_info__path_len_eq(x, y);
-}
-
-static inline bool
-lush_assoc_info_lt(lush_assoc_info_t x, lush_assoc_info_t y)
-{
-  if (x.u.len < y.u.len) return true;
-  if (x.u.len > y.u.len) return false;
-  if (lush_assoc_class_eq(x.u.as, y.u.as)) return false;
-  return (x.u.as > y.u.as);
-}
-
-static inline bool
-lush_assoc_info_gt(lush_assoc_info_t x, lush_assoc_info_t y)
-{
-  return lush_assoc_info_lt(y, x);
 }
 
 #if 0
@@ -266,6 +225,12 @@ lush_assoc_info__set_assoc(lush_assoc_info_t& x, lush_assoc_t new_as)
   (x).u.as = (new_as)
 #endif
 
+static inline uint32_t
+lush_assoc_info__get_path_len(lush_assoc_info_t x)
+{
+  return (x).u.len;
+}
+
 #if 0
 static inline void
 lush_assoc_info__set_path_len(lush_assoc_info_t& x, uint32_t new_len)
@@ -278,6 +243,12 @@ lush_assoc_info__set_path_len(lush_assoc_info_t& x, uint32_t new_len)
   (x).u.len = (new_len)
 #endif
 
+
+static inline bool
+lush_assoc_info__path_len_eq(lush_assoc_info_t x, lush_assoc_info_t y)
+{
+  return lush_assoc_info__get_path_len(x) == lush_assoc_info__get_path_len(y);
+}
 
 static inline bool
 lush_assoc_info_is_root_note(lush_assoc_info_t x)
@@ -331,27 +302,6 @@ lush_lip_eq(const lush_lip_t* x, const lush_lip_t* y)
 		       && x->data8[1] == y->data8[1])); 
 }
 
-static inline bool
-lush_lip_lt(const lush_lip_t* x, const lush_lip_t* y)
-{
-  if (x == y) {
-    return false;
-  }
-  if (! x) x = &lush_lip_NULL;
-  if (! y) y = &lush_lip_NULL;
-
-  if (x->data8[0] < y->data8[0]) return true;
-  if (x->data8[0] > y->data8[0]) return false;
-  if (x->data8[1] < y->data8[1]) return true;
-  if (x->data8[1] > y->data8[1]) return false;
-  return false;
-}
-
-static inline bool
-lush_lip_gt(const lush_lip_t* x, const lush_lip_t* y)
-{
-  return lush_lip_lt(y, x);
-}
 
 #define LUSH_LIP_STR_MIN_LEN (20 * LUSH_LIP_DATA8_SZ) /* 0x + 16 + space */
 
@@ -378,16 +328,16 @@ lush_lip_setLMId(lush_lip_t* x, uint16_t lmId)
 
 
 static inline uint64_t
-lush_lip_getLMIP(const lush_lip_t* x)
+lush_lip_getIP(const lush_lip_t* x)
 {
   return (uint64_t)x->data8[1];
 }
 
 
 static inline void
-lush_lip_setLMIP(lush_lip_t* x, uint64_t lm_ip)
+lush_lip_setIP(lush_lip_t* x, uint64_t ip)
 {
-  x->data8[1] = lm_ip;
+  x->data8[1] = ip;
 }
 
 

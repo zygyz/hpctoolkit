@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -110,29 +107,11 @@ METHOD_FN(init)
 }
 
 static void
-METHOD_FN(thread_init)
-{
-  TMSG(RETCNT_CTL, "thread init (no action needed)");
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
-  TMSG(RETCNT_CTL, "thread action (noop)");
-}
-
-static void
 METHOD_FN(start)
 {
   TMSG(RETCNT_CTL,"starting " HPCRUN_METRIC_RetCnt);
 
   TD_GET(ss_state)[self->evset_idx] = START;
-}
-
-static void
-METHOD_FN(thread_fini_action)
-{
-  TMSG(RETCNT_CTL, "thread fini (no action needed");
 }
 
 static void
@@ -162,8 +141,9 @@ METHOD_FN(process_event_list, int lush_metrics)
   int metric_id = hpcrun_new_metric();
   TMSG(RETCNT_CTL, "Setting up return counts(trampolines)");
 
-  // FIXME: MetricFlags_Ty_Final
-  hpcrun_set_metric_info(metric_id, HPCRUN_METRIC_RetCnt);
+  hpcrun_set_metric_info_and_period(metric_id, HPCRUN_METRIC_RetCnt,
+				    HPCRUN_MetricFlag_Async,
+				    1);
 
   METHOD_CALL(self, store_event, RETCNT_EVENT, IRRELEVANT);
   METHOD_CALL(self, store_metric_id, RETCNT_EVENT, metric_id);
@@ -190,9 +170,7 @@ METHOD_FN(display_events)
   printf("===========================================================================\n");
   printf("Name\t\tDescription\n");
   printf("---------------------------------------------------------------------------\n");
-  printf("%s\t\tEach time a procedure returns, the return count for that\n"
-	 "\t\tprocedure is incremented\n" 
-         "(experimental feature, x86 only)\n", HPCRUN_METRIC_RetCnt);
+  printf(HPCRUN_METRIC_RetCnt "\teach time a procedure returns, the return count for that procedure is incremented\n");
   printf("\n");
 }
 
@@ -219,6 +197,6 @@ hpcrun_retcnt_inc(cct_node_t* node, int incr)
 
   TMSG(TRAMP, "Increment retcnt (metric id = %d), by %d", metric_id, incr);
   cct_metric_data_increment(metric_id,
-			    node,
+			    &node->metrics[metric_id],
 			    (cct_metric_data_t){.i = incr});
 }

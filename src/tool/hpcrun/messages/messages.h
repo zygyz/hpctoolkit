@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #ifndef messages_h
@@ -67,36 +64,28 @@
 // macros
 //*****************************************************************************
 
-#define EMSG           hpcrun_emsg
-#define AMSG           hpcrun_amsg
-
-#ifdef NO_HPCRUN_MSGS
-#define PMSG_LIMIT(C) 
-#define STDERR_MSG(...)
-#define EEMSG(...)      
-#define PMSG(f,...)    
-#define TMSG(f,...)    
-#define ETMSG(f,...)   
-#define NMSG(f,...)    
-#define ENMSG(f, ...)  
-#else // ! NO_HPCRUN_MSGS
 #define PMSG_LIMIT(C) if (hpcrun_below_pmsg_threshold()) C
 
 #define STDERR_MSG(...) hpcrun_stderr_log_msg(false,__VA_ARGS__)
+#define EMSG            hpcrun_emsg
 #define EEMSG(...)      hpcrun_stderr_log_msg(true,__VA_ARGS__)
 
+#define AMSG           hpcrun_amsg
 #define PMSG(f,...)    hpcrun_pmsg(DBG_PREFIX(f), NULL, __VA_ARGS__)
 #define TMSG(f,...)    hpcrun_pmsg(DBG_PREFIX(f), #f, __VA_ARGS__)
 #define ETMSG(f,...)   hpcrun_pmsg_stderr(true,DBG_PREFIX(f), #f, __VA_ARGS__)
 #define NMSG(f,...)    hpcrun_nmsg(DBG_PREFIX(f), #f, __VA_ARGS__)
 #define ENMSG(f, ...)  hpcrun_nmsg_stderr(true, DBG_PREFIX(f), #f, __VA_ARGS__)
-#endif // NO_HPCRUN_MSGS
 
 #define EXIT_ON_ERROR(r,e,...) hpcrun_exit_on_error(r,e,__VA_ARGS__)
 
 #define hpcrun_abort(...) hpcrun_abort_w_info(messages_donothing, __VA_ARGS__)
 
 
+
+//*****************************************************************************
+// forward declarations
+//*****************************************************************************
 
 void messages_init();
 void messages_fini(void);
@@ -124,7 +113,6 @@ void hpcrun_abort_w_info(void (*info)(void),const char *fmt,...);
 int hpcrun_below_pmsg_threshold(void);
 void hpcrun_up_pmsg_count(void);
 
-void unlimit_msgs(void);
-void limit_msgs(void);
+
 
 #endif // messages_h

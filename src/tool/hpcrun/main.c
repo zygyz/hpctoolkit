@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -95,7 +92,6 @@
 #include "sample_sources_registered.h"
 #include "sample_sources_all.h"
 #include "segv_handler.h"
-#include "sample_prob.h"
 
 #include "epoch.h"
 #include "thread_data.h"
@@ -104,7 +100,6 @@
 #include "write_data.h"
 
 #include <memory/hpcrun-malloc.h>
-#include <memory/mmap.h>
 
 #include <monitor-exts/monitor_ext.h>
 
@@ -124,6 +119,7 @@
 #include <messages/messages.h>
 #include <messages/debug-flag.h>
 
+#include "ibs_init.h"
 //***************************************************************************
 // constants
 //***************************************************************************
@@ -146,8 +142,14 @@ int lush_metrics = 0; // FIXME: global variable for now
 // local variables 
 //***************************************************************************
 
+static volatile int DEBUGGER_WAIT = 1;
+
 static hpcrun_options_t opts;
 static bool hpcrun_is_initialized_private = false;
+static bool in_hpcrun_init_thread = false;//add by Xu
+
+static sigset_t prof_sigset;
+
 
 
 //***************************************************************************
@@ -155,12 +157,17 @@ static bool hpcrun_is_initialized_private = false;
 //***************************************************************************
 
 bool
-hpcrun_is_initialized()
+hpcrun_is_initialized() //Xu Liu: I remove static because I want to build it into shared lib
 {
   return hpcrun_is_initialized_private;
 }
 
-
+//add by Xu
+bool
+hpcrun_is_in_init_thread()
+{
+  return in_hpcrun_init_thread;
+}
 
 //***************************************************************************
 // *** Important note about libmonitor callbacks ***
@@ -185,13 +192,14 @@ hpcrun_is_initialized()
 //------------------------------------
 
 void
-hpcrun_init_internal(bool is_child)
+hpcrun_init_internal()
 {
-  hpcrun_initLoadmap();
+  is_use_reuse = false;
+  hpcrun_loadmap_init(hpcrun_static_loadmap());
 
-  hpcrun_memory_reinit();
-  hpcrun_mmap_init();
-  hpcrun_thread_data_init(0, NULL, is_child);
+  hpcrun_thread_data_new();
+  hpcrun_thread_memory_init();
+  hpcrun_thread_data_init(0, NULL);
 
   // WARNING: a perfmon bug requires us to fork off the fnbounds
   // server before we call PAPI_init, which is done in argument
@@ -221,32 +229,24 @@ hpcrun_init_internal(bool is_child)
   lushPthr_processInit();
 
 
+  sigemptyset(&prof_sigset);
+  sigaddset(&prof_sigset,SIGPROF);
+
   hpcrun_setup_segv();
   hpcrun_unw_init();
 
-  hpcrun_stats_reinit();
-
   // sample source setup
-
-  TMSG(PROCESS, "Sample source setup");
-  //
-  // NOTE: init step no longer necessary.
-  //       -all- possible (e.g. registered) sample sources call their own init method
-  //       no need to do it twice.
-  //
-  if (! is_child) {
-    SAMPLE_SOURCES(process_event_list, lush_metrics);
-  }
+  SAMPLE_SOURCES(init);
+  SAMPLE_SOURCES(process_event_list, lush_metrics);
   SAMPLE_SOURCES(gen_event_set, lush_metrics);
 
   // set up initial 'epoch' 
   
   TMSG(EPOCH,"process init setting up initial epoch/loadmap");
-  hpcrun_epoch_init(NULL);
+  hpcrun_epoch_init();
 
   // start the sampling process
 
-  hpcrun_enable_sampling();
   // NOTE: hack to ensure that sample source start can be delayed until mpi_init
   if (! getenv("HPCRUN_MPI_ONLY")) {
       SAMPLE_SOURCES(start);
@@ -258,9 +258,11 @@ hpcrun_init_internal(bool is_child)
 void
 hpcrun_fini_internal()
 {
-  hpcrun_disable_sampling();
-
-  TMSG(FINI, "process");
+  NMSG(FINI,"process");
+  int ret = monitor_real_sigprocmask(SIG_BLOCK,&prof_sigset,NULL);
+  if (ret){
+    EMSG("WARNING: process fini could not block SIGPROF, ret = %d",ret);
+  }
 
   hpcrun_unthreaded_data();
   epoch_t *epoch = TD_GET(epoch);
@@ -268,7 +270,7 @@ hpcrun_fini_internal()
   if (hpcrun_is_initialized()) {
     hpcrun_is_initialized_private = false;
 
-    TMSG(FINI, "process attempting sample shutdown");
+    NMSG(FINI,"process attempting sample shutdown");
 
     SAMPLE_SOURCES(stop);
     SAMPLE_SOURCES(shutdown);
@@ -285,6 +287,8 @@ hpcrun_fini_internal()
     }
 
     fnbounds_fini();
+
+    hpcrun_finalize_current_loadmap();
 
     hpcrun_write_profile_data(epoch);
 
@@ -305,19 +309,22 @@ hpcrun_init_thread_support()
   hpcrun_init_pthread_key();
   hpcrun_set_thread0_data();
   hpcrun_threaded_data();
-  SAMPLE_SOURCES(thread_init);
 }
 
 
 void*
 hpcrun_thread_init(int id, cct_ctxt_t* thr_ctxt)
 {
-  hpcrun_mmap_init();
+  in_hpcrun_init_thread = true;//add by Xu
   thread_data_t *td = hpcrun_allocate_thread_data();
   td->suspend_sampling = 1; // begin: protect against spurious signals
 
+
   hpcrun_set_thread_data(td);
-  hpcrun_thread_data_init(id, thr_ctxt, 0);
+
+  hpcrun_thread_data_new();
+  hpcrun_thread_memory_init();
+  hpcrun_thread_data_init(id, thr_ctxt);
 
   epoch_t* epoch = TD_GET(epoch);
 
@@ -326,14 +333,16 @@ hpcrun_thread_init(int id, cct_ctxt_t* thr_ctxt)
 
   // set up initial 'epoch'
   TMSG(EPOCH,"process init setting up initial epoch/loadmap");
-  hpcrun_epoch_init(thr_ctxt);
-
-  // sample sources take thread specific action prior to start (often is a 'registration' action);
-  SAMPLE_SOURCES(thread_init_action);
+  hpcrun_epoch_init();
 
   // start the sample sources
   SAMPLE_SOURCES(start);
 
+  int ret = monitor_real_pthread_sigmask(SIG_UNBLOCK,&prof_sigset,NULL);
+  if (ret){
+    EMSG("WARNING: Thread init could not unblock SIGPROF, ret = %d",ret);
+  }
+  in_hpcrun_init_thread = false; //add by Xu
   return (void *)epoch;
 }
 
@@ -345,27 +354,20 @@ hpcrun_thread_fini(epoch_t *epoch)
   if (hpcrun_is_initialized()) {
     TMSG(FINI,"thread finit stops sampling");
     SAMPLE_SOURCES(stop);
-    SAMPLE_SOURCES(thread_fini_action);
     lushPthr_thread_fini(&TD_GET(pthr_metrics));
+    hpcrun_finalize_current_loadmap();
 
     // FIXME: currently breaks the build.
-#if 0 // defined(HOST_SYSTEM_IBM_BLUEGENE)
+#if 0
     EMSG("Backtrace for last sample event:\n");
-    dump_backtrace(epoch, epoch->btbuf_cur);
+    dump_backtrace(epoch, epoch->unwind);
 #endif // defined(HOST_SYSTEM_IBM_BLUEGENE)
-
-    if (hpcrun_get_disabled()) {
-      return;
-    }
 
     hpcrun_write_profile_data(epoch);
   }
 }
 
-typedef struct fork_data_t {
-  int flag;
-  bool is_child;
-} fork_data_t;
+
 
 //***************************************************************************
 // process control (via libmonitor)
@@ -377,16 +379,9 @@ monitor_init_process(int *argc, char **argv, void* data)
   char* process_name;
   char  buf[PROC_NAME_LEN];
 
-  fork_data_t* fork_data = (fork_data_t*) data;
-  bool is_child = data && fork_data->is_child;
-
-  const char* HPCRUN_WAIT = getenv("HPCRUN_WAIT");
-  if (HPCRUN_WAIT) {
-    volatile int DEBUGGER_WAIT = 1;
-    while (DEBUGGER_WAIT);
+  if (getenv("CSPROF_WAIT")) {
+    while(DEBUGGER_WAIT);
   }
-
-  hpcrun_sample_prob_init();
 
   // FIXME: if the process fork()s before main, then argc and argv
   // will be NULL in the child here.  MPT on CNL does this.
@@ -406,6 +401,9 @@ monitor_init_process(int *argc, char **argv, void* data)
 
   files_set_executable(process_name);
 
+  //Xu: create static data table
+  create_static_data_table();
+
   hpcrun_registered_sources_init();
 
   messages_init();
@@ -416,10 +414,7 @@ monitor_init_process(int *argc, char **argv, void* data)
   if (s == NULL){
     s = getenv("CSPROF_OPT_EVENT");
   }
-  
-  if (! is_child) {
-    hpcrun_sample_sources_from_eventlist(s);
-  }
+  hpcrun_sample_sources_from_eventlist(s);
 
   hpcrun_process_sample_source_none();
 
@@ -427,17 +422,11 @@ monitor_init_process(int *argc, char **argv, void* data)
     files_set_directory();
   }
 
-  TMSG(PROCESS,"files_set_executable called w process name = %s", process_name);
-
   TMSG(PROCESS,"init");
 
   messages_logfile_create();
-  hpcrun_sample_prob_mesg();
 
-  TMSG(PROCESS, "I am a %s process", is_child ? "child" : "parent");
-
-  hpcrun_init_internal(is_child);
-
+  hpcrun_init_internal();
   if (ENABLED(TST)){
     EEMSG("TST debug ctl is active!");
     STDERR_MSG("Std Err message appears");
@@ -461,7 +450,10 @@ monitor_fini_process(int how, void* data)
 }
 
 
-static fork_data_t from_fork;
+static struct _ff {
+  int flag;
+} from_fork;
+
 
 void*
 monitor_pre_fork(void)
@@ -471,18 +463,17 @@ monitor_pre_fork(void)
   }
   hpcrun_async_block();
 
-  TMSG(PRE_FORK,"pre_fork call");
+  NMSG(PRE_FORK,"pre_fork call");
 
   if (SAMPLE_SOURCES(started)) {
-    TMSG(PRE_FORK,"sources shutdown");
+    NMSG(PRE_FORK,"sources shutdown");
     SAMPLE_SOURCES(stop);
     SAMPLE_SOURCES(shutdown);
   }
 
-  TMSG(PRE_FORK,"finished pre_fork call");
+  NMSG(PRE_FORK,"finished pre_fork call");
   hpcrun_async_unblock();
 
-  from_fork.is_child = true;
   return (void *)(&from_fork);
 }
 
@@ -495,16 +486,16 @@ monitor_post_fork(pid_t child, void* data)
   }
   hpcrun_async_block();
 
-  TMSG(POST_FORK,"Post fork call");
+  NMSG(POST_FORK,"Post fork call");
 
   if (!SAMPLE_SOURCES(started)){
-    TMSG(POST_FORK,"sample sources re-init+re-start");
+    NMSG(POST_FORK,"sample sources re-init+re-start");
     SAMPLE_SOURCES(init);
     SAMPLE_SOURCES(gen_event_set,0); // FIXME: pass lush_metrics here somehow
     SAMPLE_SOURCES(start);
   }
 
-  TMSG(POST_FORK,"Finished post fork");
+  NMSG(POST_FORK,"Finished post fork");
   hpcrun_async_unblock();
 }
 
@@ -569,7 +560,7 @@ monitor_thread_pre_create(void)
 {
   // N.B.: monitor_thread_pre_create() can be called before
   // monitor_init_thread_support() or even monitor_init_process().
-  if (! hpcrun_is_initialized() || hpcrun_get_disabled()) {
+  if (! hpcrun_is_initialized()) {
     return NULL;
   }
 
@@ -591,10 +582,18 @@ monitor_thread_pre_create(void)
     EMSG("error: monitor_thread_pre_create: getcontext = %d", ret);
     goto fini;
   }
+
   int metric_id = 0; // FIXME: obtain index of first metric
-  ENABLE(IN_THREAD_CTXT);
-  cct_node_t* n = hpcrun_sample_callpath(&context, metric_id, 0/*metricIncr*/,
-					 1/*skipInner*/, 1/*isSync*/);
+  //FIXME: skipInner below really needs to be 1. right now, it is
+  //       being left as 0 because hpcprof (in some cases) yields
+  //       the name monitor_adjust_stack rather than 
+  //       pthread_create for the resulting innermost frame.
+  cct_node_t* n =
+    hpcrun_sample_callpath(&context, metric_id, 0/*metricIncr*/,
+			   0/*skipInner*/, 1/*isSync*/);
+
+  // MFAGAN: NEED TO COPY CONTEXT BTRACE TO NON-FREEABLE MEM
+  n = hpcrun_copy_btrace(n);
 
   TMSG(THREAD,"before lush malloc");
   TMSG(MALLOC," -thread_precreate: lush malloc");
@@ -603,13 +602,8 @@ monitor_thread_pre_create(void)
   TMSG(THREAD,"after lush malloc, thr_ctxt = %p",thr_ctxt);
   thr_ctxt->context = n;
   thr_ctxt->parent = epoch->csdata_ctxt;
-  TMSG(THREAD_CTXT, "context = %d, parent = %d", hpcrun_cct_persistent_id(thr_ctxt->context),
-       thr_ctxt->parent ? hpcrun_cct_persistent_id(thr_ctxt->parent->context) : -1);
-  
-  
 
  fini:
-
   TMSG(THREAD,"->finish pre create");
   hpcrun_async_unblock();
   return thr_ctxt;
@@ -677,30 +671,6 @@ monitor_reset_stacksize(size_t old_size)
 // (sig)longjmp for trampoline (via monitor extensions)
 //***************************************************************************
 
-// FIXME: Comment-out the overrides of longjmp() and siglongjmp() for
-// now.  We currently don't use them and _FORTIFY_SOURCE in newer gnu
-// libc breaks this code.
-//
-// Before re-enabling, we need to better understand how gnu libc and
-// <bits/setjmp2.h> map longjmp() and siglongjmp() to __longjmp_chk()
-// and what is the right way to intercept them.  Also, find a way
-// around the 3-1 name mapping.
-//
-// Note: be sure to reset 'monitor_wrap_names' in hpclink.
-
-#if 1
-
-static siglongjmp_fcn *real_siglongjmp = NULL;
-
-siglongjmp_fcn *
-hpcrun_get_real_siglongjmp(void)
-{
-  MONITOR_EXT_GET_NAME(real_siglongjmp, siglongjmp);
-  return real_siglongjmp;
-}
-
-#else
-
 typedef void longjmp_fcn(jmp_buf, int);
 
 #ifdef HPCRUN_STATIC_LINK
@@ -712,7 +682,7 @@ static longjmp_fcn    *real_longjmp = NULL;
 static siglongjmp_fcn *real_siglongjmp = NULL;
 
 
-siglongjmp_fcn*
+siglongjmp_fcn *
 hpcrun_get_real_siglongjmp(void)
 {
   MONITOR_EXT_GET_NAME_WRAP(real_siglongjmp, siglongjmp);
@@ -748,7 +718,6 @@ MONITOR_EXT_WRAP_NAME(siglongjmp)(sigjmp_buf buf, int val)
   EEMSG("return from real siglongjmp(), should never get here");
   _exit(1);
 }
-#endif
 
 
 //***************************************************************************

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -75,38 +72,37 @@
 //*******************************************************************
 
 #define _AS0(n) \
-void                                                                 \
-hpcrun_all_sources_ ##n(void)                                        \
-{								     \
-  TMSG(AS_MAP, "calling function _AS0(%s)", #n);                     \
-  for(sample_source_t* ss = sample_sources; ss; ss = ss->next_sel) { \
-    TMSG(AS_MAP,"sample source (%s) method call: %s",	             \
-	 ss->name, #n);            				     \
-    METHOD_CALL(ss, n);           				     \
-  }								     \
+void                                                            \
+hpcrun_all_sources_ ##n(void)                                   \
+{								\
+  for(int i=0;i < n_sources;i++) {				\
+    TMSG(AS_MAP,"sample source %d (%s) method call: %s",i,	\
+	 sample_sources[i]->name,#n);				\
+    METHOD_CALL(sample_sources[i],n);				\
+  }								\
 }
 
 #define _AS1(n,t,arg) \
-void                                                                 \
-hpcrun_all_sources_ ##n(t arg)                                       \
-{								     \
-  for(sample_source_t* ss = sample_sources; ss; ss = ss->next_sel) { \
-    METHOD_CALL(ss, n, arg);			                     \
-  }								     \
+void                                                            \
+hpcrun_all_sources_ ##n(t arg)                                  \
+{								\
+  for(int i=0;i < n_sources;i++) {				\
+    METHOD_CALL(sample_sources[i],n,arg);			\
+  }								\
 }
 
-#define _ASB(n)							     \
-bool								     \
-hpcrun_all_sources_ ##n(void)					     \
-{								     \
-  TMSG(AS_ ##n,"checking %d sources",n_sources);		     \
-  for(sample_source_t* ss = sample_sources; ss; ss = ss->next_sel) { \
-    if (! METHOD_CALL(ss, n)) {			                     \
-      TMSG(AS_ ##n,"%s not started",ss->name);                       \
-      return false;						     \
-    }								     \
-  }								     \
-  return true;							     \
+#define _ASB(n)							\
+bool								\
+hpcrun_all_sources_ ##n(void)					\
+{								\
+  NMSG(AS_ ##n,"checking %d sources",n_sources);		\
+  for(int i=0;i < n_sources;i++) {				\
+    if (! METHOD_CALL(sample_sources[i],n)) {			\
+      NMSG(AS_ ##n,"%s not started",sample_sources[i]->name);	\
+      return false;						\
+    }								\
+  }								\
+  return true;							\
 }
 
 //
@@ -117,61 +113,71 @@ hpcrun_all_sources_ ##n(void)					     \
 // Local variables
 //*******************************************************************
 
-static sample_source_t* sample_sources = NULL;
-static sample_source_t** ss_insert     = &sample_sources;
+static sample_source_t* sample_sources[MAX_SAMPLE_SOURCES];
 static int n_sources = 0;
-
+static int n_hardware_sources;
 
 //*******************************************************************
 // Interface functions
 //*******************************************************************
 
 
-sample_source_t*
-hpcrun_fetch_source_by_name(const char* src)
+sample_source_t *
+hpcrun_fetch_source_by_name(const char *src)
 {
-  for (sample_source_t* ss = sample_sources; ss; ss = ss->next_sel){
-    if (strcmp(ss->name, src) == 0) {
-      return ss;
+  for(int i=0; i < n_sources; i++){
+    if (strcmp(sample_sources[i]->name, src) == 0) {
+      return sample_sources[i];
     }
   }
   return NULL;
 }
 
 bool
-hpcrun_check_named_source(const char* src)
+hpcrun_check_named_source(const char *src)
 {
-  for (sample_source_t* ss = sample_sources; ss; ss = ss->next_sel){
-    if (strcmp(ss->name, src) == 0) {
+  for(int i=0; i < n_sources; i++){
+    if (strcmp(sample_sources[i]->name, src) == 0) {
       return true;
     }
   }
   return false;
 }
 
-static bool
-in_sources(sample_source_t* ss_in)
+static int
+in_sources(sample_source_t* ss)
 {
-  for (sample_source_t* ss = sample_sources; ss; ss = ss->next_sel){
-    if (ss == ss_in)
-      return true;
+  for(int i=0; i < n_sources; i++){
+    if (sample_sources[i] == ss)
+      return 1;
   }
-  return false;
+  return 0;
 }
 
 
 static void
 add_source(sample_source_t* ss)
 {
-  TMSG(AS_add_source,"%s",ss->name);
-  if (in_sources(ss)) {
+  NMSG(AS_add_source,"%s",ss->name);
+  if (n_sources == MAX_SAMPLE_SOURCES){
+    // check to see is ss already present
+    if (! in_sources(ss)){
+      hpcrun_abort("Too many total (hardware + software) sample sources");
+    }
     return;
   }
-  *ss_insert = ss;
-  ss->next_sel = NULL;
-  ss_insert    = &(ss->next_sel);
+  if (ss->cls == SS_HARDWARE && n_hardware_sources == MAX_HARDWARE_SAMPLE_SOURCES) {
+    if (! in_sources(ss)) {
+      hpcrun_abort("Too many hardware sample sources");
+    }
+    return;
+  }
+  sample_sources[n_sources] = ss;
   n_sources++;
-  TMSG(AS_add_source,"# sources now = %d",n_sources);
+  if (ss->cls == SS_HARDWARE) {
+    n_hardware_sources++;
+  }
+  NMSG(AS_add_source,"# sources now = %d",n_sources);
 }
 
 
@@ -191,7 +197,7 @@ hpcrun_sample_sources_from_eventlist(char* evl)
     }
     else if ( (s = hpcrun_source_can_process(event)) ){
       add_source(s);
-      METHOD_CALL(s, add_event, event);
+      METHOD_CALL(s,add_event,event);
     }
     else {
       hpcrun_ssfail_unknown(event);
@@ -201,13 +207,10 @@ hpcrun_sample_sources_from_eventlist(char* evl)
 
 // The mapped operations
 
-_AS1(process_event_list, int, lush_metrics)
+_AS1(process_event_list,int,lush_metrics)
 _AS0(init)
-_AS0(thread_init)
-_AS0(thread_init_action)
-_AS1(gen_event_set, int, lush_metrics)
+_AS1(gen_event_set,int,lush_metrics)
 _AS0(start)
-_AS0(thread_fini_action)
 _AS0(stop)
 _AS0(shutdown)
 _ASB(started)

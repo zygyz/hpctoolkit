@@ -1,59 +1,22 @@
 #!/bin/sh
+# Debug notes: [Trace execution: set -x] [Check syntax: set -n]
 # set -x
 #
-#------------------------------------
-# Part of HPCToolkit (hpctoolkit.org)
-#------------------------------------
+#  Link application with libhpcrun, libmonitor, PAPI and Xed2
+#  statically by editing the compile line.
 #
-# Copyright (c) 2002-2010, Rice University.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are
-# met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in the
-#   documentation and/or other materials provided with the distribution.
-#
-# * Neither the name of Rice University (RICE) nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# This software is provided by RICE and contributors "as is" and any
-# express or implied warranties, including, but not limited to, the
-# implied warranties of merchantability and fitness for a particular
-# purpose are disclaimed. In no event shall RICE or contributors be
-# liable for any direct, indirect, incidental, special, exemplary, or
-# consequential damages (including, but not limited to, procurement of
-# substitute goods or services; loss of use, data, or profits; or
-# business interruption) however caused and on any theory of liability,
-# whether in contract, strict liability, or tort (including negligence
-# or otherwise) arising in any way out of the use of this software, even
-# if advised of the possibility of such damage.
-#
-# $HeadURL$
-# $Id$
-#
-# hpclink -- link application with libhpcrun, libmonitor, PAPI and
-# Xed2 statically by editing the compile line.
-#
-# Usage: hpclink [options] compiler file ...
+#  Usage: hpclink [options] compiler file ...
 #
 #     -h, --help
-#     --memleak
+#     -datacentric
 #     -u, --undefined  <symbol>
 #     -v, --verbose
-#     -V, --version
 #
 #  where <symbol> is a symbol name passed to the linker (may be used
 #  multiple times).
 #
-
-VERSION='@PACKAGE_VERSION@'
+#  $Id$
+#
 
 # If this script can't find its own install prefix, or if the script
 # is moved elsewhere, then set HPCTOOLKIT here.
@@ -65,23 +28,21 @@ hpcfnbounds_dir='libexec/hpctoolkit'
 libhpcrun_dir='lib/hpctoolkit'
 libmonitor_dir='@LIBMONITOR_RUN_DIR@'
 xed2_dir='@XED2_RUN_DIR@'
+elf_dir='@XED2_RUN_DIR@'
 
 # Absolute path or empty.
 papi_dir='@OPT_PAPI_LIBPATH@'
 papi_extra_libs='@papi_extra_libs@'
 
 # FIXME: The wrap list should come from monitor.
-
-monitor_wrap_names='@LIBMONITOR_WRAP_NAMES@'
-
-# monitor_wrap_names='main exit _exit dlopen dlclose fork vfork system
-#   execl execlp execle execv execvp execve pthread_exit
-#   pthread_create signal sigaction sigprocmask pthread_sigmask
-#   MPI_Init mpi_init mpi_init_ mpi_init__
-#   MPI_Init_thread mpi_init_thread mpi_init_thread_ mpi_init_thread__
-#   MPI_Finalize mpi_finalize mpi_finalize_ mpi_finalize__
-#   MPI_Comm_rank mpi_comm_rank mpi_comm_rank_ mpi_comm_rank__
-#   _mp_init'
+monitor_wrap_names='main exit _exit dlopen dlclose fork vfork system
+  execl execlp execle execv execvp execve pthread_exit
+  pthread_create signal sigaction sigprocmask pthread_sigmask
+  MPI_Init mpi_init mpi_init_ mpi_init__
+  MPI_Init_thread mpi_init_thread mpi_init_thread_ mpi_init_thread__
+  MPI_Finalize mpi_finalize mpi_finalize_ mpi_finalize__
+  MPI_Comm_rank mpi_comm_rank mpi_comm_rank_ mpi_comm_rank__
+  longjmp siglongjmp _mp_init'
 
 extra_wrap_names='@hpclink_extra_wrap_names@'
 extra_hpc_files=
@@ -117,37 +78,23 @@ die()
 usage()
 {
     cat <<EOF
-Usage: hpclink [options] <link-command>
+Usage: $0 [options] compiler file ...
 
-hpclink links HPCToolkit's performance measurement library into a
-statically linked application.  (hpcrun's method for injecting its library
-into a dynamically linked application will not work with a statically
-linked applications.)
+   -h, --help
+       Displays this usage message.
 
-To link with hpclink, supply your application's normal link line as
-<link-command>, which typically has the following form:
-  <compiler> [link-options] <object-files> <libraries>
+   -datacentric
+       Add the HPC libraries needed for datacentric analysis.
 
-To control HPCToolkit's performance measurement library during an
-application's execution, use the following environment variables:
-  HPCRUN_EVENT_LIST=<event1>[@<period1>];...;<eventN>[@<periodN>]
-                            : Sampling event list; hpcrun -e/--event
-  HPCRUN_TRACE=1            : Enable tracing; hpcrun -t/--trace
-  HPCRUN_OUT_PATH=<outpath> : Set output directory; hpcrun -o/--output
+   -u  <symbol>
+   --undefined  <symbol>
+       Pass <symbol> to the linker as an undefined symbol.  This is to
+       force the linker to pull in a reference for that symbol.  May
+       be used multiple times.
 
-Options: Informational
-  -v, --verbose        Verbose. Displays the original and modified command
-                       lines.
-  -V, --version        Print version information.
-  -h, --help           Print help.
+   -v, --verbose
+       Displays the original and modified command lines.
 
-Options: Linking
-  --memleak            Include HPCToolkit's memory leak detection libraries.
-
-  -u <symbol>, --undefined <symbol>
-                       Pass <symbol> to the linker as an undefined symbol.
-                       This is to force the linker to pull in a reference
-                       for that symbol.  May be used multiple times.
 EOF
     exit 0
 }
@@ -176,8 +123,12 @@ case "$xed2_dir" in
     /* ) ;;
     * )  xed2_dir="${HPCTOOLKIT}/${xed2_dir}" ;;
 esac
+case "$elf_dir" in
+    /* ) ;;
+    * )  elf_dir="${HPCTOOLKIT}/${elf_dir}" ;;
+esac
 
-hpcfnbounds="${hpcfnbounds_dir}/hpcfnbounds"
+hpcfnbounds="${hpcfnbounds_dir}/hpcfnbounds-bin"
 test -x "$hpcfnbounds" || die "missing hpcfnbounds: $hpcfnbounds"
 
 LD_LIBRARY_PATH="${ext_libs_dir}:${LD_LIBRARY_PATH}"
@@ -193,12 +144,11 @@ do
 	-h | --help )
 	    usage
 	    ;;
-	-memleak | --memleak )
-	    memleak_wrap="${libhpcrun_dir}/libhpcrun_memleak_wrap.a"
-	    test -f "$memleak_wrap" || die "unable to find: $memleak_wrap"
-	    extra_hpc_files="$extra_hpc_files $memleak_wrap"
-	    extra_wrap_names="$extra_wrap_names posix_memalign memalign valloc"
-	    extra_wrap_names="$extra_wrap_names calloc free malloc realloc"
+	-datacentric | --datacentric )
+	    datacentric_wrap="${libhpcrun_dir}/libhpcrun_datacentric_wrap.a"
+	    test -f "$datacentric_wrap" || die "unable to find: $datacentric_wrap"
+	    extra_hpc_files="$extra_hpc_files $datacentric_wrap"
+	    extra_wrap_names="$extra_wrap_names calloc malloc realloc"
 	    undef_names="$undef_names malloc"
 	    shift
 	    ;;
@@ -210,10 +160,6 @@ do
 	-v | --verbose )
 	    verbose=yes
 	    shift
-	    ;;
-	-V | --version )
-	    echo "hpclink: A member of HPCToolkit, version $VERSION"
-	    exit 0
 	    ;;
 	-- )
 	    shift
@@ -307,6 +253,10 @@ fi
 
 if test -d "$xed2_dir" ; then
     set -- "$@" "-L${xed2_dir}" -lxed
+fi
+
+if test -d "$elf_dir" ; then
+    set -- "$@" "-L${elf_dir}" -lelf
 fi
 
 # FIXME: shouldn't always need pthread, and shoudn't ever need dl.

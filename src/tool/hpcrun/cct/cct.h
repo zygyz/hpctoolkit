@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -75,151 +72,218 @@
 #include <stdbool.h>
 #include <ucontext.h>
 
-#include <assert.h>
-
 //*************************** User Include Files ****************************
 
 #include <hpcrun/metrics.h>
 
-#include <hpcrun/unwind/common/backtrace.h>
-
-#include <hpcrun/utilities/ip-normalized.h>
-
 #include <lib/prof-lean/hpcio.h>
 #include <lib/prof-lean/hpcfmt.h>
 #include <lib/prof-lean/hpcrun-fmt.h>
+#include <unwind/common/backtrace.h>
 
-#include "cct_addr.h"
+#include "frame.h"
 
-//
-// Readability Macros (to facilitate coding initialization operations)
-//
-#define CCT_ROOT HPCRUN_FMT_LMId_NULL, HPCRUN_FMT_LMIp_NULL
-#define PARTIAL_ROOT HPCRUN_FMT_LMId_NULL, HPCRUN_FMT_LMIp_Flag1
-#define ADDR_I(L)     NON_LUSH_ADDR_INI(L)
-#define ADDR(L)      (cct_addr_t) NON_LUSH_ADDR_INI(L)
+//*************************** Forward Declarations **************************
+
 
 //***************************************************************************
-// Calling context tree node (abstract data type)
+// Calling context tree node
 //***************************************************************************
 
-typedef struct cct_node_t cct_node_t;
-
-//
-// In order to associate data with a given calling context,
-// cct nodes need an id type (abstract)
-//
-
-typedef cct_node_t* cct_node_id_t;
-
-//
-// Interface procedures
-//
-
-//
-// Constructors
-//
-extern cct_node_t* hpcrun_cct_new(void);
-extern cct_node_t* hpcrun_cct_new_partial(void);
+// --------------------------------------------------------------------------
 // 
-// Accessor functions
-// 
+// --------------------------------------------------------------------------
 
-extern cct_node_t* hpcrun_cct_parent(cct_node_t* node);
-extern int32_t hpcrun_cct_persistent_id(cct_node_t* node);
-extern cct_addr_t* hpcrun_cct_addr(cct_node_t* node);
-extern bool hpcrun_cct_is_leaf(cct_node_t* node);
+// tallent: was 'size_t'.  If this should change the memcpy in
+// hpcfile_cstree_write_node_hlp should be modified.
 
-//
-// Mutator functions: modify a given cct
-//
-
-//
-// Fundamental mutation operation: insert a given addr into the
-// set of children of a given cct node. Return the cct_node corresponding
-// to the inserted addr [NB: if the addr is already in the node children, then
-// the already present node is returned. Otherwise, a new node is created, linked in,
-// and returned]
-//
-extern cct_node_t* hpcrun_cct_insert_addr(cct_node_t* cct, cct_addr_t* addr);
-
-//
-// Special purpose mutator:
-// This operation is somewhat akin to concatenation.
-// An already constructed cct ('src') is inserted as a
-// child of the 'target' cct. The addr field of the src
-// cct is ASSUMED TO BE DIFFERENT FROM ANY ADDR IN target's
-// child set. [Otherwise something recursive has to happen]
-//
-//
-extern cct_node_t* hpcrun_cct_insert_node(cct_node_t* target, cct_node_t* src);
-
-// special mutator to support tracing
-extern void hpcrun_cct_persistent_id_trace_mutate(cct_node_t* x);
-
-// Walking functions section:
-//
-//     typedefs for walking functions
-typedef void* cct_op_arg_t;
-typedef void (*cct_op_t)(cct_node_t* cct, cct_op_arg_t arg, size_t level);
-
-//
-//     general walking functions: (client may select starting level)
-//       visits every node in the cct, calling op(node, arg, level)
-//       level has property that node at level n ==> children at level n+1
-//     there are 2 different walking strategies:
-//       1) walk the children, then walk the node
-//       2) walk the node, then walk the children
-//     there is no implied children ordering
-//
-
-//
-// visting order: children first, then node
-//
-extern void hpcrun_cct_walk_child_1st_w_level(cct_node_t* cct,
-					      cct_op_t op,
-					      cct_op_arg_t arg, size_t level);
-
-//
-// visting order: node first, then children
-//
-extern void hpcrun_cct_walk_node_1st_w_level(cct_node_t* cct,
-					     cct_op_t op,
-					     cct_op_arg_t arg, size_t level);
-//
-// Top level walking routines:
-//  frequently, a walk will start with level = 0
-//  the static inline routines below implement this utility
-//
-
-static inline
-void hpcrun_cct_walk_child_1st(cct_node_t* cct,
-			       cct_op_t op, cct_op_arg_t arg)
+static inline void
+cct_metric_data_increment(int metric_id,
+			  cct_metric_data_t* x,
+			  cct_metric_data_t incr)
 {
-  hpcrun_cct_walk_child_1st_w_level(cct, op, arg, 0);
+  metric_desc_t* minfo = hpcrun_id2metric(metric_id);
+  
+  if (hpcrun_metricFlags_isFlag(minfo->flags, HPCRUN_MetricFlag_Real)) {
+    x->r += incr.r;
+  }
+  else {
+    x->i += incr.i;
+  }
 }
 
-static inline
-void hpcrun_cct_walk_node_1st(cct_node_t* cct,
-			      cct_op_t op, cct_op_arg_t arg)
+// add by Xu Liu
+typedef struct malloc_list_s{
+  struct malloc_list_s* next;
+  uint32_t malloc_id;
+}malloc_list_s;
+
+typedef struct cct_node_t {
+
+  // ---------------------------------------------------------
+  // a persistent node id is assigned for each node. this id
+  // is used both to reassemble a tree when reading it from 
+  // a file as well as to identify call paths. a call path
+  // can simply be represented by the node id of the deepest
+  // node in the path.
+  // ---------------------------------------------------------
+  int32_t persistent_id;
+
+  lush_assoc_info_t as_info;
+
+  // physical instruction pointer: more accurately, this is an
+  // 'operation pointer'.  The operation in the instruction packet is
+  // represented by adding 0, 1, or 2 to the instruction pointer for
+  // the first, second and third operation, respectively.
+  void* ip;
+
+  // logical instruction pointer
+  lush_lip_t* lip;
+
+  // ---------------------------------------------------------
+  // tree structure
+  // ---------------------------------------------------------
+
+  // parent node and the beginning of the child list
+  struct cct_node_t* parent;
+  struct cct_node_t* children;
+
+  // singly linked list of siblings
+  struct cct_node_t* next_sibling;
+
+  //use-reuse info
+  hpcfmt_uint_t num_malloc_id; //add by Xu Liu
+  malloc_list_s *malloc_list; //correlate node to malloc node. Add by Xu Liu
+  int ass_set;//associative set. add by Xu Liu
+  // ---------------------------------------------------------
+  // metrics (variable-sized array N.B.: MUST APPEAR AT END OF STRUCTURE!)
+  // ---------------------------------------------------------
+  
+  cct_metric_data_t metrics[]; // variable-sized array
+
+} cct_node_t;
+
+
+static inline cct_node_t*
+cct_node_parent(cct_node_t* x)
 {
-  hpcrun_cct_walk_node_1st_w_level(cct, op, arg, 0);
+  return x->parent;
 }
 
+
+static inline cct_node_t*
+cct_node_nextSibling(cct_node_t* x)
+{
+  return x->next_sibling;
+}
+
+
+static inline cct_node_t*
+cct_node_firstChild(cct_node_t* x)
+{
+  return x->children;
+}
+
+//***************************************************************************
+// thread creation context
+//***************************************************************************
+
+// Represents the creation creation of a given calling context tree as
+// a linked list.
+//   get-ctxt(ctxt): [ctxt.context, get-ctxt(ctxt.parent)]
+typedef struct cct_ctxt_t {
+  
+  // the leaf node of the creation context
+  cct_node_t* context;
+  
+  struct cct_ctxt_t* parent; // a list of cct_ctxt_t
+
+} cct_ctxt_t;
+
+
+unsigned int
+cct_ctxt_length(cct_ctxt_t* cct_ctxt);
+
+int
+cct_ctxt_write(FILE* fs, epoch_flags_t flags, cct_ctxt_t* cct_ctxt);
+
+
+//***************************************************************************
+// Calling context tree
+//***************************************************************************
+
+typedef struct hpcrun_cct_t {
+
+  cct_node_t* tree_root;
+  unsigned long num_nodes;
+
+} hpcrun_cct_t;
+
+
+void
+hpcrun_cct_make_root(hpcrun_cct_t* x, cct_ctxt_t* ctxt);
+
+int
+hpcrun_cct_init(hpcrun_cct_t* x, cct_ctxt_t* ctxt);
+
+int
+hpcrun_cct_fini(hpcrun_cct_t *x);
+
+
+// Given a call path of the following form, insert the path into the
+// calling context tree and, if successful, return the leaf node
+// representing the sample point (innermost frame).
 //
-// Special routine to walk a path represented by a cct node.
-// The actual path represented by a node is list reversal of the nodes
-//  linked by the parent link. So walking a path involves touching the
-// path nodes in list reverse order
+//               (low VMAs)                       (high VMAs)
+//   backtrace: [inner-frame......................outer-frame]
+//              ^ path_end                        ^ path_beg
+//              ^ bt_beg                                       ^ bt_end
 //
-extern void hpcrun_walk_path(cct_node_t* node, cct_op_t op, cct_op_arg_t arg);
+cct_node_t*
+hpcrun_cct_insert_backtrace(hpcrun_cct_t* cct, cct_node_t* treenode,
+			    int metric_id,
+			    frame_t* path_beg, frame_t* path_end,
+			    cct_metric_data_t sample_count);
+
 //
-// Writing operation
+// utility routine that does 2 things:
+//   1) Generate a std backtrace
+//   2) enters the generated backtrace in the cct
 //
-int hpcrun_cct_fwrite(cct_node_t* cct, FILE* fs, epoch_flags_t flags);
+cct_node_t* hpcrun_backtrace2cct(hpcrun_cct_t* cct, ucontext_t* context,
+				 int metricId, uint64_t metricIncr,
+				 int skipInner, int isSync);
+
 //
-// Utilities
+// utility routine that does 3 things:
+//   1) Generate a std backtrace
+//   2) Modifies the backtrace according to a passed in function
+//   3) enters the generated backtrace in the cct
 //
-extern size_t hpcrun_cct_num_nodes(cct_node_t* cct);
+cct_node_t* hpcrun_bt2cct(hpcrun_cct_t *cct, ucontext_t* context,
+			  int metricId, uint64_t metricIncr,
+			  bt_mut_fn bt_fn, bt_fn_arg bt_arg, int isSync);
+
+cct_node_t* hpcrun_cct_insert_bt();
+
+cct_node_t* hpcrun_bt2cct();
+
+cct_node_t*
+hpcrun_cct_get_child(hpcrun_cct_t* cct, cct_node_t* parent, frame_t* frm);
+
+int
+hpcrun_cct_fwrite(FILE* fs, epoch_flags_t flags, 
+		  hpcrun_cct_t* x, cct_ctxt_t* x_ctxt);
+
+cct_node_t*
+hpcrun_copy_btrace(cct_node_t* n);
+
+cct_ctxt_t*
+copy_thr_ctxt(cct_ctxt_t* thr_ctxt);
+
+bool
+hpcrun_empty_cct(hpcrun_cct_t* cct);
+
+//***************************************************************************
 
 #endif // cct_h

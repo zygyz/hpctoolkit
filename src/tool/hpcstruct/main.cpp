@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -70,9 +67,7 @@ using std::endl;
 
 #include "Args.hpp"
 
-#include <lib/banal/Struct.hpp>
-
-#include <lib/prof/Struct-Tree.hpp>
+#include <lib/banal/bloop.hpp>
 
 #include <lib/binutils/LM.hpp>
 
@@ -129,15 +124,10 @@ realmain(int argc, char* argv[])
     lm->read(BinUtil::LM::ReadFlg_ALL);
   }
   catch (...) {
-    DIAG_EMsg("Exception encountered while reading '" << args.in_filenm << "'");
+    DIAG_EMsg("Exception encountered while reading " << args.in_filenm);
     throw;
   }
-
-  if (lm->bfdSymTabSz() == 0) {
-    DIAG_WMsg(0, "Program structure is likely useless because no symbol table could be found.");
-  }
-
-
+  
   // ------------------------------------------------------------
   // Build and print the program structure tree
   // ------------------------------------------------------------
@@ -156,15 +146,15 @@ realmain(int argc, char* argv[])
   Prof::Struct::Root* rootStrct = new Prof::Struct::Root("");
   Prof::Struct::Tree* strctTree = new Prof::Struct::Tree("", rootStrct);
   
-  using namespace BAnal::Struct;
-  Prof::Struct::LM* lmStrct = makeStructure(lm, args.doNormalizeTy,
+  using namespace banal::bloop;
+  Prof::Struct::LM* lmStrct = makeStructure(lm, args.doNormalizeTy, 
 					    args.isIrreducibleIntervalLoop,
 					    args.isForwardSubstitution,
 					    procNameMgr,
 					    args.dbgProcGlob);
   lmStrct->link(rootStrct);
   
-  Prof::Struct::writeXML(*os, *strctTree, args.prettyPrintOutput);
+  writeStructure(*os, strctTree, args.prettyPrintOutput);
   IOUtil::CloseStream(os);
   
   delete strctTree;

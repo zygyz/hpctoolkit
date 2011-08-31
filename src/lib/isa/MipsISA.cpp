@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -69,8 +66,7 @@ using std::ostream;
 #include <include/gnu_dis-asm.h>
 
 #include "MipsISA.hpp"
-
-#include <lib/isa-lean/mips/instruction-set.h>
+#include "instructionSets/mips.h"
 
 #include <lib/support/diagnostics.h>
 
@@ -86,9 +82,9 @@ using std::ostream;
 
 //****************************************************************************
 
-static VMA
+static VMA 
 GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
-{
+{ 
   // N.B.: The GNU decoders assume that the address of 'insn_addr' is
   // the actual the VMA in order to calculate VMA-relative targets.
   VMA x = (di_vma - PTR_TO_BFDVMA(insn_addr)) + insn_vma;
@@ -96,7 +92,7 @@ GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
 }
 
 
-static void
+static void 
 GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 {
   GNUbu_disdata* data = (GNUbu_disdata*)di->application_data;
@@ -147,13 +143,12 @@ MipsISA::~MipsISA()
 
 
 ISA::InsnDesc
-MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		     ushort GCC_ATTR_UNUSED sz)
+MipsISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
   uint32_t insn = (uint32_t)BFD_GETX32((const unsigned char*)mi);
-
+  
   switch (insn & MIPS_OPCODE_MASK)
     {
     case MIPS_OPClass_Special:
@@ -169,7 +164,7 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  }
 	case MIPS_OP_JALR:
 	  return InsnDesc(InsnDesc::SUBR_IND);
-	
+	  
 	case MIPS_OP_SYSCALL:           // Instructions from Table A-16,
 	case MIPS_OP_BREAK:             //   Table A-17
 	case MIPS_OP_TGE:   // Trap-on-Condition...
@@ -178,7 +173,7 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	case MIPS_OP_TLTU:
 	case MIPS_OP_TEQ:
 	case MIPS_OP_TNE:
-	  return InsnDesc(InsnDesc::SYS_CALL);
+	  return InsnDesc(InsnDesc::SYS_CALL); 
 
 	case MIPS_OP_SYNC:
 	  return InsnDesc(InsnDesc::OTHER);
@@ -192,20 +187,20 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	case MIPS_OP_BLTZL:
 	case MIPS_OP_BGEZL:
 	  return InsnDesc(InsnDesc::INT_BR_COND_REL);
-	
+	  
 	case MIPS_OP_BLTZAL:  // Link
 	case MIPS_OP_BGEZAL:  // Link
 	case MIPS_OP_BLTZALL: // Link
 	case MIPS_OP_BGEZALL: // Link
-	  return InsnDesc(InsnDesc::SUBR_REL);
+	  return InsnDesc(InsnDesc::SUBR_REL); 
 
-	case MIPS_OP_TGEI:              // Instructions from Table A-18
+	case MIPS_OP_TGEI:              // Instructions from Table A-18 
 	case MIPS_OP_TGEIU: // Trap-on-Condition...
 	case MIPS_OP_TLTI:
 	case MIPS_OP_TLTIU:
 	case MIPS_OP_TEQI:
 	case MIPS_OP_TNEI:
-	  return InsnDesc(InsnDesc::OTHER);
+	  return InsnDesc(InsnDesc::OTHER); 
 	}
       break;
     case MIPS_OPClass_Cop1x:
@@ -253,7 +248,7 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
     case MIPS_OP_SWC1: // Word
     case MIPS_OP_SWC2: // Word
       return InsnDesc(InsnDesc::MEM_STORE);
-
+      
     case MIPS_OP_SD:   // Doubleword
     case MIPS_OP_SDL:  // Doubleword Left
     case MIPS_OP_SDR:  // Doubleword Right
@@ -265,11 +260,11 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
                                 // Instructions from Table A-12
       // N.B.: These instructions are PC-region but we will treat them
       // as PC-relative
-    case MIPS_OP_J:
-      return InsnDesc(InsnDesc::BR_UN_COND_REL);
-    case MIPS_OP_JAL:
-      return InsnDesc(InsnDesc::SUBR_REL);
-
+    case MIPS_OP_J:                             
+      return InsnDesc(InsnDesc::BR_UN_COND_REL);  
+    case MIPS_OP_JAL:                           
+      return InsnDesc(InsnDesc::SUBR_REL);     
+      
     case MIPS_OP_BEQ:                   // Instructions from Table A-14
       // If operands are the same then then there is no fall-thru branch.
       // Test for general case.
@@ -289,14 +284,13 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
     default:
       break;
     }
-
+  
   return InsnDesc(InsnDesc::OTHER);
 }
 
 
 VMA
-MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
-			  ushort GCC_ATTR_UNUSED sz)
+MipsISA::GetInsnTargetVMA(MachInsn* mi, VMA pc, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -318,15 +312,15 @@ MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
 	{
 	case MIPS_OP_BLTZ:              // Instructions from Table A-15
 	case MIPS_OP_BGEZ:
-	case MIPS_OP_BLTZAL:
-	case MIPS_OP_BGEZAL:
+	case MIPS_OP_BLTZAL:  
+	case MIPS_OP_BGEZAL:  
 	case MIPS_OP_BLTZL:
 	case MIPS_OP_BGEZL:
-	case MIPS_OP_BLTZALL:
+	case MIPS_OP_BLTZALL: 
 	case MIPS_OP_BGEZALL:
 	  // Added to the address of the instruction *following* the branch
 	  offset = MIPS_OPND_IMM(insn);
-	  if (offset & MIPS_OPND_IMM_SIGN) {
+	  if (offset & MIPS_OPND_IMM_SIGN) { 
 	    offset |= ~MIPS_OPND_IMM_MASK;  // sign extend
 	  }
 	  return ((pc + MINSN_SIZE) + (offset << 2));
@@ -340,7 +334,7 @@ MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
       // Upper order bits come from the address of the delay-slot instruction
       offset = MIPS_OPND_INSN_INDEX(insn) << 2;
       return (((pc + MINSN_SIZE) & MIPS_OPND_INSN_INDEX_UPPER_MASK) | offset);
-
+      
     case MIPS_OP_BEQ:                   // Instructions from Table A-14
     case MIPS_OP_BNE:
     case MIPS_OP_BLEZ:
@@ -351,29 +345,29 @@ MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
     case MIPS_OP_BGTZL:
       // Added to the address of the instruction *following* the branch
       offset = MIPS_OPND_IMM(insn);
-      if (offset & MIPS_OPND_IMM_SIGN) {
+      if (offset & MIPS_OPND_IMM_SIGN) { 
 	offset |= ~MIPS_OPND_IMM_MASK; // sign extend
       }
       return ((pc + MINSN_SIZE) + (offset << 2));
-
+      
     default:
       break;
     }
-
+  
   return (0);
 }
 
 
 ushort
-MipsISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
-{
+MipsISA::GetInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
+{ 
   // All branches have an architectural delay of one
   // instruction. Treat branch-likely instructions as regular
   // branches.
 
   // (We don't care about delays on instructions such as loads/stores)
-  InsnDesc d = getInsnDesc(mi, opIndex, sz);
-  if (d.isBr() || d.isSubr() || d.isSubrRet()) {
+  InsnDesc d = GetInsnDesc(mi, opIndex, sz);
+  if (d.IsBr() || d.IsSubr() || d.IsSubrRet()) {
     return 1;
   }
   else {
@@ -383,8 +377,7 @@ MipsISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
 
 
 void
-MipsISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		ushort GCC_ATTR_UNUSED opIndex)
+MipsISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

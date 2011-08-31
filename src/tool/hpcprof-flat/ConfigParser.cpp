@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //************************ System Include Files ******************************
@@ -78,10 +75,10 @@ using XERCES_CPP_NAMESPACE::DOMNamedNodeMap;
 
 #include "ConfigParser.hpp"
 
-#include <lib/prof/Metric-ADesc.hpp>
+#include <lib/prof-juicy-x/MathMLExprParser.hpp>
+#include <lib/prof-juicy-x/XercesUtil.hpp>
 
-#include <lib/profxml/MathMLExprParser.hpp>
-#include <lib/profxml/XercesUtil.hpp>
+#include <lib/prof-juicy/Metric-ADesc.hpp>
 
 #include <lib/support/Trace.hpp>
 
@@ -411,10 +408,10 @@ makeMathMLExpr(const char* nm, DOMNode* mathMLExpr,
 
 static void 
 ProcessFILE(DOMNode* fileNode, 
-	    Analysis::Args& GCC_ATTR_UNUSED args, Prof::Metric::Mgr& mMgr, 
+	    Analysis::Args& args, Prof::Metric::Mgr& mMgr, 
 	    const string& metricNm, bool metricDoDisp, 
 	    bool metricDoPercent, bool metricDoSortBy, 
-	    const string& GCC_ATTR_UNUSED metricDispNm)
+	    const string& metricDispNm)
 {
   static XMLCh* TYPEATTR = XMLString::transcode("type");
   static XMLCh* NAMEATTR = XMLString::transcode("name");

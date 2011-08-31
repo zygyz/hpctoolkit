@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -76,7 +73,6 @@
 
 #include "lush.h"
 #include "lush-backtrace.h"
-#include <hpcrun/cct_insert_backtrace.h>
 
 #include <epoch.h>
 #include <sample_event.h> // hpcrun_drop_sample()
@@ -105,7 +101,7 @@ bool is_lush_agent = false;
 //***************************************************************************
 
 cct_node_t*
-lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
+lush_backtrace2cct(hpcrun_cct_t* cct, ucontext_t* context,
 		   int metricId, uint64_t metricIncr,
 		   int skipInner, int isSync)
 {
@@ -149,8 +145,8 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
   
   // FIXME: unwind/common/backtrace.c
   thread_data_t* td = hpcrun_get_thread_data();
-  td->btbuf_cur   = td->btbuf_beg;  // innermost
-  td->btbuf_sav   = td->btbuf_end;
+  td->unwind   = td->btbuf;  // innermost
+  td->bufstk   = td->bufend;
 
   // ---------------------------------------------------------
   // Step through bichords
@@ -168,7 +164,7 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
     // FIXME: short circuit unwind if we hit the 'active return'
 
     hpcrun_ensure_btbuf_avail();
-    frame_t* chord_beg = td->btbuf_cur; // innermost note
+    frame_t* chord_beg = td->unwind; // innermost note
     uint pchord_len = 0, lchord_len = 0;
 
     // ---------------------------------------------------------
@@ -177,17 +173,15 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
     while (lush_step_pnote(&cursor) != LUSH_STEP_END_CHORD) {
       hpcrun_ensure_btbuf_avail();
 
-      //unw_word_t ip = lush_cursor_get_ip(&cursor);
-      ip_normalized_t ip_norm = lush_cursor_get_ip_norm(&cursor);
-      TMSG(LUNW, "IP:  lm-id = %d and lm-ip = %p", ip_norm.lm_id, 
-	   ip_norm.lm_ip);
-      td->btbuf_cur->ip_norm = ip_norm;
+      unw_word_t ip = lush_cursor_get_ip(&cursor);
+      TMSG(LUNW, "IP:  %p", ip);
+      td->unwind->ip = ip;
 
       pchord_len++;
-      td->btbuf_cur++;
+      td->unwind++;
     }
 
-    td->btbuf_cur = chord_beg;
+    td->unwind = chord_beg;
 
     // ---------------------------------------------------------
     // Step through l-notes of l-chord
@@ -209,10 +203,10 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
 	// INVARIANT: as must be 1-to-M
 	lip_persistent = lush_lip_clone(lip);
       }
-      td->btbuf_cur->lip = lip_persistent;
+      td->unwind->lip = lip_persistent;
 
       lchord_len++;
-      td->btbuf_cur++;
+      td->unwind++;
     }
 
     // ---------------------------------------------------------
@@ -222,7 +216,7 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
     chord_end = canonicalize_chord(chord_beg, as, pchord_len, lchord_len);
     unw_len++;
 
-    td->btbuf_cur = chord_end;
+    td->unwind = chord_end;
   }
 
   if (ty == LUSH_STEP_ERROR) {
@@ -233,11 +227,11 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
   // insert backtrace into calling context tree (if sensible)
   // ---------------------------------------------------------
   if (MYDBG) {
-    hpcrun_bt_dump(td->btbuf_cur, "LUSH");
+    hpcrun_bt_dump(td->unwind, "LUSH");
   }
 
-  frame_t* bt_beg = td->btbuf_beg;      // innermost, inclusive 
-  frame_t* bt_end = td->btbuf_cur - 1; // outermost, inclusive
+  frame_t* bt_beg = td->btbuf;      // innermost, inclusive 
+  frame_t* bt_end = td->unwind - 1; // outermost, inclusive
   cct_node_t* cct_cursor = NULL;
 
   if (skipInner) {
@@ -252,7 +246,7 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
   if (doMetricIdleness) {
     //lush_agentid_t aid = aidMetricIdleness;
     int mid = lush_agents->metric_idleness;
-    cct_metric_data_increment(mid, node,
+    cct_metric_data_increment(mid, &(node->metrics[mid]),
 			      (cct_metric_data_t){.r = incrMetricIdleness});
   }
 
@@ -277,11 +271,11 @@ canonicalize_chord(frame_t* chord_beg, lush_assoc_t as,
   frame_t* pchord_end = chord_beg + pchord_len;
   frame_t* lchord_end = chord_beg + lchord_len;
 
-  ip_normalized_t ip_norm = ip_normalized_NULL;
+  unw_word_t ip = 0;
   lush_lip_t* lip = NULL;
 
   if (as == LUSH_ASSOC_1_to_M) {
-    ip_norm = chord_beg->ip_norm;
+    ip = chord_beg->ip;
   }
   else if (as == LUSH_ASSOC_M_to_1) {
     lip = chord_beg->lip;
@@ -295,7 +289,7 @@ canonicalize_chord(frame_t* chord_beg, lush_assoc_t as,
     
     if (x >= pchord_end) {
       // INVARIANT: as must be 1-to-M
-      x->ip_norm = ip_norm;
+      x->ip = ip;
     }
     if (x >= lchord_end) {
       // INVARIANT: as is one of: M-to-1, a-to-0

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -63,16 +60,9 @@
 
 //************************* System Include Files ****************************
 
-#ifndef _POSIX_SOURCE
-#  define _POSIX_SOURCE // fdopen()
-#endif
-#ifndef _SVID_SOURCE
-#  define _SVID_SOURCE  // fputc_unlocked()
-#endif
-
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdio.h>  // fdopen(), fputc_unlocked()
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -93,7 +83,7 @@
 //***************************************************************************
 
 // See header for interface information.
-FILE*
+FILE* 
 hpcio_fopen_w(const char* fnm, int overwrite)
 {
   mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
@@ -109,10 +99,6 @@ hpcio_fopen_w(const char* fnm, int overwrite)
     // Open file for writing; truncate file already exists.
     fd = open(fnm, O_WRONLY | O_CREAT | O_TRUNC, mode); 
   }
-  else if (overwrite == 2) {
-    // Options specific to /dev/null.
-    fd = open(fnm, O_WRONLY);
-  }
   else {
     return NULL; // blech
   }
@@ -124,7 +110,7 @@ hpcio_fopen_w(const char* fnm, int overwrite)
 
 
 // See header for interface information.
-FILE*
+FILE* 
 hpcio_fopen_r(const char* fnm)
 {
   FILE* fs = fopen(fnm, "r");
@@ -133,16 +119,7 @@ hpcio_fopen_r(const char* fnm)
 
 
 // See header for interface information.
-FILE*
-hpcio_fopen_rw(const char* fnm)
-{
-  FILE* fs = fopen(fnm, "r+");
-  return fs;
-}
-
-
-// See header for interface information.
-int
+int   
 hpcio_fclose(FILE* fs)
 {
   if (fs) {
@@ -166,7 +143,7 @@ hpcio_fclose(FILE* fs)
 //***************************************************************************
 
 size_t
-hpcio_le2_fread(uint16_t* val, FILE* fs)
+hpcio_fread_le2(uint16_t* val, FILE* fs)
 {
   uint16_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -174,7 +151,7 @@ hpcio_le2_fread(uint16_t* val, FILE* fs)
   for (shift = 0; shift < 16; shift += 8) {
     if ( (c = fgetc(fs)) == EOF ) { break; }
     num_read++;
-    v = (uint16_t)(v | ((c & 0xff) << shift)); // 0, 8
+    v |= ((uint16_t)(c & 0xff) << shift); // 0, 8
   }
 
   *val = v;
@@ -183,7 +160,7 @@ hpcio_le2_fread(uint16_t* val, FILE* fs)
 
 
 size_t
-hpcio_le4_fread(uint32_t* val, FILE* fs)
+hpcio_fread_le4(uint32_t* val, FILE* fs)
 {
   uint32_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -199,8 +176,8 @@ hpcio_le4_fread(uint32_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_le8_fread(uint64_t* val, FILE* fs)
+size_t 
+hpcio_fread_le8(uint64_t* val, FILE* fs)
 {
   uint64_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -216,16 +193,14 @@ hpcio_le8_fread(uint64_t* val, FILE* fs)
 }
 
 
-//***************************************************************************
-
-size_t
-hpcio_le2_fwrite(uint16_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_le2(uint16_t* val, FILE* fs)
 {
   uint16_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 16; shift += 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -233,14 +208,14 @@ hpcio_le2_fwrite(uint16_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_le4_fwrite(uint32_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_le4(uint32_t* val, FILE* fs)
 {
   uint32_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 32; shift += 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -248,14 +223,14 @@ hpcio_le4_fwrite(uint32_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_le8_fwrite(uint64_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_le8(uint64_t* val, FILE* fs)
 {
   uint64_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 64; shift += 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -263,12 +238,8 @@ hpcio_le8_fwrite(uint64_t* val, FILE* fs)
 }
 
 
-//***************************************************************************
-// Big endian
-//***************************************************************************
-
 size_t
-hpcio_be2_fread(uint16_t* val, FILE* fs)
+hpcio_fread_be2(uint16_t* val, FILE* fs)
 {
   uint16_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -276,7 +247,7 @@ hpcio_be2_fread(uint16_t* val, FILE* fs)
   for (shift = 8; shift >= 0; shift -= 8) {
     if ( (c = fgetc(fs)) == EOF ) { break; }
     num_read++;
-    v = (uint16_t)(v | ((c & 0xff) << shift)); // 8, 0
+    v |= ((uint16_t)(c & 0xff) << shift); // 8, 0
   }
 
   *val = v;
@@ -285,7 +256,7 @@ hpcio_be2_fread(uint16_t* val, FILE* fs)
 
 
 size_t
-hpcio_be4_fread(uint32_t* val, FILE* fs)
+hpcio_fread_be4(uint32_t* val, FILE* fs)
 {
   uint32_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -301,8 +272,8 @@ hpcio_be4_fread(uint32_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_be8_fread(uint64_t* val, FILE* fs)
+size_t 
+hpcio_fread_be8(uint64_t* val, FILE* fs)
 {
   uint64_t v = 0; // local copy of val
   int shift = 0, num_read = 0, c;
@@ -318,34 +289,14 @@ hpcio_be8_fread(uint64_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_beX_fread(uint8_t* val, size_t size, FILE* fs)
-{
-  size_t num_read = 0;
-
-  for (uint i = 0; i < size; ++i) {
-    int c = fgetc(fs);
-    if (c == EOF) {
-      break;
-    }
-    val[i] = (uint8_t) c;
-    num_read++;
-  }
-
-  return num_read;
-}
-
-
-//***************************************************************************
-
-size_t
-hpcio_be2_fwrite(uint16_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_be2(uint16_t* val, FILE* fs)
 {
   uint16_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 8; shift >= 0; shift -= 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -353,14 +304,14 @@ hpcio_be2_fwrite(uint16_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_be4_fwrite(uint32_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_be4(uint32_t* val, FILE* fs)
 {
   uint32_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 24; shift >= 0; shift -= 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -368,14 +319,14 @@ hpcio_be4_fwrite(uint32_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_be8_fwrite(uint64_t* val, FILE* fs)
+size_t 
+hpcio_fwrite_be8(uint64_t* val, FILE* fs)
 {
   uint64_t v = *val; // local copy of val
   int shift = 0, num_write = 0, c;
   
   for (shift = 56; shift >= 0; shift -= 8) {
-    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
+    c = fputc( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -383,28 +334,24 @@ hpcio_be8_fwrite(uint64_t* val, FILE* fs)
 }
 
 
-size_t
-hpcio_beX_fwrite(uint8_t* val, size_t size, FILE* fs)
+#if 0
+size_t 
+hpcio_fread_be4(uint32_t* val, FILE* fs)
 {
-  size_t num_write = 0;
-  
-  for (uint i = 0; i < size; ++i) {
-    int c = fputc_unlocked(val[i], fs);
-    if (c == EOF) {
-      break;
-    }
-    num_write++;
-  }
+  uint32_t v = 0; // local copy of val
+  int shift = 0, num_read = 0, c;
 
-  return num_write;
+  for (shift = 24; shift >= 0; shift -= 8) {
+    if ( (c = fgetc(fs)) == EOF ) { break; }
+    num_read++;
+    v |= ((uint32_t)(c & 0xff) << shift); // 24, 16, 8, 0
+  }
+ 
+  *val = v;
+  return num_read;
 }
 
 
-//***************************************************************************
-//
-//***************************************************************************
-
-#if 0
 #define BIG_ENDIAN      0
 #define LITTLE_ENDIAN   1
 
@@ -421,4 +368,5 @@ hpcio_get_endianness()
     return LITTLE_ENDIAN; // 'bite' points to least significant byte
   }   
 }
+
 #endif

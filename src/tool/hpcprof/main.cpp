@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -69,8 +66,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
-
 #include "Args.hpp"
 
 #include <lib/analysis/CallPath.hpp>
@@ -86,9 +81,8 @@ static int
 realmain(int argc, char* const* argv);
 
 static void
-makeMetrics(Prof::CallPath::Profile& prof,
-	    const Analysis::Args& args,
-	    const Analysis::Util::NormalizeProfileArgs_t& nArgs);
+makeMetrics(const Analysis::Util::NormalizeProfileArgs_t& nArgs,
+	    Prof::CallPath::Profile& prof);
 
 
 //****************************************************************************
@@ -108,7 +102,7 @@ main(int argc, char* const* argv)
   catch (const std::bad_alloc& x) {
     DIAG_EMsg("[std::bad_alloc] " << x.what());
     exit(1);
-  }
+  } 
   catch (const std::exception& x) {
     DIAG_EMsg("[std::exception] " << x.what());
     exit(1);
@@ -130,50 +124,26 @@ realmain(int argc, char* const* argv)
 
   RealPathMgr::singleton().searchPaths(args.searchPathStr());
 
-  Analysis::Util::NormalizeProfileArgs_t nArgs =
+  // ------------------------------------------------------------
+  // Form one CCT from profile data
+  // ------------------------------------------------------------
+  Analysis::Util::NormalizeProfileArgs_t nArgs = 
     Analysis::Util::normalizeProfileArgs(args.profileFiles);
 
-  // ------------------------------------------------------------
-  // 0. Special checks
-  // ------------------------------------------------------------
-
-  if (nArgs.paths->size() == 1 && !args.hpcprof_isMetricArg) {
-    args.prof_metrics = Analysis::Args::MetricSet_ThreadOnly;
+  if ( !(nArgs.paths->size() <= 32 || args.isHPCProfForce) ) {
+    DIAG_Throw("There are " << nArgs.paths->size() << " profile files to process. " << args.getCmd() << " currently limits the number of profile-files to prevent unmanageably large Experiment databases.  Use the --force option to remove this limit.");
   }
 
-  if (Analysis::Args::doThreadMetrics(args.prof_metrics)
-      && nArgs.paths->size() > 16
-      && !args.hpcprof_forceMetrics) {
-    DIAG_Throw("You have requested thread-level metrics for " << nArgs.paths->size() << " profile files.  Because this may result in an unusable database, to continue you must use the --force-metric option.");
-  }
-
-  // -------------------------------------------------------
-  // 0. Make empty Experiment database (ensure file system works)
-  // -------------------------------------------------------
-
-  args.makeDatabaseDir();
-
-  // ------------------------------------------------------------
-  // 1a. Create canonical CCT // Normalize trace files
-  // ------------------------------------------------------------
-
-  int mergeTy = Prof::CallPath::Profile::Merge_CreateMetric;
+  int mergeTy = Prof::CallPath::Profile::Merge_createMetric;
   Analysis::Util::UIntVec* groupMap =
     (nArgs.groupMax > 1) ? nArgs.groupMap : NULL;
 
-  uint rFlags = 0;
-  if (Analysis::Args::doSummaryMetrics(args.prof_metrics)) {
-    rFlags |= Prof::CallPath::Profile::RFlg_MakeInclExcl;
-  }
-  uint mrgFlags = (Prof::CCT::MrgFlg_NormalizeTraceFileY);
-
   Prof::CallPath::Profile* prof =
-    Analysis::CallPath::read(*nArgs.paths, groupMap, mergeTy, rFlags, mrgFlags);
+    Analysis::CallPath::read(*nArgs.paths, groupMap, mergeTy);
 
   // ------------------------------------------------------------
-  // 1b. Add static structure to canonical CCT
+  // Overlay static structure with CCT's dynamic call paths
   // ------------------------------------------------------------
-
   Prof::Struct::Tree* structure = new Prof::Struct::Tree("");
   if (!args.structureFiles.empty()) {
     Analysis::CallPath::readStructure(structure, args);
@@ -184,70 +154,34 @@ realmain(int argc, char* const* argv)
 						 args.doNormalizeTy);
   
   // -------------------------------------------------------
-  // 2a. Create summary metrics for canonical CCT
+  // Create summary metrics
   // -------------------------------------------------------
 
-  if (Analysis::Args::doSummaryMetrics(args.prof_metrics)) {
-    makeMetrics(*prof, args, nArgs);
+  if (args.isHPCProfMetric) {
+    makeMetrics(nArgs, *prof);
   }
 
-  // -------------------------------------------------------
-  // 2b. Prune and normalize canonical CCT
-  // -------------------------------------------------------
-
-  if (Analysis::Args::doSummaryMetrics(args.prof_metrics)) {
-    Analysis::CallPath::pruneBySummaryMetrics(*prof, NULL);
-  }
-
-  Analysis::CallPath::normalize(*prof, args.agent, args.doNormalizeTy);
-
-  if (Analysis::Args::doSummaryMetrics(args.prof_metrics)) {
-    // Apply after all CCT pruning/normalization is completed.
-    //TODO: Analysis::CallPath::applySummaryMetricAgents(*prof, args.agent);
-  }
-
-  prof->cct()->makeDensePreorderIds();
-
-  // -------------------------------------------------------
-  // 2c. Create thread-level metric DB
-  // -------------------------------------------------------
-  // Currently we use --metric=thread as a proxy for the metric database
-
-  // ------------------------------------------------------------
-  // 3. Generate Experiment database
-  //    INVARIANT: database dir already exists
-  // ------------------------------------------------------------
-
-  Analysis::CallPath::pruneStructTree(*prof);
-
-  if (args.title.empty()) {
-    args.title = prof->name();
-  }
-
-  if (!args.db_makeMetricDB) {
-    prof->metricMgr()->zeroDBInfo();
-  }
-
-  Analysis::CallPath::makeDatabase(*prof, args);
-
-
-  // -------------------------------------------------------
-  // Cleanup
-  // -------------------------------------------------------
   nArgs.destroy();
 
-  delete prof;
+  // ------------------------------------------------------------
+  // Generate Experiment database
+  // ------------------------------------------------------------
 
+  args.makeDatabaseDir();
+  Analysis::CallPath::makeDatabase(*prof, args);
+
+  Analysis::CallPath::useReuseData(*prof, args); //(Xu)
+
+  delete prof;
   return 0;
 }
 
-
 //****************************************************************************
 
+
 static void
-makeMetrics(Prof::CallPath::Profile& prof,
-	    const Analysis::Args& args,
-	    const Analysis::Util::NormalizeProfileArgs_t& GCC_ATTR_UNUSED nArgs)
+makeMetrics(const Analysis::Util::NormalizeProfileArgs_t& nArgs,
+	    Prof::CallPath::Profile& prof)
 {
   Prof::Metric::Mgr& mMgr = *prof.metricMgr();
 
@@ -261,44 +195,29 @@ makeMetrics(Prof::CallPath::Profile& prof,
 
   uint numDrvd = 0;
   uint mDrvdBeg = 0, mDrvdEnd = 0; // [ )
-  
-  bool needMultiOccurance =
-    (Analysis::Args::doThreadMetrics(args.prof_metrics));
 
-  mDrvdBeg = mMgr.makeSummaryMetrics(needMultiOccurance, mSrcBeg, mSrcEnd);
+  mDrvdBeg = mMgr.makeSummaryMetrics(mSrcBeg, mSrcEnd);
   if (mDrvdBeg != Prof::Metric::Mgr::npos) {
     mDrvdEnd = mMgr.size();
     numDrvd = (mDrvdEnd - mDrvdBeg);
   }
 
-  if (args.prof_metrics == Analysis::Args::MetricSet_SumOnly) {
-    for (uint mId = mSrcBeg; mId < mSrcEnd; ++mId) {
-      Prof::Metric::ADesc* m = mMgr.metric(mId);
-      m->isVisible(false);
-    }
+#if 0
+  for (uint i = mSrcBeg; i < mSrcEnd; ++i) {
+    Prof::Metric::ADesc* m = mMgr.metric(i);
+    m->isVisible(false);
   }
+#endif
 
   // -------------------------------------------------------
-  // aggregate sampled metrics (in batch)
+  // aggregate metrics
   // -------------------------------------------------------
+  cctRoot->aggregateMetricsIncl(mSrcBeg, mSrcEnd);
 
-  VMAIntervalSet ivalsetIncl;
-  VMAIntervalSet ivalsetExcl;
-
-  for (uint mId = mSrcBeg; mId < mSrcEnd; ++mId) {
-    Prof::Metric::ADesc* m = mMgr.metric(mId);
-    if (m->type() == Prof::Metric::ADesc::TyIncl) {
-      ivalsetIncl.insert(VMAInterval(mId, mId + 1)); // [ )
-    }
-    else if (m->type() == Prof::Metric::ADesc::TyExcl) {
-      ivalsetExcl.insert(VMAInterval(mId, mId + 1)); // [ )
-    }
-    m->computedType(Prof::Metric::ADesc::ComputedTy_Final); // proleptic
+  for (uint i = mSrcBeg; i < mSrcEnd; ++i) {
+    Prof::Metric::ADesc* m = mMgr.metric(i);
+    m->isComputed(true);
   }
-
-  cctRoot->aggregateMetricsIncl(ivalsetIncl);
-  cctRoot->aggregateMetricsExcl(ivalsetExcl);
-
 
   // -------------------------------------------------------
   // compute derived metrics
@@ -307,6 +226,6 @@ makeMetrics(Prof::CallPath::Profile& prof,
 
   for (uint i = mDrvdBeg; i < mDrvdEnd; ++i) {
     Prof::Metric::ADesc* m = mMgr.metric(i);
-    m->computedType(Prof::Metric::ADesc::ComputedTy_NonFinal);
+    m->isComputed(true);
   }
 }

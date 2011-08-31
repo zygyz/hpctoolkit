@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -68,12 +65,7 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/hpctoolkit-config.h>
-#include <include/gcc-attr.h>
-
 #include "Args.hpp"
-
-#include <lib/analysis/Util.hpp>
 
 #include <lib/support/diagnostics.h>
 #include <lib/support/Trace.hpp>
@@ -92,7 +84,8 @@ using std::string;
 
 //***************************************************************************
 
-static const char* version_info = HPCTOOLKIT_VERSION_STRING;
+static const char* version_info =
+#include <include/HPCToolkitVersionInfo.h>
 
 static const char* usage_summary1 =
 "[--source] [options] <profile-file>...";
@@ -126,7 +119,7 @@ Options: Source Structure Correlation:\n\
   --source[=all,sum,pgm,lm,f,p,l,s,src]\n\
   --src[=all,sum,pgm,lm,f,p,l,s,src]\n\
                        Correlate metrics to source code structure. Without\n\
-                       --source, default is {pgm,lm}; with, it is {sum}.\n\
+                       --source, default is {pgm,lm}; with, it is {sum}\n\
                          all: all summaries plus annotated source files\n\
                          sum: all summaries\n\
                          pgm: program summary\n\
@@ -141,11 +134,11 @@ Options: Source Structure Correlation:\n\
                        with single quotes or backslash.) May pass multiple\n\
                        times to logically OR additional globs.\n\
   -M <metric>, --metric <metric>\n\
-                       Specify the set of metrics computed. <metric> is one\n\
-                       of the following:\n\
-                         sum:  Show (only) summary metrics\n\
-                               (Sum, Mean, StdDev, CoefVar, Min, Max)\n\
-                         sum+: Show thread and summary metrics\n\
+                       Show a supplemental or different metric set. <metric>\n\
+                       is one of the following:\n\
+                         sum:      Show also Mean, CoefVar, Min, Max, Sum\n\
+                         sum-only: Show only Mean, CoefVar, Min, Max, Sum\n\
+\n\
   -I <path>, --include <path>\n\
                        Use <path> when searching for source files. For a\n\
                        recursive search, append a '*' after the last slash,\n\
@@ -154,17 +147,10 @@ Options: Source Structure Correlation:\n\
   -S <file>, --structure <file>\n\
                        Use hpcstruct structure file <file> for correlation.\n\
                        May pass multiple times (e.g., for shared libraries).\n\
-  -R '<old-path>=<new-path>', --replace-path '<old-path>=<new-path>'\n\
-                       Substitute instances of <old-path> with <new-path>;\n\
-                       apply to all paths (profile\'s load map, source code)\n\
-                       for which <old-path> is a prefix.  Use '\\' to escape\n\
-                       instances of '=' within a path. May pass multiple\n\
-                       times.\n\
 \n\
 Options: Object Correlation:\n\
-  --object[=s], --obj[=s]\n\
-                       Correlate metrics with object code by annotating\n\
-                       object code procedures and instructions. {}\n\
+  --object[=s]         Correlate metrics with object code by annotating\n\
+  --obj[=s]            object code procedures and instructions. {}\n\
                          s: intermingle source line info with object code\n\
   --objannot <glob>    Annotate object procedures with (unmangled) names that\n\
                        match glob <glob>. (Protect glob characters from the\n\
@@ -194,16 +180,12 @@ CmdLineParser::OptArgDesc Args::optArgs[] = {
      isOptArg_src },
   {  0 , "srcannot",        CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
-
-  { 'M', "metric",          CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
-     NULL },
-
   { 'I', "include",         CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
   { 'S', "structure",       CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
-  { 'R', "replace-path",    CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
-     NULL},
+  { 'M', "metric",          CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
+     NULL },
 
   // Object correlation options
   {  0 , "object",          CLP::ARG_OPT , CLP::DUPOPT_CLOB, NULL,
@@ -216,6 +198,13 @@ CmdLineParser::OptArgDesc Args::optArgs[] = {
      NULL },
   {  0 , "obj-threshold",   CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
      NULL },
+
+  // OBSOLETE Options
+  { 'e', NULL, CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL, NULL}, // everything
+  { 'f', NULL, CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL, NULL}, // files
+  { 'r', NULL, CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL, NULL}, // routines
+  { 'l', NULL, CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL, NULL}, // lines
+  { 'o', NULL, CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL, NULL}, // object
 
   // Raw profile data
   {  0 , "dump",            CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
@@ -236,15 +225,15 @@ CmdLineParser::OptArgDesc Args::optArgs[] = {
 #undef CLP
 
 
-static bool
+static bool 
 isOptArg_src(const char* x)
 {
   string opt(x);
   bool ret = true;
   try {
-    Args::parseArg_source(NULL, opt, "");
+    Args::parse_sourceOpts(NULL, opt);
   }
-  catch (const Args::Exception& /*ex*/) {
+  catch (const Args::Exception& x) {
     // To enable good error messages, consider strings with a ratio of
     // commas:characters >= 1/3 to be an attempt at a src argument.
     // NOTE: this metric assumes an implicit comma at the end of the string
@@ -255,7 +244,7 @@ isOptArg_src(const char* x)
       commas += 1;
     }
 
-    double characters = (double)opt.size();
+    double characters = opt.size();
     
     ret = (commas / characters) >= tolerance;
   }
@@ -263,15 +252,15 @@ isOptArg_src(const char* x)
 }
 
 
-static bool
+static bool 
 isOptArg_obj(const char* x)
 {
   string opt(x);
   bool ret = true;
   try {
-    Args::parseArg_object(NULL, opt, "");
+    Args::parse_objectOpts(NULL, opt);
   }
-  catch (const Args::Exception& /*ex*/) {
+  catch (const Args::Exception& x) {
     // To enable good error messages, consider strings of size 1
     return (opt.size() == 1);
   }
@@ -308,10 +297,7 @@ Args::Ctor()
   Diagnostics_SetDiagnosticFilterLevel(1);
 
 
-  // Analysis::Args
-  prof_metrics = Analysis::Args::MetricSet_ThreadOnly;
-  profflat_computeFinalMetricValues = true;
-
+  // override Analysis::Args defaults
   out_db_experiment = "";
   db_dir            = "";
   db_copySrcFiles   = false;
@@ -319,6 +305,7 @@ Args::Ctor()
   out_txt           = "-";
   txt_summary       = TxtSum_fPgm | TxtSum_fLM;
   txt_srcAnnotation = false;
+  metrics_computeInteriorValues = true; // dump metrics on interior nodes
 }
 
 
@@ -327,14 +314,14 @@ Args::~Args()
 }
 
 
-void
+void 
 Args::printVersion(std::ostream& os) const
 {
   os << getCmd() << ": " << version_info << endl;
 }
 
 
-void
+void 
 Args::printUsage(std::ostream& os) const
 {
   os << "Usage: \n"
@@ -342,29 +329,29 @@ Args::printUsage(std::ostream& os) const
      << "  " << getCmd() << " " << usage_summary2 << endl
      << "  " << getCmd() << " " << usage_summary3 << endl
      << usage_details << endl;
-}
+} 
 
 
-void
+void 
 Args::printError(std::ostream& os, const char* msg) /*const*/
 {
   os << getCmd() << ": " << msg << endl
      << "Try '" << getCmd() << " --help' for more information." << endl;
 }
 
-void
+void 
 Args::printError(std::ostream& os, const std::string& msg) /*const*/
 {
   printError(os, msg.c_str());
 }
 
 
-const std::string&
+const std::string& 
 Args::getCmd() /*const*/
-{
+{ 
   // avoid error messages with: .../bin/hpcproftt-bin
   static string cmd = "hpcproftt";
-  return cmd; // parser.getCmd();
+  return cmd; // parser.getCmd(); 
 }
 
 
@@ -391,11 +378,11 @@ Args::parse(int argc, const char* const argv[])
       Diagnostics_SetDiagnosticFilterLevel(dbg);
       trace = dbg;
     }
-    if (parser.isOpt("help")) {
-      printUsage(std::cerr);
+    if (parser.isOpt("help")) { 
+      printUsage(std::cerr); 
       exit(1);
     }
-    if (parser.isOpt("version")) {
+    if (parser.isOpt("version")) { 
       printVersion(std::cerr);
       exit(1);
     }
@@ -419,7 +406,7 @@ Args::parse(int argc, const char* const argv[])
 
       if (!opt.empty()) {
 	txt_summary = Analysis::Args::TxtSum_NULL;
-	parseArg_source(this, opt, "--source/--src option");
+	parse_sourceOpts(this, opt);
       }
     }
     if (parser.isOpt("srcannot")) {
@@ -434,7 +421,7 @@ Args::parse(int argc, const char* const argv[])
       StrUtil::tokenize_str(str, CLP_SEPARATOR, searchPaths);
       
       for (uint i = 0; i < searchPaths.size(); ++i) {
-	searchPathTpls.push_back(Analysis::PathTuple(searchPaths[i],
+	searchPathTpls.push_back(Analysis::PathTuple(searchPaths[i], 
 						     Analysis::DefaultPathTupleTarget));
       }
     }
@@ -442,29 +429,9 @@ Args::parse(int argc, const char* const argv[])
       string str = parser.getOptArg("structure");
       StrUtil::tokenize_str(str, CLP_SEPARATOR, structureFiles);
     }
-   
-    if (parser.isOpt("replace-path")) {
-      string arg = parser.getOptArg("replace-path");
-      
-      std::vector<std::string> replacePaths;
-      StrUtil::tokenize_str(arg, CLP_SEPARATOR, replacePaths);
-      
-      for (uint i = 0; i < replacePaths.size(); ++i) {
-	int occurancesOfEquals =
-	  Analysis::Util::parseReplacePath(replacePaths[i]);
-	
-	if (occurancesOfEquals > 1) {
-	  ARG_ERROR("Too many occurances of \'=\'; make sure to escape any \'=\' in your paths");
-	}
-	else if(occurancesOfEquals == 0) {
-	  ARG_ERROR("The \'=\' between the old path and new path is missing");
-	}
-      }
-    }
-
     if (parser.isOpt("metric")) {
       string opt = parser.getOptArg("metric");
-      parseArg_metric(this, opt, "--metric/-M option");
+      parse_metricOpts(this, opt);
     }
     
     // Check for other options: Object correlation options
@@ -476,7 +443,7 @@ Args::parse(int argc, const char* const argv[])
       else if (parser.isOptArg("obj")) { opt = parser.getOptArg("obj"); }
 
       if (!opt.empty()) {
-	parseArg_object(this, opt, "--object/--obj option");
+	parse_objectOpts(this, opt);
       }
     }
     if (parser.isOpt("objannot")) {
@@ -494,6 +461,35 @@ Args::parse(int argc, const char* const argv[])
     // Check for other options: Dump raw profile data
     if (parser.isOpt("dump")) {
       mode = Mode_RawDataDump;
+    }
+
+    // -------------------------------------------------------
+    // OBSOLETE Options [FIXME: remove as soon as SiCortex says ok]
+    // -------------------------------------------------------
+    if (parser.isOpt('e')) {
+      DIAG_WMsg(0, "Deprecated option '-e': use --src=all or --src=sum");
+      mode = Mode_SourceCorrelation;
+      txt_summary = TxtSum_ALL;
+      txt_srcAnnotation = true;
+    }
+    if (parser.isOpt('f')) {
+      DIAG_WMsg(0, "Deprecated option '-f': use --src=f");
+      mode = Mode_SourceCorrelation;
+      txt_summary = txt_summary | TxtSum_fFile;
+    }
+    if (parser.isOpt('r')) {
+      DIAG_WMsg(0, "Deprecated option '-r': use --src=p");
+      mode = Mode_SourceCorrelation;
+      txt_summary = txt_summary | TxtSum_fProc;
+    }
+    if (parser.isOpt('l')) {
+      DIAG_WMsg(0, "Deprecated option '-l': use --src=s");
+      mode = Mode_SourceCorrelation;
+      txt_summary = txt_summary | TxtSum_fStmt;
+    }
+    if (parser.isOpt('o')) {
+      DIAG_WMsg(0, "Deprecated option '-o': use --obj");
+      mode = Mode_ObjectCorrelation;
     }
 
     // FIXME: sanity check that options correspond to mode
@@ -523,10 +519,10 @@ Args::parse(int argc, const char* const argv[])
 
 
 void
-Args::parseArg_source(Args* args, const string& value, const char* errTag)
+Args::parse_sourceOpts(Args* args, const string& opts)
 {
   std::vector<std::string> srcOptVec;
-  StrUtil::tokenize_char(value, ",", srcOptVec);
+  StrUtil::tokenize_char(opts, ",", srcOptVec);
 
   for (uint i = 0; i < srcOptVec.size(); ++i) {
     const string& opt = srcOptVec[i];
@@ -542,7 +538,7 @@ Args::parseArg_source(Args* args, const string& value, const char* errTag)
     else if (opt == "s")   { flg = TxtSum_fStmt; }
     else if (opt == "src") { ; }
     else {
-      ARG_Throw(errTag << ": Unexpected value received: '" << opt << "'");
+      ARG_Throw("Unknown argument to --src,--source: '" << opt << "'");
     }
 
     if (args) {
@@ -556,42 +552,38 @@ Args::parseArg_source(Args* args, const string& value, const char* errTag)
 
 
 void
-Args::parseArg_object(Args* args, const string& value, const char* errTag)
+Args::parse_objectOpts(Args* args, const string& opts)
 {
-  if (value == "s") {
+  if (opts == "s") {
     if (args) {
       args->obj_showSourceCode = true;
     }
   }
   else {
-    ARG_Throw(errTag << ": Unexpected value received: '" << value << "'");
+    ARG_Throw("Unknown argument to --obj,--object: '" << opts << "'");
   }
 }
 
 
 void
-Args::parseArg_metric(Args* args, const string& value, const char* errTag)
+Args::parse_metricOpts(Args* args, const string& opts)
 {
-  if (value == "sum") {
+  if (opts == "sum" || opts == "sum-only") {
     if (args) {
-      args->prof_metrics = Analysis::Args::MetricSet_SumOnly;
-    }
-  }
-  else if (value == "sum+") {
-    if (args) {
-      args->prof_metrics = Analysis::Args::MetricSet_ThreadAndSum;
+      args->txt_metrics = opts;
     }
   }
   else {
-    ARG_Throw(errTag << ": Unexpected value received: '" << value << "'");
+    ARG_Throw("Unknown argument to -M,--metric: '" << opts << "'");
   }
 }
 
 
-void
+void 
 Args::dump(std::ostream& os) const
 {
-  os << "Args.cmd= " << getCmd() << endl;
+  os << "Args.cmd= " << getCmd() << endl; 
   Analysis::Args::dump(os);
 }
+
 

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -99,6 +96,7 @@ struct dylib_fmca_s {
      ((info)->dlpi_phdr[seg].p_flags & PF_X))
 
 
+
 //*****************************************************************************
 // forward declarations
 //*****************************************************************************
@@ -134,7 +132,7 @@ void
 dylib_map_executable()
 {
   const char *executable_name = "/proc/self/exe";
-  fnbounds_ensure_mapped_dso(executable_name, NULL, NULL);
+  fnbounds_note_module(executable_name, NULL, NULL);
 }
 
 
@@ -195,22 +193,7 @@ dylib_find_proc(void* pc, void* *proc_beg, void* *mod_beg)
 }
 
 
-#if defined(__ia64__) && defined(__linux__)
-bool
-dylib_isin_start_func(void* pc)
-{
-  extern int __libc_start_main(void); // start of a process                                                                             
-  extern int __clone2(int (*fn)(void *),  void *child_stack_base,
-                      size_t stack_size, int flags, void *arg, ...
-                      /* pid_t *pid, struct user_desc *tls, pid_t *ctid */ );
-  void* proc_beg = NULL, *mod_beg = NULL;
-  dylib_find_proc(pc, &proc_beg, &mod_beg);
-
-  return (proc_beg == __libc_start_main ||
-          proc_beg == __clone2);
-}
-#else
-bool
+bool 
 dylib_isin_start_func(void* pc)
 {
   extern int __libc_start_main(void); // start of a process
@@ -222,7 +205,7 @@ dylib_isin_start_func(void* pc)
   return (proc_beg == __libc_start_main || 
 	  proc_beg == clone || proc_beg == __clone);
 }
-#endif  // __ia64__ && __linux__
+
 
 const char* 
 dylib_find_proc_name(const void* pc)
@@ -275,7 +258,7 @@ dylib_map_open_dsos_callback(struct dl_phdr_info *info, size_t size,
   if (strcmp(info->dlpi_name,"") != 0) {
     struct dylib_seg_bounds_s bounds;
     dylib_get_segment_bounds(info, &bounds);
-    fnbounds_ensure_mapped_dso(info->dlpi_name, bounds.start, bounds.end);
+    fnbounds_note_module(info->dlpi_name, bounds.start, bounds.end);
   }
 
   return 0;

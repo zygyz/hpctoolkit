@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -87,15 +84,15 @@ using std::string;
 
 unsigned int BinUtil::Proc::nextId = 0;
 
-BinUtil::Proc::Proc(BinUtil::TextSeg* seg,
+BinUtil::Proc::Proc(BinUtil::TextSeg* seg, 
 		    const string& name, const string& linkname,
-		    BinUtil::Proc::Type t, VMA begVMA, VMA endVMA,
+		    BinUtil::Proc::Type t, VMA begVMA, VMA endVMA, 
 		    unsigned int size)
   : m_seg(seg), m_name(name), m_linkname(linkname), m_type(t), m_begVMA(begVMA),
     m_endVMA(endVMA), m_size(size), m_filenm(""), m_begLine(0), m_parent(NULL)
 {
   m_id = nextId++;
-  m_numInsns = 0;
+  m_numInsns = 0; 
 }
 
 
@@ -105,21 +102,21 @@ BinUtil::Proc::~Proc()
 }
 
 
-BinUtil::Insn*
+BinUtil::Insn* 
 BinUtil::Proc::endInsn() const
 {
   Insn* insn = findInsn(m_endVMA, 0);
   if (insn) {
     ushort numOps = insn->numOps();
     if (numOps != 0) {
-      insn = findInsn(m_endVMA, (ushort)(numOps - 1)); // opIndex is 0-based
+      insn = findInsn(m_endVMA, numOps - 1); // opIndex is 0-based
     }
   }
   return insn;
 }
 
 
-string
+string 
 BinUtil::Proc::toString(int flags) const
 {
   std::ostringstream os;
@@ -133,20 +130,20 @@ BinUtil::Proc::dump(std::ostream& os, int flags, const char* pre) const
 {
   string p(pre);
   string p1 = p + "  ";
-  string p2 = p + "    ";
+  string p2 = p + "    ";  
   
   string proc, file, b_proc, b_file, e_proc, e_file;
   SrcFile::ln begLn, endLn, b_begLn, e_endLn2;
   Insn* eInsn = endInsn();
-  ushort endOp = (eInsn) ? eInsn->opIndex() : (ushort)0;
+  ushort endOp = (eInsn) ? eInsn->opIndex() : 0;
 
   // This call performs some consistency checking
-  m_seg->findSrcCodeInfo(begVMA(), 0, endVMA(), endOp,
+  m_seg->GetSourceFileInfo(begVMA(), 0, endVMA(), endOp,
 			   proc, file, begLn, endLn);
 
   // These calls perform no consistency checking
-  m_seg->findSrcCodeInfo(begVMA(), 0, b_proc, b_file, b_begLn);
-  m_seg->findSrcCodeInfo(endVMA(), endOp, e_proc, e_file, e_endLn2);
+  m_seg->GetSourceFileInfo(begVMA(), 0, b_proc, b_file, b_begLn);
+  m_seg->GetSourceFileInfo(endVMA(), endOp, e_proc, e_file, e_endLn2);
 
   string nm = BinUtil::canonicalizeProcName(name());
   string ln_nm = BinUtil::canonicalizeProcName(linkName());
@@ -155,11 +152,11 @@ BinUtil::Proc::dump(std::ostream& os, int flags, const char* pre) const
   os << p << "  Name:     `" << nm << "'\n";
   os << p << "  LinkName: `" << ln_nm << "'\n";
   os << p << "  Sym:      {" << filename() << "}:" << begLine() << "\n";
-  os << p << "  LnMap:    {" << file << "}["
+  os << p << "  LnMap:    {" << file << "}[" 
      << BinUtil::canonicalizeProcName(proc) <<"]:" << begLn << "-" << endLn << "\n";
-  os << p << "  LnMap(b): {" << b_file << "}["
+  os << p << "  LnMap(b): {" << b_file << "}[" 
      << BinUtil::canonicalizeProcName(b_proc) << "]:" << b_begLn << "\n";
-  os << p << "  LnMap(e): {" << e_file << "}["
+  os << p << "  LnMap(e): {" << e_file << "}[" 
      << BinUtil::canonicalizeProcName(e_proc) << "]:" << e_endLn2 << "\n";
   
   os << p << "  ID, Type: " << id() << ", `";
@@ -168,18 +165,18 @@ BinUtil::Proc::dump(std::ostream& os, int flags, const char* pre) const
     case Weak:    os << "Weak'\n";   break;
     case Global:  os << "Global'\n"; break;
     case Quasi:   os << "Quasi'\n";  break;
-    default:      os << "-unknown-'\n";
+    default:      os << "-unknown-'\n"; 
       DIAG_Die("Unknown Procedure type: " << type());
   }
   os << showbase
      << p << "  VMA: [" << hex << begVMA() << ", " << endVMA() << dec << "]\n";
   os << p << "  Size(b): " << size() << "\n";
   
-  if ((flags & LM::DUMP_Flg_Insn_ty)
+  if ((flags & LM::DUMP_Flg_Insn_ty) 
       || (flags & LM::DUMP_Flg_Insn_decode)) {
     os << p1 << "----- Instruction Dump -----\n";
-    for (ProcInsnIterator it(*this); it.isValid(); ++it) {
-      Insn* insn = it.current();
+    for (ProcInsnIterator it(*this); it.IsValid(); ++it) {
+      Insn* insn = it.Current();
 
       if (flags & LM::DUMP_Flg_Insn_decode) {
 	os << p2 << hex << insn->vma() << dec << ": ";
@@ -194,24 +191,24 @@ BinUtil::Proc::dump(std::ostream& os, int flags, const char* pre) const
 	VMA vma = insn->vma();
 	ushort opIdx = insn->opIndex();
 
-	string proc1, file1;
+	string proc, file;
 	SrcFile::ln line;
-    	m_seg->findSrcCodeInfo(vma, opIdx, proc1, file1, line);
-	proc1 = BinUtil::canonicalizeProcName(proc1);
+    	m_seg->GetSourceFileInfo(vma, opIdx, proc, file, line);
+	proc = BinUtil::canonicalizeProcName(proc);
 	
 	os << p2 << "  ";
-	if (file1 == filename()) {
-	  os << "-";
+	if (file == filename()) { 
+	  os << "-"; 
 	}
 	else {
-	  os << "!{" << file1 << "}";
+	  os << "!{" << file << "}";
 	}
 	os << ":" << line << ":";
-	if (proc1 == nm || proc1 == ln_nm) {
+	if (proc == nm || proc == ln_nm) {
 	  os << "-";
 	}
 	else {
-	  os << "![" << proc1 << "]";
+	  os << "![" << proc << "]";
 	}
 	os << "\n";
       }
@@ -234,7 +231,7 @@ BinUtil::Proc::ddump() const
 BinUtil::ProcInsnIterator::ProcInsnIterator(const Proc& _p)
   : p(_p), lm(*(p.lm()))
 {
-  reset();
+  Reset();
 }
 
 
@@ -244,10 +241,10 @@ BinUtil::ProcInsnIterator::~ProcInsnIterator()
 
 
 void
-BinUtil::ProcInsnIterator::reset()
+BinUtil::ProcInsnIterator::Reset()
 {
   it    = lm.m_insnMap.find(p.m_begVMA);
-  endIt = lm.m_insnMap.find(p.m_endVMA);
+  endIt = lm.m_insnMap.find(p.m_endVMA); 
   
   if (it != lm.m_insnMap.end()) {
     // We have at least one instruction: p.endVMA should have been found

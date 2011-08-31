@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //******************************************************************************
@@ -76,8 +73,8 @@
 // external declarations
 //******************************************************************************
 
-extern void hpcrun_trampoline();
-extern void hpcrun_trampoline_end();
+extern void hpcrun_trampoline;
+extern void hpcrun_trampoline_end;
 
 
 //******************************************************************************
@@ -101,8 +98,7 @@ hpcrun_init_trampoline_info(void)
 bool
 hpcrun_trampoline_interior(void* addr)
 {
-  return ((void*)hpcrun_trampoline < addr 
-	  && addr <= (void*)hpcrun_trampoline_end);
+    return (&hpcrun_trampoline < addr && addr <= &hpcrun_trampoline_end);
 }
 
 
@@ -110,7 +106,7 @@ hpcrun_trampoline_interior(void* addr)
 bool
 hpcrun_trampoline_at_entry(void* addr)
 {
-  return (addr == hpcrun_trampoline);
+  return (addr == &hpcrun_trampoline);
 }
 
 
@@ -120,10 +116,10 @@ hpcrun_trampoline_advance(void)
   thread_data_t* td = hpcrun_get_thread_data();
   cct_node_t* node = td->tramp_cct_node;
   TMSG(TRAMP, "Advance from node %p...", node);
-  cct_node_t* parent = (node) ? hpcrun_cct_parent(node) : NULL;
-  TMSG(TRAMP, " ... to node %p", parent);
+  node = node->parent;
+  TMSG(TRAMP, " ... to node %p", node);
   td->tramp_frame++;
-  return parent;
+  return node;
 }
 
 
@@ -144,7 +140,7 @@ hpcrun_trampoline_insert(cct_node_t* node)
   // save the return address overwritten with trampoline address 
   td->tramp_retn_addr = *((void**) addr);
 
-  *((void**)addr) = hpcrun_trampoline;
+  *((void**)addr) = &hpcrun_trampoline;
   td->tramp_cct_node = node;
   td->tramp_present = true;
 }
@@ -174,15 +170,8 @@ hpcrun_trampoline_handler(void)
 
   hpcrun_retcnt_inc(td->tramp_cct_node, 1);
 
-  TMSG(TRAMP, "About to advance trampoline ...");
   cct_node_t* n = hpcrun_trampoline_advance();
-  TMSG(TRAMP, "... Trampoline advaned to %p", n);
-  if (n)
-    hpcrun_trampoline_insert(n);
-  else {
-    EMSG("NULL trampoline advance !!, trampoline removed");
-    hpcrun_trampoline_remove();
-  }
+  hpcrun_trampoline_insert(n);
 
   hpcrun_async_unblock();
   return ra; // our assembly code caller will return to ra

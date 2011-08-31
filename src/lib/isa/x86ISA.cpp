@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -75,9 +72,9 @@ using std::ostream;
 
 //*************************** Forward Declarations ***************************
 
-static VMA
+static VMA 
 GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
-{
+{ 
   // N.B.: The GNU decoders expect that the address of the 'mi' is
   // actually the VMA.  Furthermore for 32-bit x86 decoding, only
   // the lower 32 bits of 'mi' are valid.
@@ -91,7 +88,7 @@ GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
 }
 
 
-static void
+static void 
 GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 {
   GNUbu_disdata* data = (GNUbu_disdata*)di->application_data;
@@ -142,14 +139,14 @@ x86ISA::~x86ISA()
 
 
 ushort
-x86ISA::getInsnSize(MachInsn* mi)
+x86ISA::GetInsnSize(MachInsn* mi)
 {
   ushort size;
   DecodingCache *cache;
 
-  if ((cache = cacheLookup(mi)) == NULL) {
-    size = (ushort)print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, size);
+  if ((cache = CacheLookup(mi)) == NULL) {
+    size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
   else {
     size = cache->insnSize;
@@ -159,56 +156,55 @@ x86ISA::getInsnSize(MachInsn* mi)
 
 
 ISA::InsnDesc
-x86ISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		    ushort GCC_ATTR_UNUSED s)
+x86ISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort s)
 {
   ISA::InsnDesc d;
 
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
 
   switch(m_di->insn_type) {
     case dis_noninsn:
-      d.set(InsnDesc::INVALID);
+      d.Set(InsnDesc::INVALID);
       break;
     case dis_branch:
       if (m_di->target != 0) {
-	d.set(InsnDesc::BR_UN_COND_REL);
+	d.Set(InsnDesc::BR_UN_COND_REL);
       }
       else {
-	d.set(InsnDesc::BR_UN_COND_IND);
+	d.Set(InsnDesc::BR_UN_COND_IND);
       }
       break;
     case dis_condbranch:
       if (m_di->target != 0) {
-	d.set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
       }
       else {
-	d.set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
       }
       break;
     case dis_jsr:
       if (m_di->target != 0) {
-	d.set(InsnDesc::SUBR_REL);
+	d.Set(InsnDesc::SUBR_REL);
       }
       else {
-	d.set(InsnDesc::SUBR_IND);
+	d.Set(InsnDesc::SUBR_IND);
       }
       break;
     case dis_condjsr:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
     case dis_return:
-      d.set(InsnDesc::SUBR_RET);
+      d.Set(InsnDesc::SUBR_RET);
       break;
     case dis_dref:
     case dis_dref2:
-      d.set(InsnDesc::MEM_OTHER);
+      d.Set(InsnDesc::MEM_OTHER);
       break;
     default:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
   }
   return d;
@@ -216,18 +212,17 @@ x86ISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-x86ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort GCC_ATTR_UNUSED opIndex,
-			 ushort GCC_ATTR_UNUSED sz)
+x86ISA::GetInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 {
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
 
   // The target field is only set on instructions with targets.
   if (m_di->target != 0) {
     return GNUvma2vma(m_di->target, mi, vma);
-  }
+  } 
   else {
     return 0;
   }
@@ -235,12 +230,11 @@ x86ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort GCC_ATTR_UNUSED opIndex,
 
 
 void
-x86ISA::decode(ostream& os, MachInsn* mi, VMA vma,
-	       ushort GCC_ATTR_UNUSED opIndex)
+x86ISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;
-
+  
   m_di_dis->stream = (void*)&os;
   print_insn_i386(PTR_TO_BFDVMA(mi), m_di_dis);
 }

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -73,11 +70,7 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/hpctoolkit-config.h>
-
 #include "Args.hpp"
-
-#include <lib/analysis/Util.hpp>
 
 #include <lib/support/diagnostics.h>
 #include <lib/support/Trace.hpp>
@@ -96,7 +89,8 @@ using std::string;
 
 const string Args::HPCTOOLKIT = "HPCTOOLKIT"; 
 
-static const char* version_info = HPCTOOLKIT_VERSION_STRING;
+static const char* version_info =
+#include <include/HPCToolkitVersionInfo.h>
 
 static const char* usage_summary1 =
 "[output-options] [correlation-options] <profile-file>...";
@@ -142,12 +136,6 @@ Options: Source Structure Correlation:\n\
   -S <file>, --structure <file>\n\
                        Use hpcstruct structure file <file> for correlation.\n\
                        May pass multiple times (e.g., for shared libraries).\n\
-  -R '<old-path>=<new-path>', --replace-path '<old-path>=<new-path>'\n\
-                       Substitute instances of <old-path> with <new-path>;\n\
-                       apply to all paths (profile's load map, source code)\n\
-                       for which <old-path> is a prefix.  Use '\\' to escape\n\
-                       instances of '=' within a path. May pass multiple\n\
-                       times.\n\
 \n\
 Options: Output:\n\
   -o <db-path>, --db <db-path>, --output <db-path>\n\
@@ -196,8 +184,6 @@ CmdLineParser::OptArgDesc Args::optArgs[] = {
      NULL },
   { 'S', "structure",       CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
-  { 'R', "replace-path",    CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
-     NULL},
 
   // Output options
   { 'o', "output",          CLP::ARG_REQ , CLP::DUPOPT_CLOB, NULL,
@@ -255,9 +241,9 @@ Args::Ctor()
   Diagnostics_SetDiagnosticFilterLevel(1);
 
   configurationFileMode = false;
-  
-  // Analysis::ArgsA
-  profflat_computeFinalMetricValues = true;
+
+  // override Analysis::Args defaults
+  metrics_computeInteriorValues = true; // dump metrics on interior nodes
 }
 
 
@@ -379,25 +365,6 @@ Args::parse(int argc, const char* const argv[])
       StrUtil::tokenize_str(str, CLP_SEPARATOR, structureFiles);
     }
     
-    if (parser.isOpt("replace-path")) {
-      string arg = parser.getOptArg("replace-path");
-      
-      std::vector<std::string> replacePaths;
-      StrUtil::tokenize_str(arg,CLP_SEPARATOR, replacePaths);
-      
-      for (uint i = 0; i < replacePaths.size(); ++i) {
-	int occurancesOfEquals = 
-	  Analysis::Util::parseReplacePath(replacePaths[i]);
-	
-	if (occurancesOfEquals > 1) {
-	  ARG_ERROR("Too many occurances of \'=\'; make sure to escape any \'=\' in your paths");
-	}
-	else if(occurancesOfEquals == 0) {
-	  ARG_ERROR("The \'=\' between the old path and new path is missing");
-	}
-      }
-    }
-
     // Check for other options: Output options
     if (parser.isOpt("output")) {
       db_dir = parser.getOptArg("output");
@@ -494,3 +461,4 @@ Args::setHPCHome()
   closedir(fp); 
   hpcHome = home; 
 } 
+

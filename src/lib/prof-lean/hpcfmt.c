@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -89,7 +86,7 @@ hpcfmt_str_fread(char** str, FILE* infs, hpcfmt_alloc_fn alloc)
   uint32_t len;
   char* buf = NULL;
 
-  HPCFMT_ThrowIfError(hpcfmt_int4_fread(&len, infs));
+  HPCFMT_ThrowIfError(hpcfmt_byte4_fread(&len, infs));
   if (alloc) {
     buf = (char*) alloc(len+1);
   }
@@ -114,13 +111,13 @@ hpcfmt_str_fread(char** str, FILE* infs, hpcfmt_alloc_fn alloc)
 int
 hpcfmt_str_fwrite(const char* str, FILE* outfs)
 {
-  uint32_t len = (str) ? strlen(str) : 0;
+  uint32_t len = strlen(str);
 
-  hpcfmt_int4_fwrite(len, outfs);
+  hpcfmt_byte4_fwrite(len, outfs);
   
-  for (int i = 0; i < len; i++) {
+  for(int i = 0; i < len; i++){
     int c = fputc(str[i], outfs);
-    if (c == EOF) {
+    if (c == EOF){
       return HPCFMT_ERR;
     }
   }
@@ -173,7 +170,7 @@ hpcfmt_nvpairs_vfwrite(FILE* out, va_list args)
   }
   va_end(_tmp);
 
-  hpcfmt_int4_fwrite(len, out);
+  hpcfmt_byte4_fwrite(len, out);
 
   for (char* arg = va_arg(args, char*); arg != NULL; 
        arg = va_arg(args, char*)) {
@@ -198,7 +195,7 @@ hpcfmt_nvpair_fread(hpcfmt_nvpair_t* inp, FILE* infs, hpcfmt_alloc_fn alloc)
 int
 hpcfmt_nvpair_fprint(hpcfmt_nvpair_t* nvp, FILE* fs, const char* pre)
 {
-  fprintf(fs, "%s[nv-pair: '%s', '%s']\n", pre, nvp->name, nvp->val);
+  fprintf(fs, "%s[nv-pair: %s, %s]\n", pre, nvp->name, nvp->val);
   return HPCFMT_OK;
 }
 
@@ -208,10 +205,10 @@ hpcfmt_nvpair_fprint(hpcfmt_nvpair_t* nvp, FILE* fs, const char* pre)
 //***************************************************************************
 
 int
-hpcfmt_nvpairList_fread(HPCFMT_List(hpcfmt_nvpair_t)* nvps,
-			FILE* infs, hpcfmt_alloc_fn alloc)
+hpcfmt_nvpair_list_fread(HPCFMT_List(hpcfmt_nvpair_t)* nvps,
+			 FILE* infs, hpcfmt_alloc_fn alloc)
 {
-  HPCFMT_ThrowIfError(hpcfmt_int4_fread(&(nvps->len), infs));
+  HPCFMT_ThrowIfError(hpcfmt_byte4_fread(&(nvps->len), infs));
   if (alloc != NULL) {
     nvps->lst = (hpcfmt_nvpair_t*) alloc(nvps->len * sizeof(hpcfmt_nvpair_t));
   }
@@ -223,8 +220,8 @@ hpcfmt_nvpairList_fread(HPCFMT_List(hpcfmt_nvpair_t)* nvps,
 
 
 int
-hpcfmt_nvpairList_fprint(const HPCFMT_List(hpcfmt_nvpair_t)* nvps,
-			 FILE* fs, const char* pre)
+hpcfmt_nvpair_list_fprint(HPCFMT_List(hpcfmt_nvpair_t)* nvps, 
+			  FILE* fs, const char* pre)
 {
   for (uint32_t i = 0; i < nvps->len; ++i) {
     hpcfmt_nvpair_fprint(&nvps->lst[i], fs, pre);
@@ -234,8 +231,7 @@ hpcfmt_nvpairList_fprint(const HPCFMT_List(hpcfmt_nvpair_t)* nvps,
 
 
 const char*
-hpcfmt_nvpairList_search(const HPCFMT_List(hpcfmt_nvpair_t)* nvps,
-			 const char* name)
+hpcfmt_nvpair_search(HPCFMT_List(hpcfmt_nvpair_t)* nvps, const char* name)
 {
   for (uint32_t i = 0; i < nvps->len; ++i) {
     if (strcmp(nvps->lst[i].name, name) == 0) {
@@ -247,8 +243,7 @@ hpcfmt_nvpairList_search(const HPCFMT_List(hpcfmt_nvpair_t)* nvps,
 
 
 void
-hpcfmt_nvpairList_free(HPCFMT_List(hpcfmt_nvpair_t)* nvps,
-		       hpcfmt_free_fn dealloc)
+hpcfmt_nvpair_free(HPCFMT_List(hpcfmt_nvpair_t)* nvps, hpcfmt_free_fn dealloc)
 {
   for (uint32_t i = 0; i < nvps->len; ++i) {
     dealloc(nvps->lst[i].name);

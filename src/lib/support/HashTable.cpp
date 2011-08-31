@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 /******************************************************************************
@@ -71,8 +68,6 @@ using namespace std; // For compatibility with non-std C headers
 #endif
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "HashTable.hpp"
 
@@ -232,7 +227,7 @@ void HashTable::Destroy ()
 
 //
 // Explicitly defined to prevent usage. 
-HashTable &HashTable::operator=(const HashTable& GCC_ATTR_UNUSED rhs)
+HashTable &HashTable::operator=(const HashTable & rhs)
 {
   DIAG_Die("Should not call HashTable::operator=()!");
   return *this;
@@ -852,8 +847,7 @@ int StringEntryCompare (const void* entry1, const void* entry2)
 
 //
 //
-static uint DefaultHashFunct (const void* GCC_ATTR_UNUSED entry,
-			      const uint GCC_ATTR_UNUSED size)
+static uint DefaultHashFunct (const void* entry, const uint size)
 {
   DIAG_Die("Failure to specify HashFunct function.");
   return 0;
@@ -879,8 +873,7 @@ static uint DefaultRehashFunct (const uint oldHashValue, const uint size)
 
 //
 //
-static int DefaultEntryCompare (const void* GCC_ATTR_UNUSED entry1,
-				const void* GCC_ATTR_UNUSED entry2)
+static int  DefaultEntryCompare (const void* entry1, const void* entry2)
 {
   DIAG_Die("Failure to specify EntryCompare function.");
   return 0;
@@ -888,7 +881,7 @@ static int DefaultEntryCompare (const void* GCC_ATTR_UNUSED entry1,
 
 //
 //
-static void DefaultEntryCleanup (void* GCC_ATTR_UNUSED entry)
+static void DefaultEntryCleanup (void* entry)
 {
 # ifdef DEBUG
     cerr << "\tHashTable::DefaultEntryCleanup\t" << (int)entry

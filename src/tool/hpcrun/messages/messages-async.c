@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -84,7 +81,6 @@
 #include "messages.i"
 #include "fmt.h"
 #include "sample_event.h"
-#include "sample_prob.h"
 #include "thread_data.h"
 #include "thread_use.h"
 
@@ -96,11 +92,7 @@
 
 #define DEBUG_PMSG_ASYNC 0
 
-//*****************************************************************************
-// constants
-//*****************************************************************************
 
-static const unsigned int msg_limit = 5000; // limit log file lines
 
 //*****************************************************************************
 // global variables
@@ -108,12 +100,7 @@ static const unsigned int msg_limit = 5000; // limit log file lines
 
 spinlock_t pmsg_lock = SPINLOCK_UNLOCKED;
 
-//*****************************************************************************
-// (file) local variables
-//*****************************************************************************
 
-static unsigned int msgs_out = 0;
-static bool check_limit = true;    // by default, limit messages
 
 //*****************************************************************************
 // forward declarations
@@ -121,6 +108,7 @@ static bool check_limit = true;    // by default, limit messages
 
 static void create_msg(char *buf, size_t buflen, bool add_thread_id, 
 		       const char *tag, const char *fmt, va_list_box* box);
+
 
 //*****************************************************************************
 // interface operations
@@ -203,10 +191,7 @@ hpcrun_amsg(const char *fmt,...)
 {
   va_list_box box;
   va_list_box_start(box, fmt);
-  bool save = check_limit;
-  check_limit = false;
   hpcrun_write_msg_to_log(false, false, NULL, fmt, &box);
-  check_limit = save;
 }
 
 
@@ -216,14 +201,12 @@ hpcrun_amsg(const char *fmt,...)
 //*****************************************************************************
 
 void
-hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
-			const char *tag,
+hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id, const char *tag,
 			const char *fmt, va_list_box* box)
 {
   char buf[MSG_BUF_SIZE];
 
-  if ((hpcrun_get_disabled() && (! echo_stderr))
-      || (! hpcrun_sample_prob_active())) {
+  if (hpcrun_get_disabled() && (! echo_stderr)){
     return;
   }
 
@@ -234,8 +217,6 @@ hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
     write(2, buf, strlen(buf));
   }
 
-  if (check_limit && (msgs_out > msg_limit)) return;
-
   if (hpcrun_get_disabled()) return;
 
   spinlock_lock(&pmsg_lock);
@@ -243,7 +224,6 @@ hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
   // use write to logfile file descriptor, instead of fprintf stuff
   //
   write(messages_logfile_fd(), buf, strlen(buf));
-  msgs_out++;
 
   spinlock_unlock(&pmsg_lock);
 }
@@ -265,17 +245,13 @@ create_msg(char *buf, size_t buflen, bool add_thread_id, const char *tag,
   if (add_thread_id) {
     if (hpcrun_using_threads_p()) {
       tmp_id = TD_GET(id);
-      hpcrun_msg_ns(fstr, sizeof(fstr), "[%d, %d]: ", getpid(), tmp_id);
-    }
-    else {
-      hpcrun_msg_ns(fstr, sizeof(fstr), "[%d, N]: ", getpid());
+      hpcrun_msg_ns(fstr, sizeof(fstr), "[%d]: ", tmp_id);
     }
   }
-#if 0
   if (ENABLED(PID)) {
     hpcrun_msg_ns(fstr, sizeof(fstr), "[%d]: ", getpid());
   }
-#endif
+
   if (tag) {
     char* fstr_end = fstr + strlen(fstr);
     hpcrun_msg_ns(fstr_end, sizeof(fstr) - strlen(fstr), "%-5s: ", tag);
@@ -285,16 +261,5 @@ create_msg(char *buf, size_t buflen, bool add_thread_id, const char *tag,
   strcat(fstr,"\n");
 
   hpcrun_msg_vns(buf, buflen - 2, fstr, box);
-}
-
-void
-unlimit_msgs(void)
-{
-  check_limit = false;
-}
-void
-limit_msgs(void)
-{
-  check_limit = true;
 }
 

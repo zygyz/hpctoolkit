@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,12 +37,12 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
-// The new memory allocator.  We mmap() a large, single region (4 Meg)
+// The new memory allocator.  We mmap() a large, single region (6 Meg)
 // per thread and dole out pieces via hpcrun_malloc().  Pieces are
 // either freeable (CCT nodes) or not freeable (everything else).
 // When memory gets low, we write out an epoch and reclaim the CCT
@@ -85,7 +82,6 @@ static size_t pagesize = DEFAULT_PAGESIZE;
 static int allow_extra_mmap = 1;
 
 static long num_segments = 0;
-static long total_allocation = 0;
 static long num_reclaims = 0;
 static long num_failures = 0;
 static long total_freeable = 0;
@@ -182,9 +178,6 @@ hpcrun_mmap_anon(size_t size)
     str = strerror(errno);
     EMSG("%s: mmap failed: %s", __func__, str);
     addr = NULL;
-  } else {
-    num_segments++;
-    total_allocation += size;
   }
 
   NMSG(MALLOC, "%s: size = %ld, fd = %d, addr = %p",
@@ -205,37 +198,14 @@ hpcrun_mmap_anon(size_t size)
 //   mi_start           mi_low       mi_high
 //
 
-// After fork(), the parent's memstores are still allocated in the
-// child, so don't reset num_segments.
-// FIXME: it's not clear which stats should be reset here.
-void
-hpcrun_memory_reinit(void)
-{
-  num_reclaims = 0;
-  num_failures = 0;
-  total_freeable = 0;
-  total_non_freeable = 0;
-  out_of_mem_mesg = 0;
-}
-
 // Allocate space and init a thread's memstore.
 // If failure, shutdown sampling and leave old memstore in place.
 void
-hpcrun_make_memstore(hpcrun_meminfo_t *mi, int is_child)
+hpcrun_make_memstore(hpcrun_meminfo_t *mi)
 {
   void *addr;
 
   hpcrun_mem_init();
-
-  // If in the child after fork(), then continue to use the parent's
-  // memstore if it looks ok, else mmap a new one.  Note: we can't
-  // reset the memstore to empty unless we delete everything that was
-  // created via hpcrun_malloc() (cct, ui_tree, ...).
-  if (is_child && mi->mi_start != NULL
-      && mi->mi_start <= mi->mi_low && mi->mi_low <= mi->mi_high
-      && mi->mi_high <= mi->mi_start + mi->mi_size) {
-    return;
-  }
 
   addr = hpcrun_mmap_anon(memsize);
   if (addr == NULL) {
@@ -251,6 +221,7 @@ hpcrun_make_memstore(hpcrun_meminfo_t *mi, int is_child)
   mi->mi_size = memsize;
   mi->mi_low = mi->mi_start;
   mi->mi_high = mi->mi_start + memsize;
+  num_segments++;
 
   NMSG(MALLOC, "new memstore: [%p, %p)", mi->mi_start, mi->mi_high);
 }
@@ -285,31 +256,12 @@ hpcrun_malloc(size_t size)
   mi = &TD_GET(memstore);
   size = round_up(size);
 
-  // For a large request that doesn't fit within the existing
-  // memstore, mmap a separate region for it.
-  if (size > memsize/5 && allow_extra_mmap
-      && (mi->mi_start == NULL || size > mi->mi_high - mi->mi_low)) {
-    addr = hpcrun_mmap_anon(size);
-    if (addr == NULL) {
-      if (! out_of_mem_mesg) {
-	EMSG("%s: out of memory, shutting down sampling", __func__);
-	out_of_mem_mesg = 1;
-      }
-      hpcrun_disable_sampling();
-      num_failures++;
-      return NULL;
-    }
-    TMSG(MALLOC, "%s: size = %ld, addr = %p", __func__, size, addr);
-    total_non_freeable += size;
-    return addr;
-  }
-
   // See if we need to allocate a new memstore.
   if (mi->mi_start == NULL
       || mi->mi_high - mi->mi_low < low_memsize
       || mi->mi_high - mi->mi_low < size) {
     if (allow_extra_mmap) {
-      hpcrun_make_memstore(mi, 0);
+      hpcrun_make_memstore(mi);
     } else {
       if (! out_of_mem_mesg) {
 	EMSG("%s: out of memory, shutting down sampling", __func__);
@@ -390,7 +342,8 @@ hpcrun_memory_summary(void)
 
   AMSG("MEMORY: segment size: %.1f meg, num segments: %ld, "
        "total allocation: %.1f meg, reclaims: %ld",
-       memsize/meg, num_segments, total_allocation/meg, num_reclaims);
+       memsize/meg, num_segments,
+       (num_segments * memsize)/meg, num_reclaims);
 
   AMSG("MEMORY: total freeable: %.1f meg, total non-freeable: %.1f meg, "
        "malloc failures: %ld",

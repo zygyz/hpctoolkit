@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -55,16 +52,12 @@
 #include <cstdio>
 #include <cstdlib>
 
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <setjmp.h>
-#include <signal.h>
+
 
 //*****************************************************************************
 // local includes
@@ -81,6 +74,8 @@ using namespace std;
 using namespace Dyninst;
 using namespace SymtabAPI;
 
+
+
 //*****************************************************************************
 // macros
 //*****************************************************************************
@@ -90,7 +85,6 @@ using namespace SymtabAPI;
 #define SECTION_FINI   ".fini"
 #define SECTION_TEXT   ".text"
 #define SECTION_PLT    ".plt"
-#define SECTION_GOT    ".got"
 
 #define PATHSCALE_EXCEPTION_HANDLER_PREFIX "Handler."
 #define USE_PATHSCALE_SYMBOL_FILTER
@@ -105,8 +99,8 @@ using namespace SymtabAPI;
 //*****************************************************************************
 
 static void usage(char *command, int status);
-static void dump_file_info(const char *filename, DiscoverFnTy fn_discovery);
-static void setup_segv_handler(void);
+static void dump_file_info(const char *filename, bool fn_discovery);
+
 
 //*****************************************************************************
 // local variables
@@ -119,11 +113,6 @@ static int   the_binary_fd = -1;
 static FILE *the_c_fp = NULL;
 static FILE *the_text_fp = NULL;
 
-static jmp_buf segv_recover; // handle longjmp "restart" from segv
-
-//*****************************************************************
-// global variables
-//*****************************************************************
 
 //*****************************************************************
 // interface operations
@@ -134,9 +123,9 @@ static jmp_buf segv_recover; // handle longjmp "restart" from segv
 // only one to stdout.
 //
 int 
-main(int argc, char* argv[])
+main(int argc, char **argv)
 {
-  DiscoverFnTy fn_discovery = DiscoverFnTy_Aggressive;
+  bool fn_discovery = 1;
   char buf[PATH_MAX], *object_file, *output_dir, *base;
   int num_fmts = 0, do_binary = 0, do_c = 0, do_text = 0;
   int n;
@@ -149,7 +138,7 @@ main(int argc, char* argv[])
       do_c = 1;
     }
     else if (strcmp(argv[n], "-d") == 0) {
-      fn_discovery = DiscoverFnTy_Conservative;
+      fn_discovery = 0;
     }
     else if (strcmp(argv[n], "-h") == 0 || strcmp(argv[n], "--help") == 0) {
       usage(argv[0], 0);
@@ -217,18 +206,7 @@ main(int argc, char* argv[])
       the_text_fp = stdout;
   }
 
-  setup_segv_handler();
-  if ( ! setjmp(segv_recover) ) {
-    dump_file_info(object_file, fn_discovery);
-  }
-  else {
-    fprintf(stderr,
-	    "!!! INTERNAL hpcfnbounds-bin error !!!\n"
-	    "argument string = ");
-    for (int i = 0; i < argc; i++)
-      fprintf(stderr, "%s ", argv[i]);
-    fprintf(stderr, "\n");
-  }
+  dump_file_info(object_file, fn_discovery);
   return 0;
 }
 
@@ -290,29 +268,6 @@ usage(char *command, int status)
   exit(status);
 }
 
-static void
-segv_handler(int sig)
-{
-  longjmp(segv_recover, 1);
-}
-
-static void
-setup_segv_handler(void)
-{
-#if 0
-  const struct sigaction segv_action= {
-    .sa_handler = segv_handler,
-    .sa_flags   = 0
-  };
-#endif
-  struct sigaction segv_action;
-  segv_action.sa_handler = segv_handler;
-  segv_action.sa_flags   = 0;
-  sigemptyset(&segv_action.sa_mask);
-
-  sigaction(SIGSEGV, &segv_action, NULL);
-}
-
 
 static bool 
 matches_prefix(string s, const char *pre, int n)
@@ -355,41 +310,40 @@ code_range_comment(string &name, string section, const char *which)
 
 
 static void
-note_code_range(Region *s, long memaddr, DiscoverFnTy discover)
+note_code_range(Section *s, long memaddr, bool discover)
 {
-  char *start = (char *) s->getRegionAddr();
-  char *end = start + s->getRegionSize();
+  char *start = (char *) s->getSecAddr();
+  char *end = start + s->getSecSize();
   string ntmp;
   new_code_range(start, end, memaddr, discover);
 
-  add_function_entry(start, code_range_comment(ntmp, s->getRegionName(), "start"), true /* global */);
-  add_function_entry(end, code_range_comment(ntmp, s->getRegionName(), "end"), true /* global */);
+  add_function_entry(start, code_range_comment(ntmp, s->getSecName(), "start"), true /* global */);
+  add_function_entry(end, code_range_comment(ntmp, s->getSecName(), "end"), true /* global */);
 }
 
 
 static void
-note_section(Symtab *syms, const char *sname, DiscoverFnTy discover)
+note_section(Symtab *syms, const char *sname, bool discover)
 {
   long memaddr = (long) syms->mem_image();
-  Region *s;
-  if (syms->findRegion(s, sname) && s) 
+  Section *s;
+  if (syms->findSection(s, sname) && s) 
     note_code_range(s, memaddr - syms->imageOffset(), discover);
 }
 
 
 static void
-note_code_ranges(Symtab *syms, DiscoverFnTy fn_discovery)
+note_code_ranges(Symtab *syms, bool fn_discovery)
 {
   note_section(syms, SECTION_INIT, fn_discovery);
-  note_section(syms, SECTION_PLT,  DiscoverFnTy_Aggressive);
+  note_section(syms, SECTION_PLT, ALWAYS_DISCOVER_FUNCTIONS);
   note_section(syms, SECTION_TEXT, fn_discovery);
-  note_section(syms, SECTION_GOT,  DiscoverFnTy_None);
   note_section(syms, SECTION_FINI, fn_discovery);
 }
 
 
 static void 
-dump_symbols(Symtab *syms, vector<Symbol *> &symvec, DiscoverFnTy fn_discovery)
+dump_symbols(Symtab *syms, vector<Symbol *> &symvec, bool fn_discovery)
 {
   note_code_ranges(syms, fn_discovery);
 
@@ -402,7 +356,7 @@ dump_symbols(Symtab *syms, vector<Symbol *> &symvec, DiscoverFnTy fn_discovery)
   for (unsigned int i = 0; i < symvec.size(); i++) {
     Symbol *s = symvec[i];
     Symbol::SymbolLinkage sl = s->getLinkage();
-    if (report_symbol(s) && s->getAddr() != 0) 
+    if (report_symbol(s)) 
       add_function_entry((void *) s->getAddr(), &s->getName(), 
 			 ((sl & Symbol::SL_GLOBAL) ||
 			  (sl & Symbol::SL_WEAK)));
@@ -418,8 +372,7 @@ dump_symbols(Symtab *syms, vector<Symbol *> &symvec, DiscoverFnTy fn_discovery)
 
 
 static void 
-dump_file_symbols(Symtab *syms, vector<Symbol *> &symvec,
-		  DiscoverFnTy fn_discovery)
+dump_file_symbols(Symtab *syms, vector<Symbol *> &symvec, bool fn_discovery)
 {
   if (c_fmt_fp() != NULL) {
     fprintf(c_fmt_fp(), "unsigned long hpcrun_nm_addrs[] = {\n");
@@ -428,7 +381,7 @@ dump_file_symbols(Symtab *syms, vector<Symbol *> &symvec,
   dump_symbols(syms, symvec, fn_discovery);
 
   if (c_fmt_fp() != NULL) {
-    fprintf(c_fmt_fp(), "};\nunsigned long hpcrun_nm_addrs_len = "
+    fprintf(c_fmt_fp(), "};\nint hpcrun_nm_addrs_len = "
 	   "sizeof(hpcrun_nm_addrs) / sizeof(hpcrun_nm_addrs[0]);\n");
   }
 }
@@ -437,31 +390,26 @@ dump_file_symbols(Symtab *syms, vector<Symbol *> &symvec,
 // We call it "header", even though it comes at end of file.
 //
 static void
-dump_header_info(int is_relocatable, uintptr_t ref_offset)
+dump_header_info(int relocatable)
 {
   struct fnbounds_file_header fh;
 
   if (binary_fmt_fd() >= 0) {
     memset(&fh, 0, sizeof(fh));
-    fh.zero_pad = 0;
-    fh.reference_offset = ref_offset;
     fh.magic = FNBOUNDS_MAGIC;
     fh.num_entries = num_function_entries();
-    fh.is_relocatable = is_relocatable;
+    fh.relocatable = relocatable;
     write(binary_fmt_fd(), &fh, sizeof(fh));
   }
 
   if (c_fmt_fp() != NULL) {
-    fprintf(c_fmt_fp(), "unsigned long hpcrun_reference_offset = %"PRIuPTR";\n", 
-            ref_offset);
-    fprintf(c_fmt_fp(), "int hpcrun_is_relocatable = %d;\n", is_relocatable);
-    fprintf(c_fmt_fp(), "int hpcrun_is_stripped = %d;\n", 0);
+    fprintf(c_fmt_fp(), "unsigned int hpcrun_relocatable = %d;\n", relocatable);
+    fprintf(c_fmt_fp(), "unsigned int hpcrun_stripped = %d;\n", 0);
   }
 
   if (text_fmt_fp() != NULL) {
-    fprintf(text_fmt_fp(), "num symbols = %ld, relocatable = %d," 
-           " image_offset = 0x%"PRIxPTR"\n",
-	    num_function_entries(), is_relocatable, ref_offset);
+    fprintf(text_fmt_fp(), "num symbols = %ld, relocatable = %d\n",
+	    num_function_entries(), relocatable);
   }
 }
 
@@ -478,12 +426,11 @@ assert_file_is_readable(const char *filename)
 
 
 static void 
-dump_file_info(const char *filename, DiscoverFnTy fn_discovery)
+dump_file_info(const char *filename, bool fn_discovery)
 {
   Symtab *syms;
   string sfile(filename);
   vector<Symbol *> symvec;
-  uintptr_t image_offset = 0;
 
   assert_file_is_readable(filename);
 
@@ -497,14 +444,13 @@ dump_file_info(const char *filename, DiscoverFnTy fn_discovery)
   //-----------------------------------------------------------------
   vector<ExceptionBlock *> exvec;
   syms->getAllExceptions(exvec);
-  
   for (unsigned int i = 0; i < exvec.size(); i++) {
     ExceptionBlock *e = exvec[i];
 
 #ifdef DUMP_EXCEPTION_BLOCK_INFO
     printf("tryStart = %p tryEnd = %p, catchStart = %p\n", e->tryStart(), 
 	   e->tryEnd(), e->catchStart()); 
-#endif // DUMP_EXCEPTION_BLOCK_INFO
+#endif
     //-----------------------------------------------------------------
     // prevent inference of function starts within the try block
     //-----------------------------------------------------------------
@@ -517,16 +463,15 @@ dump_file_info(const char *filename, DiscoverFnTy fn_discovery)
     long cs = e->catchStart(); 
     add_protected_range((void *) cs, (void *) (cs + 1));
   }
-#endif // USE_SYMTABAPI_EXCEPTION_BLOCKS 
+#endif
 
 
   syms->getAllSymbolsByType(symvec, Symbol::ST_FUNCTION);
   if (syms->getObjectType() != obj_Unknown) {
     dump_file_symbols(syms, symvec, fn_discovery);
     relocatable = syms->isExec() ? 0 : 1;
-    image_offset = syms->imageOffset();
   }
-  dump_header_info(relocatable, image_offset);
+  dump_header_info(relocatable);
 }
 
 

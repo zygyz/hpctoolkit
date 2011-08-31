@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -74,7 +71,8 @@
 #include <hpcrun/hpcrun_stats.h>
 #include <messages/messages.h>
 
-#include <lib/isa-lean/power/instruction-set.h>
+// FIXME: see note in mips-unwind.c
+#include <lib/isa/instructionSets/ppc.h>
 
 #include <lib/prof-lean/atomic-op.h>
 
@@ -86,7 +84,7 @@
 static interval_status 
 ppc64_build_intervals(char *ins, unsigned int len);
 
-static void
+static void 
 ppc64_print_interval_set(unw_interval_t *first);
 
 static const char *
@@ -151,10 +149,10 @@ ui_dump(unw_interval_t* u)
     return;
   }
 
-  printf("  [%p, %p) ty=%-10s,%-10s sp_arg=%5d ra_arg=%5d\n",
+  TMSG(INTV, "  [%p, %p) ty=%-10s,%-10s sp_arg=%5d ra_arg=%5d",
        (void *) u->common.start, (void *) u->common.end, 
        sp_ty_string(u->sp_ty), ra_ty_string(u->ra_ty), u->sp_arg, u->ra_arg);
-  // printf("     next=%p prev=%p", u->common.next, u->common.prev);
+  //TMSG(INTV, "     next=%p prev=%p", u->common.next, u->common.prev);
 }
 
 
@@ -579,7 +577,7 @@ ppc64_dump_intervals(char  *addr)
   void *s, *e;
   interval_status intervals;
 
-  fnbounds_enclosing_addr(addr, &s, &e, NULL);
+  fnbounds_enclosing_addr(addr, &s, &e);
 
   uintptr_t llen = ((uintptr_t)e) - (uintptr_t)s;
 

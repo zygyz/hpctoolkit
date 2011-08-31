@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //****************************************************************************
@@ -74,11 +71,9 @@ using std::string;
 #include <errno.h>
 
 #define __STDC_FORMAT_MACROS
-#include <stdint.h>
+#include <inttypes.h>
 
 //*************************** User Include Files *****************************
-
-#include <include/gcc-attr.h>
 
 #include "StrUtil.hpp"
 #include "diagnostics.h"
@@ -97,7 +92,7 @@ namespace StrUtil {
 //
 // --------------------------------------------------------------------------
 
-void
+void 
 tokenize_char(const std::string& tokenstr, const char* delim,
 	      std::vector<std::string>& tokenvec)
 {
@@ -118,7 +113,7 @@ tokenize_char(const std::string& tokenstr, const char* delim,
 }
 
 
-void
+void 
 tokenize_str(const std::string& tokenstr, const char* delim,
 	     std::vector<std::string>& tokenvec)
 {
@@ -140,27 +135,6 @@ tokenize_str(const std::string& tokenstr, const char* delim,
 //
 // --------------------------------------------------------------------------
 
-string
-join(const std::vector<string>& tokenvec, const char* delim,
-     size_t begIdx, size_t endIdx)
-{
-  string result;
-
-  // N.B.: [begIdx, endIdx)
-  for (size_t i = begIdx; i < endIdx; ++i) {
-    result += tokenvec[i];
-    if (i + 1 < endIdx) { 
-      result += delim;
-    }
-  }
-
-  return result;
-}
-
-// --------------------------------------------------------------------------
-//
-// --------------------------------------------------------------------------
-
 long
 toLong(const char* str, unsigned* endidx)
 {
@@ -175,9 +149,10 @@ toLong(const char* str, unsigned* endidx)
   }
   if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toLong] Cannot convert `" + string(str) 
-      + "' to integral (long) value";
+      + "' to integral value.";
     if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+      msg += ". ";
+      msg += strerror(errno);
     }
     DIAG_Throw(msg);
   }
@@ -193,18 +168,19 @@ toUInt64(const char* str, unsigned* endidx)
   
   errno = 0;
   char* endptr = NULL;
-  value = strtoull(str, &endptr, 0);
+  value = strtoul(str, &endptr, 0);
   if (endidx) {
     *endidx = (endptr - str) / sizeof(char);
   }
   if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toUInt64] Cannot convert `" + string(str)
-      + "' to integral (uint64_t) value";
+      + "' to integral value.";
     if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+      msg += ". ";
+      msg += strerror(errno);
     }
     DIAG_Throw(msg);
-  }
+  } 
   return value;
 }
 
@@ -223,12 +199,13 @@ toDbl(const char* str, unsigned* endidx)
   }
   if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toDbl] Cannot convert `" + string(str)
-      + "' to real (double) value.";
+      + "' to real value.";
     if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+      msg += ". ";
+      msg += strerror(errno);
     }
     DIAG_Throw(msg);
-  }
+  } 
   return value;
 }
 
@@ -328,7 +305,7 @@ toStr(const uint64_t x, int base)
 
 
 string
-toStr(const void* x, int GCC_ATTR_UNUSED base)
+toStr(const void* x, int base)
 {
   sprintf(buf, "%p", x);
   return string(buf);

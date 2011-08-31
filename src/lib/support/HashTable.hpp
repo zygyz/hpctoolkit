@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 /******************************************************************************
@@ -256,8 +253,8 @@
  *                                                                            *
  *****************************************************************************/
 
-#ifndef support_HashTable_hpp
-#define support_HashTable_hpp
+#ifndef HashTable_h
+#define HashTable_h
 
 //************************** System Include Files ***************************
 
@@ -308,88 +305,89 @@ typedef void (*EntryCleanupFunctPtr)(void*);
 
 class HashTable
 {
-public:
-  HashTable ();
-  virtual ~HashTable ();
+  public:
+    HashTable ();
+    virtual ~HashTable ();
+
+       // Must be called after creating object
+    void Create (const uint entrySize, uint initialSize,
+		 HashFunctFunctPtr    const HashFunctCallback,
+		 RehashFunctFunctPtr  const RehashFunctCallback,
+		 EntryCompareFunctPtr const EntryCompareCallback,
+		 EntryCleanupFunctPtr const EntryCleanupCallback);
+
+       // Must be called before deleting object
+    void Destroy ();
   
-  // Must be called after creating object
-  void Create (const uint entrySize, uint initialSize,
-	       HashFunctFunctPtr    const HashFunctCallback,
-	       RehashFunctFunctPtr  const RehashFunctCallback,
-	       EntryCompareFunctPtr const EntryCompareCallback,
-	       EntryCleanupFunctPtr const EntryCleanupCallback);
+    bool operator==(HashTable& rhsTab);
+
+    void  AddEntry (void* entry, 
+                    AddEntryFunctPtr const AddEntryCallback = 0, ...);
+    void  DeleteEntry (void* entry, 
+                       DeleteEntryFunctPtr const DeleteEntryCallback = 0, ...);
+    void* QueryEntry (const void* entry) const;
+    int   GetEntryIndex (const void* entry) const;
+    void* GetEntryByIndex (const uint index) const;
+    uint  NumberOfEntries () const;
+
+    void  Dump ();
+      
+    friend class HashTableIterator;
+
+  protected:
+       // Must be called after creating object
+    void Create (const uint entrySize, uint initialSize);
+
+    virtual uint HashFunct (const void* entry, const uint size);
+    virtual uint RehashFunct (const uint oldHashValue, const uint size);
+    virtual int  EntryCompare (const void* entry1, const void* entry2);
+    virtual void EntryCleanup (void* entry);
+
+    HashTable& operator=(const HashTable &rhs);
   
-  // Must be called before deleting object
-  void Destroy ();
-  
-  bool operator==(HashTable& rhsTab);
-  
-  void  AddEntry (void* entry, 
-		  AddEntryFunctPtr const AddEntryCallback = 0, ...);
-  void  DeleteEntry (void* entry, 
-		     DeleteEntryFunctPtr const DeleteEntryCallback = 0, ...);
-  void* QueryEntry (const void* entry) const;
-  int   GetEntryIndex (const void* entry) const;
-  void* GetEntryByIndex (const uint index) const;
-  uint  NumberOfEntries () const;
-  
-  void  Dump ();
-  
-  friend class HashTableIterator;
-  
-protected:
-  // Must be called after creating object
-  void Create (const uint entrySize, uint initialSize);
-  
-  virtual uint HashFunct (const void* entry, const uint size);
-  virtual uint RehashFunct (const uint oldHashValue, const uint size);
-  virtual int  EntryCompare (const void* entry1, const void* entry2);
-  virtual void EntryCleanup (void* entry);
-  
-  HashTable& operator=(const HashTable &rhs);
-  
-private:
-  const ulong id;                     // unique id for determining equality  
-  uint  numSlots;                     // number of distinct symbols
-  uint  nextSlot;                     // next available opening
-  uint  entrySize;                    // byte size of the entries
-  void* entries;                      // array of hash table entries
-  uint  indexSetSize;                 // size of sparse hash index set
-  int*  indexSet;                     // sparse hash index set
-  
-  bool hashTableCreated;
-  
-  HashFunctFunctPtr    HashFunctCallback;
-  RehashFunctFunctPtr  RehashFunctCallback;
-  EntryCompareFunctPtr EntryCompareCallback;
-  EntryCleanupFunctPtr EntryCleanupCallback;
-  
-  int  QueryIndexSet (const void* entry, const bool expand) const;
-  void OverflowIndexSet ();
-  void OverflowEntries ();
-  
-  void FailureToCreateError () const;
-  void FailureToDestroyError () const;
+  private:
+    const ulong id;                     // unique id for determining equality  
+    uint  numSlots;                     // number of distinct symbols
+    uint  nextSlot;                     // next available opening
+    uint  entrySize;                    // byte size of the entries
+    void* entries;                      // array of hash table entries
+    uint  indexSetSize;                 // size of sparse hash index set
+    int*  indexSet;                     // sparse hash index set
+
+    bool hashTableCreated;
+
+    HashFunctFunctPtr    HashFunctCallback;
+    RehashFunctFunctPtr  RehashFunctCallback;
+    EntryCompareFunctPtr EntryCompareCallback;
+    EntryCleanupFunctPtr EntryCleanupCallback;
+
+    int  QueryIndexSet (const void* entry, const bool expand) const;
+    void OverflowIndexSet ();
+    void OverflowEntries ();
+
+    void FailureToCreateError () const;
+    void FailureToDestroyError () const;
 };
 
 /******************** HashTableIterator class definitions ********************/
 
 class HashTableIterator
 {
-public:
-  HashTableIterator(const HashTable* theHashTable);
-  virtual ~HashTableIterator();
-  
-  void  operator ++(int);		// prefix 
-  void* Current() const;
-  void  Reset();
-  
-private:
-  int currentEntryNumber;
-  const HashTable* hashTable;
+  public:
+    HashTableIterator(const HashTable* theHashTable);
+   ~HashTableIterator();
+
+    void  operator ++(int);		// prefix 
+    void* Current() const;
+    void  Reset();
+
+  private:
+    int currentEntryNumber;
+    const HashTable* hashTable;
 };
 
 /****************************** HashTableSortedIterator **********************/
 #include "HashTableSortedIterator.hpp"
 
-#endif // support_HashTable_hpp
+#endif
+

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #ifndef support_FileUtil_hpp
@@ -70,26 +67,15 @@ namespace FileUtil {
 extern std::string
 basename(const char* fname);
 
-inline std::string
+inline std::string 
 basename(const std::string& fname)
 {
   return basename(fname.c_str());
 }
 
 
-// 'rmSuffix': returns the 'fname' component of 'fname.ext'
-extern std::string
-rmSuffix(const char* fname);
-
-inline std::string
-rmSuffix(const std::string& fname)
-{
-  return rmSuffix(fname.c_str());
-}
-
-
 // 'dirname': returns the '/path' component of "/path/fname.ext"
-extern std::string
+extern std::string 
 dirname(const char* fname); 
 
 inline std::string
@@ -128,22 +114,8 @@ fnmatch(const std::vector<std::string>& patternVec,
 extern bool
 isReadable(const char* path);
 
-inline bool
-isReadable(const std::string& path)
-{
-  return isReadable(path.c_str());
-}
-
-
 bool
 isDir(const char* path);
-
-inline bool
-isDir(const std::string& path)
-{
-  return isDir(path.c_str());
-}
-
 
 // count how often char appears in file
 // return that number or -1 upon failure to open file for reading
@@ -156,26 +128,11 @@ countChar(const char* file, char c);
 // ---------------------------------------------------------
 
 // copy: takes a NULL terminated list of file name and appends these
-// files into destFile.
-extern void
+// files into destFile.  It returns NULL upon success; otherwise
+// returns an error message in a static variable which is overwritten
+// with each call.
+extern const char* 
 copy(const char* destFile, ...);
-
-inline void
-copy(const std::string& dst, const std::string& src)
-{
-  copy(dst.c_str(), src.c_str(), NULL);
-}
-
-
-void
-move(const char* dst, const char* src);
-
-inline void
-move(const std::string& dst, const std::string& src)
-{
-  move(dst.c_str(), src.c_str());
-}
-
 
 
 // deletes fname (unlink) 
@@ -183,15 +140,8 @@ extern int
 remove(const char* fname);
 
 
-// mkdir: makes 'dir' (including all intermediate directories)
-extern int
+extern int 
 mkdir(const char* dir);
-
-inline void
-mkdir(const std::string& dir)
-{
-  FileUtil::mkdir(dir.c_str());
-}
 
 
 // mkdirUnique: 

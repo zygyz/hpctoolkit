@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -76,7 +73,7 @@
 #include "monitor.h"
 #include <utilities/tokenize.h>
 
-extern void unlimit_msgs(void);
+
 
 //*****************************************************************************
 // global variables 
@@ -107,9 +104,7 @@ static pmsg_category all_list_entries [] = {
  E(_TST_HANDLER),
  E(_TST_CTL),
  E(UNW),
- // E(UITREE),
- E(TRAMP),
- E(SEGV),
+ E(UITREE),
  E(MPI),
  E(INTV2),
  E(INTV_ERR),
@@ -152,12 +147,10 @@ static pmsg_category all_list_entries [] = {
  E(UNW_STRATEGY),
  E(BACKTRACE),
  E(SUSPENDED_SAMPLE),
- // E(MMAP),
- // E(MALLOC),
- // E(CSP_MALLOC),
- // E(MEM__ALLOC),
- E(NORM_IP),
- E(PARTIAL_UNW)
+ E(MMAP),
+ E(MALLOC),
+ E(CSP_MALLOC),
+ E(MEM__ALLOC)
 };
 
 
@@ -254,7 +247,7 @@ debug_flag_set_all(int v)
 
 
 static void
-debug_flag_set_list(flag_list_t *flag_list, int v)
+debug_flag_set_list(flag_list_t *flag_list,int v)
 {
   for (int i=0; i < flag_list->n_entries; i++){
     debug_flag_set(flag_list->entries[i], v);
@@ -293,10 +286,9 @@ debug_flag_process_string(char *in, int debug_initialization)
   }
 
   for (char *f=start_tok(in); more_tok(); f = next_tok()){
-    unlimit_msgs();
     if (strcmp(f,"ALL") == 0){
       debug_flag_set_list(&all_list, 1);
-      continue;
+      return;
     }
     if (debug_initialization) {
       fprintf(stderr, "\tprocessing debug flag token %s\n", f);
@@ -307,8 +299,7 @@ debug_flag_process_string(char *in, int debug_initialization)
 	fprintf(stderr, "\tdebug flag token value = %d\n\n", ii);
       }
       debug_flag_set(ii,1);
-    }
-    else {
+    } else {
       fprintf(stderr, "\tdebug flag token %s not recognized\n\n", f);
     }
   }

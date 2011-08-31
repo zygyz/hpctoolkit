@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 
@@ -66,7 +63,6 @@
 #include "handling_sample.h"
 #include "interval-interface.h"
 #include "unwind.h"
-#include <utilities/arch/context-pc.h>
 #include "hpcrun-malloc.h"
 #include "splay-interval.h"
 #include "sample_event.h"
@@ -74,7 +70,6 @@
 #include "ui_tree.h"
 #include "validate_return_addr.h"
 #include "write_data.h"
-#include "cct_insert_backtrace.h"
 
 #include <messages/messages.h>
 
@@ -85,26 +80,28 @@
 //*************************** Forward Declarations **************************
 
 static cct_node_t*
-help_hpcrun_sample_callpath(epoch_t *epoch, void *context,
-			    int metricId, uint64_t metricIncr,
-			    int skipInner, int isSync);
+_hpcrun_sample_callpath(epoch_t *epoch, void *context,
+			int metricId, uint64_t metricIncr,
+			int skipInner, int isSync);
 
 static cct_node_t*
-hpcrun_dbg_sample_callpath(epoch_t *epoch, void *context,
-			   int metricId, uint64_t metricIncr,
-			   int skipInner, int isSync);
+_hpcrun_sample_callpath_w_bt(epoch_t *epoch, void *context,
+			     int metricId, uint64_t metricIncr,
+			     bt_mut_fn bt_fn, bt_fn_arg arg,
+			     int isSync);
 
 // ------------------------------------------------------------
-// recover from SEGVs and partial unwinds
+// recover from SEGVs and dropped samples
 // ------------------------------------------------------------
 
 static void
-hpcrun_cleanup_partial_unwind(void)
+_drop_sample(void)
 {
   thread_data_t* td = hpcrun_get_thread_data();
   sigjmp_buf_t* it = &(td->bad_unwind);
 
   memset((void *)it->jb, '\0', sizeof(it->jb));
+  hpcrun_bt_dump(td->unwind, "SEGV");
 
   hpcrun_stats_num_samples_dropped_inc();
 
@@ -117,25 +114,16 @@ hpcrun_cleanup_partial_unwind(void)
   }
 }
 
-
-static cct_node_t*
-record_partial_unwind(cct_bundle_t* cct,
-		      frame_t* bt_beg, frame_t* bt_last,
-		      int metricId, uint64_t metricIncr)
-{
-  if (ENABLED(NO_PARTIAL_UNW)){
-    return NULL;
-  }
-  TMSG(PARTIAL_UNW, "recording partial unwind from segv");
-  hpcrun_stats_num_samples_partial_inc();
-  return hpcrun_cct_record_backtrace(cct, true,
-				     bt_beg, bt_last, false,
-				     metricId, metricIncr);
-}
-
 //***************************************************************************
 
-bool private_hpcrun_sampling_disabled = false;
+bool _hpcrun_sampling_disabled = false;
+
+void
+hpcrun_disable_sampling(void)
+{
+  TMSG(SPECIAL,"Sampling disabled");
+  _hpcrun_sampling_disabled = true;
+}
 
 void
 hpcrun_drop_sample(void)
@@ -183,54 +171,39 @@ hpcrun_sample_callpath(void *context, int metricId,
 
   hpcrun_set_handling_sample(td);
 
-  td->btbuf_cur = NULL;
+  td->unwind = NULL;
   int ljmp = sigsetjmp(it->jb, 1);
   if (ljmp == 0) {
 
     if (epoch != NULL) {
-      if (ENABLED(DEBUG_PARTIAL_UNW)){
-	EMSG("PARTIAL UNW debug sampler invoked @ sample %d", hpcrun_stats_num_samples_attempted());
-	node = hpcrun_dbg_sample_callpath(epoch, context, metricId, metricIncr,
-					  skipInner, isSync);
-      }
-      else {
-	node = help_hpcrun_sample_callpath(epoch, context, metricId, metricIncr,
-					   skipInner, isSync);
+      node = _hpcrun_sample_callpath(epoch, context, metricId, metricIncr,
+				     skipInner, isSync);
+
+      if (trace_isactive()) {
+	void *pc = hpcrun_context_pc(context);
+	hpcrun_cct_t *cct = &(td->epoch->csdata); 
+	void *func_start_pc, *func_end_pc;
+
+	fnbounds_enclosing_addr(pc, &func_start_pc, &func_end_pc); 
+
+	frame_t frm = {.ip = func_start_pc};
+	cct_node_t* func_proxy = hpcrun_cct_get_child(cct, node->parent, &frm);
+	func_proxy->persistent_id |= HPCRUN_FMT_RetainIdFlag; 
+
+	trace_append(func_proxy->persistent_id);
       }
       if (ENABLED(DUMP_BACKTRACES)) {
-	hpcrun_bt_dump(td->btbuf_cur, "UNWIND");
+	hpcrun_bt_dump(td->unwind, "UNWIND");
       }
     }
   }
   else {
-    cct_bundle_t* cct = &(td->epoch->csdata);
-    node = record_partial_unwind(cct, td->btbuf_beg, td->btbuf_cur - 1,
-				 metricId, metricIncr);
-    hpcrun_cleanup_partial_unwind();
-  }
-
-
-  if (trace_isactive()) {
-    void* pc = hpcrun_context_pc(context);
-
-    void *func_start_pc = NULL, *func_end_pc = NULL;
-    load_module_t* lm = NULL;
-    fnbounds_enclosing_addr(pc, &func_start_pc, &func_end_pc, &lm);
-
-    ip_normalized_t pc_proxy = hpcrun_normalize_ip(func_start_pc, lm);
-
-    cct_addr_t frm = { .ip_norm = pc_proxy };
-    cct_node_t* func_proxy = 
-      hpcrun_cct_insert_addr(hpcrun_cct_parent(node), &frm);
-
-    // modify the persistent id
-    hpcrun_cct_persistent_id_trace_mutate(func_proxy); 
-
-    trace_append(hpcrun_cct_persistent_id(func_proxy));
+    _drop_sample();
   }
 
   hpcrun_clear_handling_sample(td);
   if (TD_GET(mem_low) || ENABLED(FLUSH_EVERY_SAMPLE)) {
+    hpcrun_finalize_current_loadmap();
     hpcrun_flush_epochs();
     hpcrun_reclaim_freeable_mem();
   }
@@ -238,61 +211,62 @@ hpcrun_sample_callpath(void *context, int metricId,
   hpcrun_dlopen_read_unlock();
 #endif
   
-  TMSG(SAMPLE,"done w sample");
   return node;
 }
 
+
 static cct_node_t*
-hpcrun_dbg_sample_callpath(epoch_t *epoch, void *context,
-			   int metricId,
-			   uint64_t metricIncr, 
-			   int skipInner, int isSync)
+_hpcrun_sample_callpath_w_bt(epoch_t* epoch, void *context,
+			     int metricId, uint64_t metricIncr,
+			     bt_mut_fn bt_fn, bt_fn_arg arg,
+			     int isSync)
 {
   void* pc = hpcrun_context_pc(context);
 
-  TMSG(DEBUG_PARTIAL_UNW, "hpcrun take profile sample @ %p",pc);
-
-  /* check to see if shared library loadmap (of current epoch) has changed out from under us */
-  epoch = hpcrun_check_for_new_loadmap(epoch);
-
-  cct_node_t* n = hpcrun_dbg_backtrace2cct(&(epoch->csdata),
-					   context,
-					   metricId, metricIncr,
-					   skipInner);
-
-  return n;
-}
-
-
-static cct_node_t*
-help_hpcrun_sample_callpath(epoch_t *epoch, void *context,
-			    int metricId,
-			    uint64_t metricIncr, 
-			    int skipInner, int isSync)
-{
-  void* pc = hpcrun_context_pc(context);
-
-  TMSG(SAMPLE,"taking profile sample @ %p",pc);
-  TMSG(SAMPLE_METRIC_DATA, "--metric data for sample (as a uint64_t) = %"PRIu64"", metricIncr);
+  TMSG(SAMPLE,"csprof take profile sample @ %p",pc);
 
   /* check to see if shared library loadmap (of current epoch) has changed out from under us */
   epoch = hpcrun_check_for_new_loadmap(epoch);
 
   cct_node_t* n =
-    hpcrun_backtrace2cct(&(epoch->csdata), context, metricId, metricIncr, skipInner, isSync);
+    hpcrun_bt2cct(&(epoch->csdata), context, metricId, metricIncr, bt_fn, arg, isSync);
 
   // FIXME: n == -1 if sample is filtered
 
   return n;
 }
 
+// noop for backtraces -- used to make hpcrun_sample_callpath compatible w backtrace_t
+static void
+noop_bt(backtrace_t* bt, void* ibs_addr)
+{
+  ;
+}
 
-#if 0 // TODO: tallent: Use Mike's improved code; retire prior routines
+
 static cct_node_t*
-help_hpcrun_sample_callpath_w_bt(epoch_t *epoch, void *context,
-				 int metricId, uint64_t metricIncr,
-				 bt_mut_fn bt_fn, bt_fn_arg arg,
-				 int isSync);
+_hpcrun_sample_callpath(epoch_t *epoch, void *context,
+			int metricId,
+			uint64_t metricIncr, 
+			int skipInner, int isSync)
+{
+  void* pc = hpcrun_context_pc(context);
+
+  TMSG(SAMPLE,"csprof take profile sample @ %p",pc);
+
+  /* check to see if shared library loadmap (of current epoch) has changed out from under us */
+  epoch = hpcrun_check_for_new_loadmap(epoch);
+
+  cct_node_t* n = hpcrun_bt2cct(&(epoch->csdata), context, metricId, metricIncr, noop_bt, NULL, isSync);
+#if 0
+  cct_node_t* n =
+    hpcrun_backtrace2cct(&(epoch->csdata), context, metricId, metricIncr, skipInner, isSync);
+#endif
+
+  // FIXME: n == -1 if sample is filtered
+
+  return n;
+}
 
 cct_node_t*
 hpcrun_sample_callpath_w_bt(void *context,
@@ -334,18 +308,19 @@ hpcrun_sample_callpath_w_bt(void *context,
 
   hpcrun_set_handling_sample(td);
 
+  TMSG(SAMPLE, "At sigsetjmp for sampling code BT");
   int ljmp = sigsetjmp(it->jb, 1);
   if (ljmp == 0) {
 
     if (epoch != NULL) {
-      node = help_hpcrun_sample_callpath_w_bt(epoch, context, metricId, metricIncr,
-					      bt_fn, arg, isSync);
+      node = _hpcrun_sample_callpath_w_bt(epoch, context, metricId, metricIncr,
+					  bt_fn, arg, isSync);
 
+      TMSG(SAMPLE, "Back from sample callpath w bt");
       if (trace_isactive()) {
-	void* pc = hpcrun_context_pc(context);
-	cct_bundle_t* cct = &(td->epoch->csdata); 
-	void* func_start_pc = NULL;
-	void* func_end_pc   = NULL;
+	void *pc = hpcrun_context_pc(context);
+	hpcrun_cct_t *cct = &(td->epoch->csdata); 
+	void *func_start_pc, *func_end_pc;
 
 	fnbounds_enclosing_addr(pc, &func_start_pc, &func_end_pc); 
 
@@ -356,12 +331,29 @@ hpcrun_sample_callpath_w_bt(void *context,
 	trace_append(func_proxy->persistent_id);
       }
       if (ENABLED(DUMP_BACKTRACES)) {
-	hpcrun_bt_dump(td->btbuf_cur, "UNWIND");
+	hpcrun_bt_dump(td->unwind, "UNWIND");
       }
     }
   }
   else {
-    hpcrun_cleanup_partial_unwind();
+    // ------------------------------------------------------------
+    // recover from SEGVs and dropped samples
+    // ------------------------------------------------------------
+
+    TMSG(SAMPLE, "Current sample is dropped");
+
+    memset((void *)it->jb, '\0', sizeof(it->jb));
+    hpcrun_bt_dump(td->unwind, "SEGV");
+
+    hpcrun_stats_num_samples_dropped_inc();
+
+    hpcrun_up_pmsg_count();
+    if (TD_GET(splay_lock)) {
+      hpcrun_release_splay_lock();
+    }
+    if (TD_GET(fnbounds_lock)) {
+      fnbounds_release_lock();
+    }
   }
 
   hpcrun_clear_handling_sample(td);
@@ -374,29 +366,6 @@ hpcrun_sample_callpath_w_bt(void *context,
   hpcrun_dlopen_read_unlock();
 #endif
   
+  TMSG(SAMPLE,"Done w sample, returning node %p", node);
   return node;
 }
-
-
-static cct_node_t*
-help_hpcrun_sample_callpath_w_bt(epoch_t* epoch, void *context,
-				 int metricId, uint64_t metricIncr,
-				 bt_mut_fn bt_fn, bt_fn_arg arg,
-				 int isSync)
-{
-  void* pc = hpcrun_context_pc(context);
-
-  TMSG(SAMPLE,"csprof take profile sample @ %p",pc);
-
-  /* check to see if shared library loadmap (of current epoch) has changed out from under us */
-  epoch = hpcrun_check_for_new_loadmap(epoch);
-
-  cct_node_t* n =
-    hpcrun_bt2cct(&(epoch->csdata), context, metricId, metricIncr, bt_fn, arg, isSync);
-
-  // FIXME: n == -1 if sample is filtered
-
-  return n;
-}
-
-#endif

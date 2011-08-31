@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -88,8 +85,8 @@ const string xml::attE  = "\"";  // attribute value end
 // Read
 //****************************************************************************
 
-// Reads from 'attB' to and including 'attE'.
-bool
+// Reads from 'attB' to and including 'attE'. 
+bool 
 xml::ReadAttrStr(std::istream& is, string& s, int flags)
 {
   bool STATE = true; // false indicates an error
@@ -108,48 +105,49 @@ xml::ReadAttrStr(std::istream& is, string& s, int flags)
 //****************************************************************************
 
 // Writes attribute value, beginning with 'attB' and ending with 'attE'.
-bool
+bool 
 xml::WriteAttrStr(std::ostream& os, const char* s, int flags)
 {
   string str = ((flags & ESC_TRUE) ? EscapeStr(s) : s);
   os << attB << str << attE;
   return (!os.fail());
-}
+}       
 
 
 //****************************************************************************
-//
+// 
 //****************************************************************************
 
 // 'EscapeStr' and 'UnEscapeStr': Returns the string with all
 // necessary characters (un)escaped; will not modify 'str'
 
 namespace xml {
-  static string
-  substitute(const char* str, const string* fromStrs, const string* toStrs);
+  string Substitute(const char* str, const string* fromStrs,
+		    const string* toStrs); 
 
   static const int numSubs = 4; // number of substitutes
-  static const string RegStrs[]  = {"<",    ">",    "&",     "\""};
+  static const string RegStrs[]  = {"<",    ">",    "&",     "\""}; 
   static const string EscStrs[]  = {"&lt;", "&gt;", "&amp;", "&quot;"};
 }
 
 
-string
+string 
 xml::EscapeStr(const char* str)
 {
-  return substitute(str, RegStrs, EscStrs);
+  return Substitute(str, RegStrs, EscStrs);
 }
 
-
-string
+		      
+string 
 xml::UnEscapeStr(const char* str)
 {
-  return substitute(str, EscStrs, RegStrs);
+  return Substitute(str, EscStrs, RegStrs);
 }
 
 
-static string
-xml::substitute(const char* str, const string* fromStrs, const string* toStrs)
+string 
+xml::Substitute(const char* str, const string* fromStrs,
+		       const string* toStrs)
 {
   static string newStr = string("", 512);
 
@@ -158,7 +156,7 @@ xml::substitute(const char* str, const string* fromStrs, const string* toStrs)
 
   // Iterate over 'str' and substitute patterns
   newStr = "";
-  int strLn = strlen(str);
+  int strLn = strlen(str);  
   for (int i = 0; str[i] != '\0'; /* */) {
 
     // Attempt to find a pattern for substitution at this position
@@ -185,5 +183,5 @@ xml::substitute(const char* str, const string* fromStrs, const string* toStrs)
 }
 
 //****************************************************************************
-//
+// 
 //****************************************************************************

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -309,19 +306,17 @@ LUSHI_step_pnote(lush_cursor_t* cursor)
 }
 
 
-#define SET_LIP_AND_TY(cl, lip, ty)					\
-  if (!cl) {								\
-    cilk_ip_set(lip, ip_normalized_NULL_lval);				\
-    ty = LUSH_STEP_END_CHORD;						\
-  }									\
-  else {								\
-    /* NOTE: interior lips should act like a return address; */		\
-    /*   therefore, we add 1                                 */		\
-    ip_normalized_t ip =						\
-      hpcrun_normalize_ip(CILKFRM_PROC(cl->frame) + 1, NULL);		\
-    cilk_ip_set(lip, ip);						\
-    ty = LUSH_STEP_CONT;						\
-  }
+#define SET_LIP_AND_TY(cl, lip, ty)				\
+  if (!cl) {							\
+    cilk_ip_set(lip, NULL /*0*/);				\
+    ty = LUSH_STEP_END_CHORD;					\
+  }								\
+  else {							\
+    /* NOTE: interior lips should act like a return address; */	\
+    /*   therefore, we add 1                                 */	\
+    cilk_ip_set(lip, CILKFRM_PROC(cl->frame) + 1);		\
+    ty = LUSH_STEP_CONT;					\
+  } 
 
 extern lush_step_t
 LUSHI_step_lnote(lush_cursor_t* cursor)
@@ -340,7 +335,7 @@ LUSHI_step_lnote(lush_cursor_t* cursor)
       ty = LUSH_STEP_END_CHORD;
     }
     else {
-      cilk_ip_set(lip, csr->u.ref_ip_norm);
+      cilk_ip_set(lip, csr->u.ref_ip /*0*/);
       ty = LUSH_STEP_CONT;
       csr_set_flag(csr, UnwFlg_BegLNote);
     }
@@ -438,9 +433,7 @@ init_lcursor(lush_cursor_t* cursor)
   // -------------------------------------------------------
   memset(lip, 0, sizeof(*lip));
 
-  csr->u.ref_ip = (void*)lush_cursor_get_ip_unnorm(cursor);
-  csr->u.ref_ip_norm = lush_cursor_get_ip_norm(cursor);
-
+  csr->u.ref_ip = (void*)lush_cursor_get_ip(cursor);
   csr_unset_flag(csr, UnwFlg_BegLNote);
 
   return 0;
@@ -508,8 +501,7 @@ peek_segment(lush_cursor_t* cursor)
   lush_step_t ty = LUSHI_step_pnote(&tmp_cursor);
   if ( !(ty == LUSH_STEP_END_PROJ || ty == LUSH_STEP_ERROR) ) {
     cilk_cursor_t* csr = (cilk_cursor_t*)lush_cursor_get_lcursor(&tmp_cursor);
-    csr->u.ref_ip = (void*)lush_cursor_get_ip_unnorm(&tmp_cursor);
-    csr->u.ref_ip_norm = lush_cursor_get_ip_norm(&tmp_cursor);
+    csr->u.ref_ip = (void*)lush_cursor_get_ip(&tmp_cursor);
     cur_seg = classify_by_unw_segment(csr);
   }
 

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -82,12 +79,8 @@ using std::string;
 #include <lib/analysis/Util.hpp>
 
 #include <lib/support/diagnostics.h>
-#include <lib/support/StrUtil.hpp>
-
 
 //*************************** Forward Declarations **************************
-
-#define DBG_CCT_MERGE 0
 
 //***************************************************************************
 
@@ -136,9 +129,12 @@ void
 mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
 	      int myRank, MPI_Comm comm)
 {
+  MPI_Status mpistat;
+
   int tag = rank_y; // sender
 
   uint8_t* profileBuf = NULL;
+  size_t profileBufSz = 0;
 
   Prof::CallPath::Profile* profile_x = NULL;
   Prof::CallPath::Profile* profile_y = NULL;
@@ -146,34 +142,19 @@ mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
   if (myRank == rank_x) {
     profile_x = profile;
 
-    // rank_x probes rank_y
-    int profileBufSz = 0;
-    MPI_Status mpistat;
-    MPI_Probe(rank_y, tag, comm, &mpistat);
-    MPI_Get_count(&mpistat, MPI_BYTE, &profileBufSz);
+    // rank_x receives profile buffer size from rank_y
+    MPI_Recv(&profileBufSz, 1, MPI_UNSIGNED_LONG, rank_y, tag, comm, &mpistat);
+
     profileBuf = new uint8_t[profileBufSz];
 
     // rank_x receives profile from rank_y
     MPI_Recv(profileBuf, profileBufSz, MPI_BYTE, rank_y, tag, comm, &mpistat);
 
-    profile_y = unpackProfile(profileBuf, (size_t)profileBufSz);
+    profile_y = unpackProfile(profileBuf, profileBufSz);
     delete[] profileBuf;
-
-    if (DBG_CCT_MERGE) {
-      string pfx0 = "[" + StrUtil::toStr(rank_x) + "]";
-      string pfx1 = "[" + StrUtil::toStr(rank_y) + "]";
-      DIAG_DevMsgIf(1, profile_x->metricMgr()->toString(pfx0.c_str()));
-      DIAG_DevMsgIf(1, profile_y->metricMgr()->toString(pfx1.c_str()));
-    }
     
-    int mergeTy = Prof::CallPath::Profile::Merge_MergeMetricByName;
+    int mergeTy = Prof::CallPath::Profile::Merge_mergeMetricByName;
     profile_x->merge(*profile_y, mergeTy);
-
-    if (DBG_CCT_MERGE) {
-      string pfx = ("[" + StrUtil::toStr(rank_y)
-		    + " => " + StrUtil::toStr(rank_x) + "]");
-      DIAG_DevMsgIf(1, profile_x->metricMgr()->toString(pfx.c_str()));
-    }
 
     delete profile_y;
   }
@@ -181,11 +162,13 @@ mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
   if (myRank == rank_y) {
     profile_y = profile;
 
-    size_t profileBufSz = 0;
     packProfile(*profile_y, &profileBuf, &profileBufSz);
 
+    // rank_y sends profile buffer size to rank_x
+    MPI_Send(&profileBufSz, 1, MPI_UNSIGNED_LONG, rank_x, tag, comm);
+
     // rank_y sends profile to rank_x
-    MPI_Send(profileBuf, (int)profileBufSz, MPI_BYTE, rank_x, tag, comm);
+    MPI_Send(profileBuf, profileBufSz, MPI_BYTE, rank_x, tag, comm);
 
     free(profileBuf);
   }
@@ -197,6 +180,8 @@ mergeNonLocal(std::pair<Prof::CallPath::Profile*,
 	                ParallelAnalysis::PackedMetrics*> data,
 	      int rank_x, int rank_y, int myRank, MPI_Comm comm)
 {
+  MPI_Status mpistat;
+
   int tag = rank_y; // sender
 
   if (myRank == rank_x) {
@@ -204,7 +189,6 @@ mergeNonLocal(std::pair<Prof::CallPath::Profile*,
     ParallelAnalysis::PackedMetrics* packedMetrics_x = data.second;
 
     // rank_x receives metric data from rank_y
-    MPI_Status mpistat;
     MPI_Recv(packedMetrics_x->data(), packedMetrics_x->dataSize(),
 	     MPI_DOUBLE, rank_y, tag, comm, &mpistat);
     DIAG_Assert(packedMetrics_x->verify(), DIAG_UnexpectedInput);
@@ -234,7 +218,7 @@ packProfile(const Prof::CallPath::Profile& profile,
   // open_memstream: mallocs buffer and sets bufferSz
   FILE* fs = open_memstream((char**)buffer, bufferSz);
 
-  uint wFlags = Prof::CallPath::Profile::WFlg_VirtualMetrics;
+  uint wFlags = Prof::CallPath::Profile::WFlg_virtualMetrics;
   Prof::CallPath::Profile::fmt_fwrite(profile, fs, wFlags);
 
   fclose(fs);
@@ -247,9 +231,9 @@ unpackProfile(uint8_t* buffer, size_t bufferSz)
   FILE* fs = fmemopen(buffer, bufferSz, "r");
 
   Prof::CallPath::Profile* prof = NULL;
-  uint rFlags = Prof::CallPath::Profile::RFlg_VirtualMetrics;
+  uint rFlags = Prof::CallPath::Profile::RFlg_virtualMetrics;
   Prof::CallPath::Profile::fmt_fread(prof, fs, rFlags,
-				     "(ParallelAnalysis::unpackProfile)",
+				     "ParallelAnalysis::unpackProfile",
 				     NULL, NULL);
 
   fclose(fs);

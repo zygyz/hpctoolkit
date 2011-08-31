@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -67,8 +64,7 @@ using std::ostream;
 #include <include/gnu_bfd.h>  // for bfd_getl32
 
 #include "AlphaISA.hpp"
-
-#include <lib/isa-lean/alpha/instruction-set.h>
+#include "instructionSets/alpha.h"
 
 #include <lib/support/diagnostics.h>
 
@@ -83,8 +79,7 @@ using std::ostream;
 // See 'ISA.h' for comments on the interface
 
 ISA::InsnDesc
-AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		      ushort GCC_ATTR_UNUSED sz)
+AlphaISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -162,7 +157,7 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
       // Technically all these instructions are identical except for
       // hints.  We have to assume the compiler's hint is actually
-      // what generally happens...
+      // what generally happens...      
     case OpJump: // (Table 4-3)
       switch (insn & MBR_MASK)
 	{
@@ -181,7 +176,7 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
       // ---------------------------------------------------
     case OpIntArith:
       // (Mostly) SS 4.4, Table 4-5: Integer Arithmetic
-      switch (insn & OPR_MASK)
+      switch (insn & OPR_MASK) 
 	{
 	case ADDL:		/* (SS 4.4, Table 4-5) */
 	case ADDL_V:		/* (SS 4.4, Table 4-5) */
@@ -211,9 +206,9 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	}
       break;
 
-      // (Mostly) SS 4.5, Table 4-6: Logical and Shift Instructions
+      // (Mostly) SS 4.5, Table 4-6: Logical and Shift Instructions      
     case OpIntLogic:
-      switch (insn & OPR_MASK)
+      switch (insn & OPR_MASK) 
 	{
 	case AND:		/* (SS 4.5, Table 4-6) */
 	case BIC:		/* (SS 4.5, Table 4-6) */ /* ANDNOT */
@@ -234,15 +229,15 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	case CMOVLE:		/* (SS 4.5, Table 4-6) */
 	case CMOVGT:		/* (SS 4.5, Table 4-6) */
 	  return InsnDesc(InsnDesc::INT_MOV); // comparison and move
-	case AMASK:		/* (SS 4.11, Table 4-17) */
-	case IMPLVER:		/* (SS 4.11, Table 4-17) */
+	case AMASK:		/* (SS 4.11, Table 4-17) */ 
+	case IMPLVER:		/* (SS 4.11, Table 4-17) */ 
 	  return InsnDesc(InsnDesc::OTHER);
 	}
       break;
-
+      
       // (Mostly) SS 4.6, Table 4-7: Byte Manipulation Instructions
     case OpIntShift:
-      switch (insn & OPR_MASK)
+      switch (insn & OPR_MASK) 
 	{
 	case EXTBL:		/* (SS 4.6, Table 4-7) */
 	case EXTWL:		/* (SS 4.6, Table 4-7) */
@@ -274,9 +269,9 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  return InsnDesc(InsnDesc::INT_SHIFT);
 	}
       break;
-
+      
     case OpIntMult:
-      switch (insn & OPR_MASK)
+      switch (insn & OPR_MASK) 
 	{
 	case MULL:		/* (SS 4.4, Table 4-5) */
 	case MULL_V:		/* (SS 4.4, Table 4-5) */
@@ -291,12 +286,12 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
       // FP operate Instructions (SS 4.10, Table 4-16)
       // ---------------------------------------------------
     case OpIntToFlt:
-       switch (insn & FP_MASK)
+       switch (insn & FP_MASK) 
 	 {
-	 case ITOFF:		/* (SS 4.10, Table 4-16) */
+	 case ITOFF:		/* (SS 4.10, Table 4-16) */ 
 	 case ITOFS:		/* (SS 4.10, Table 4-16) */
 	 case ITOFT:		/* (SS 4.10, Table 4-16) */
-	   return InsnDesc(InsnDesc::OTHER);
+	   return InsnDesc(InsnDesc::OTHER); 
 	 case SQRTF:		/* (SS 4.10, Table 4-16) */
 	 case SQRTF_C:		/* (SS 4.10, Table 4-16) */
 	 case SQRTF_UC:		/* (SS 4.10, Table 4-16) */
@@ -348,16 +343,16 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	   return InsnDesc(InsnDesc::FP_SQRT);
 	 }
        break;
-
+       
     case OpFltVAX:
-      switch (insn & FP_MASK)
+      switch (insn & FP_MASK) 
 	{
 	case ADDF:		/* (SS 4.10, Table 4-16) */
 	case ADDF_C:		/* (SS 4.10, Table 4-16) */
 	case ADDF_UC:		/* (SS 4.10, Table 4-16) */
 	case ADDF_U:		/* (SS 4.10, Table 4-16) */
 	case ADDF_SC:		/* (SS 4.10, Table 4-16) */
-	case ADDF_S:		/* (SS 4.10, Table 4-16) */
+	case ADDF_S:		/* (SS 4.10, Table 4-16) */ 
 	case ADDF_SUC:		/* (SS 4.10, Table 4-16) */
 	case ADDF_SU:		/* (SS 4.10, Table 4-16) */
 	case ADDG:		/* (SS 4.10, Table 4-16) */
@@ -466,9 +461,9 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  return InsnDesc(InsnDesc::FP_MUL);
 	}
       break;
-
+      
     case OpFltIEEE:
-      switch (insn & FP_MASK)
+      switch (insn & FP_MASK) 
 	{
 	case ADDS:		/* (SS 4.10, Table 4-16) */
 	case ADDS_C:		/* (SS 4.10, Table 4-16) */
@@ -664,9 +659,9 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  return InsnDesc(InsnDesc::FP_SUB);
 	}
       break;
-
+      
     case OpFltOp:
-      switch (insn & FP_MASK)
+      switch (insn & FP_MASK) 
 	{
 	case CPYS:		/* (SS 4.10, Table 4-16) */
 	case CPYSE:		/* (SS 4.10, Table 4-16) */
@@ -693,7 +688,7 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
       // Other/Misc Instructions (SS 4.11 & 4.12, Table 4-17, 4-18)
       // ---------------------------------------------------
     case OpMisc:
-      switch (insn & MFC_MASK)
+      switch (insn & MFC_MASK) 
 	{
 	  // Miscellaneous Instructions: (SS 4.11, Table 4-17)
 	case ECB:		/* (SS 4.11, Table 4-17) */
@@ -713,12 +708,12 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  return InsnDesc(InsnDesc::OTHER);
 	}
       break;
-
+      
       // ---------------------------------------------------
       // (Mostly) Multimedia Instructions: (SS 4.13, Table 4-19(?))
       // ---------------------------------------------------
     case OpFltToInt:
-      switch (insn & FP_MASK)
+      switch (insn & FP_MASK) 
 	{
 	case MINUB8:		/* (SS 4.13, Table 4-19(?)) */
 	case MINSB8:		/* (SS 4.13, Table 4-19(?)) */
@@ -746,7 +741,7 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 	  return InsnDesc(InsnDesc::OTHER);
 	}
       break;
-
+      
       // ---------------------------------------------------
       // Generic PALcode format instructions
       // ---------------------------------------------------
@@ -757,27 +752,26 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
     case PAL1E:
     // case PAL1F: // already referenced as HW_ST
       return InsnDesc(InsnDesc::OTHER);
-
+      
       // PALcode format instructions
     case CALLSYS:
-      return InsnDesc(InsnDesc::SYS_CALL);
-
+      return InsnDesc(InsnDesc::SYS_CALL); 
+      
     default:
       break;
     }
-
+  
   return InsnDesc(InsnDesc::INVALID);
 }
 
 
 VMA
-AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
-			   ushort GCC_ATTR_UNUSED sz)
+AlphaISA::GetInsnTargetVMA(MachInsn* mi, VMA pc, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
   uint32_t insn = (uint32_t)bfd_getl32((const unsigned char*)mi);
-
+  
   intptr_t offset;
   switch (insn & OP_MASK)
     {
@@ -792,7 +786,7 @@ AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
     case BLT:
     case BNE:
     case BR:
-    case BSR:
+    case BSR:  
     case FBEQ: // FP branch
     case FBGE:
     case FBGT:
@@ -802,22 +796,21 @@ AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
       // Added to the address of the *updated* pc
       offset = BR_DISP(insn);
       if (offset & BR_DISP_SIGN) { offset |= ~BR_DISP_MASK; } // sign extend
-      return ((pc + MINSN_SIZE) + (offset << 2));
+      return ((pc + MINSN_SIZE) + (offset << 2));  
 
     case OpJump: // JMP, JSR, JSR_COROUTINE, RET
       break;  // branch content in register
-
+      
     default:
       break;
     }
-
+  
   return (0);
 }
 
 
 void
-AlphaISA::decode(ostream& GCC_ATTR_UNUSED os, MachInsn* GCC_ATTR_UNUSED mi,
-		 VMA GCC_ATTR_UNUSED vma, ushort GCC_ATTR_UNUSED opIndex)
+AlphaISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   DIAG_Die(DIAG_Unimplemented);
 }

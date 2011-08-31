@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 // note: 
@@ -83,11 +80,8 @@
 
 #include <unwind/common/unwind.h>
 #include <unwind/common/backtrace.h>
-#include <unwind/common/unw-throw.h>
 #include "splay.h"
 #include "ui_tree.h"
-#include <utilities/arch/mcontext.h>
-#include <utilities/ip-normalized.h>
 
 #include <hpcrun/thread_data.h>
 #include "x86-unwind-interval.h"
@@ -126,33 +120,78 @@ static int DEBUG_NO_LONGJMP = 0;
 
 
 static void 
-update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset);
+update_cursor_with_troll(unw_cursor_t *cursor, int offset);
 
 static int 
-hpcrun_check_fence(void* ip);
+hpcrun_check_fence(void *ip);
 
 static void 
-simulate_segv(void);
+drop_sample(void);
 
 static void 
-help_simulate_segv(bool no_backtrace);
+_drop_sample(bool no_backtrace);
 
 static int
 unw_step_prefer_sp(void);
 
 static step_state 
-unw_step_sp(hpcrun_unw_cursor_t* cursor);
+unw_step_sp(unw_cursor_t *cursor);
 
 static step_state
-unw_step_bp(hpcrun_unw_cursor_t* cursor);
+unw_step_bp(unw_cursor_t *cursor);
 
 static step_state
-unw_step_std(hpcrun_unw_cursor_t* cursor);
+unw_step_std(unw_cursor_t *cursor);
 
 static step_state
-t1_dbg_unw_step(hpcrun_unw_cursor_t* cursor);
+t1_dbg_unw_step(unw_cursor_t *cursor);
 
-static step_state (*dbg_unw_step)(hpcrun_unw_cursor_t* cursor) = t1_dbg_unw_step;
+static step_state (*dbg_unw_step)(unw_cursor_t *cursor) = t1_dbg_unw_step;
+
+
+//***************************************************************************
+// macros
+//***************************************************************************
+
+#if defined(__LIBCATAMOUNT__)
+#undef __CRAYXT_CATAMOUNT_TARGET
+#define __CRAYXT_CATAMOUNT_TARGET
+#endif
+
+#define GET_MCONTEXT(context) (&((ucontext_t *)context)->uc_mcontext)
+
+//-------------------------------------------------------------------------
+// define macros for extracting pc, bp, and sp from machine contexts. these
+// macros bridge differences between machine context representations for
+// Linux and Catamount
+//-------------------------------------------------------------------------
+#ifdef __CRAYXT_CATAMOUNT_TARGET
+
+#define MCONTEXT_PC(mctxt) ((void *)   mctxt->sc_rip)
+#define MCONTEXT_BP(mctxt) ((void **)  mctxt->sc_rbp)
+#define MCONTEXT_SP(mctxt) ((void **)  mctxt->sc_rsp)
+
+#else
+
+#define MCONTEXT_REG(mctxt, reg) (mctxt->gregs[reg])
+#define MCONTEXT_PC(mctxt) ((void *)  MCONTEXT_REG(mctxt, REG_RIP))
+#define MCONTEXT_BP(mctxt) ((void **) MCONTEXT_REG(mctxt, REG_RBP))
+#define MCONTEXT_SP(mctxt) ((void **) MCONTEXT_REG(mctxt, REG_RSP))
+
+#endif
+
+
+//****************************************************************************
+// interface functions
+//****************************************************************************
+
+void*
+hpcrun_context_pc(void* context)
+{
+  mcontext_t *mc = GET_MCONTEXT(context);
+  return MCONTEXT_PC(mc);
+}
+
 
 void
 hpcrun_unw_init(void)
@@ -161,16 +200,9 @@ hpcrun_unw_init(void)
   hpcrun_interval_tree_init();
 }
 
-//
-// register codes (only 1 at the moment)
-//
-typedef enum {
-  UNW_REG_IP
-} unw_reg_code_t;
 
-static int
-hpcrun_unw_get_unnorm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id, 
-		   void** reg_value)
+int 
+hpcrun_unw_get_reg(unw_cursor_t *cursor, unw_reg_code_t reg_id, void **reg_value)
 {
   //
   // only implement 1 reg for the moment.
@@ -178,7 +210,7 @@ hpcrun_unw_get_unnorm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id,
   //
   switch (reg_id) {
     case UNW_REG_IP:
-      *reg_value = cursor->pc_unnorm;
+      *reg_value = cursor->pc;
       break;
     default:
       return ~0;
@@ -186,56 +218,26 @@ hpcrun_unw_get_unnorm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id,
   return 0;
 }
 
-static int
-hpcrun_unw_get_norm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id, 
-			ip_normalized_t* reg_value)
-{
-  //
-  // only implement 1 reg for the moment.
-  //  add more if necessary
-  //
-  switch (reg_id) {
-    case UNW_REG_IP:
-      *reg_value = cursor->pc_norm;
-      break;
-    default:
-      return ~0;
-  }
-  return 0;
-}
-
-int
-hpcrun_unw_get_ip_norm_reg(hpcrun_unw_cursor_t* c, ip_normalized_t* reg_value)
-{
-  return hpcrun_unw_get_norm_reg(c, UNW_REG_IP, reg_value);
-}
-
-int
-hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value)
-{
-  return hpcrun_unw_get_unnorm_reg(c, UNW_REG_IP, reg_value);
-}
 
 void 
-hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
+hpcrun_unw_init_cursor(unw_cursor_t* cursor, void* context)
 {
   mcontext_t *mc = GET_MCONTEXT(context);
 
-  cursor->pc_unnorm = MCONTEXT_PC(mc); 
-  cursor->bp 	    = MCONTEXT_BP(mc);
-  cursor->sp 	    = MCONTEXT_SP(mc);
-  cursor->ra_loc    = NULL;
+  cursor->pc 	 = MCONTEXT_PC(mc); 
+  cursor->bp 	 = MCONTEXT_BP(mc);
+  cursor->sp 	 = MCONTEXT_SP(mc);
+  cursor->ra_loc = NULL;
 
   TMSG(UNW, "init: pc=%p, ra_loc=%p, sp=%p, bp=%p", 
-       cursor->pc_unnorm, cursor->ra_loc, cursor->sp, cursor->bp);
+       cursor->pc, cursor->ra_loc, cursor->sp, cursor->bp);
 
   cursor->flags = 0; // trolling_used
-  cursor->intvl = hpcrun_addr_to_interval(cursor->pc_unnorm,
-					  cursor->pc_unnorm, &cursor->pc_norm);
+  cursor->intvl = hpcrun_addr_to_interval(cursor->pc);
+
   if (!cursor->intvl) {
-    EMSG("init cursor could NOT build an interval for initial pc = %p",
-	 cursor->pc_unnorm);
-    cursor->pc_norm = hpcrun_normalize_ip(cursor->pc_unnorm, NULL);
+    TMSG(UNW,"UNW INIT calls stack troll");
+    update_cursor_with_troll(cursor, 0);
   }
 
   if (MYDBG) { dump_ui((unwind_interval *)cursor->intvl, 0); }
@@ -253,38 +255,34 @@ hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
 //
 
 void*
-hpcrun_unw_get_ra_loc(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_get_ra_loc(unw_cursor_t* cursor)
 {
   return cursor->ra_loc;
 }
 
 
 static step_state
-hpcrun_unw_step_real(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_step_real(unw_cursor_t *cursor)
 {
 
   //-----------------------------------------------------------
   // check if we have reached the end of our unwind, which is
   // demarcated with a fence. 
   //-----------------------------------------------------------
-  if (hpcrun_check_fence(cursor->pc_unnorm)){
-    TMSG(UNW,"current pc in monitor fence", cursor->pc_unnorm);
+  if (hpcrun_check_fence(cursor->pc)){
+    TMSG(UNW,"current pc in monitor fence", cursor->pc);
     return STEP_STOP;
   }
 
   // current frame  
   void** bp = cursor->bp;
   void*  sp = cursor->sp;
-  void*  pc = cursor->pc_unnorm;
+  void*  pc = cursor->pc;
   unwind_interval* uw = (unwind_interval *)cursor->intvl;
 
   int unw_res;
 
-  if (!uw){
-    TMSG(UNW, "Invalid unw interval for cursor");
-    update_cursor_with_troll(cursor, 0);
-    return STEP_TROLL;
-  }
+  if (!uw) return STEP_ERROR;
 
   switch (uw->ra_status){
   case RA_SP_RELATIVE:
@@ -341,8 +339,8 @@ hpcrun_validation_summary(void)
   AMSG("VALIDATION: Confirmed: %ld, Probable: %ld (indirect: %ld, tail: %ld, etc: %ld), Wrong: %ld",
        hpcrun_validation_counts[UNW_ADDR_CONFIRMED],
        hpcrun_validation_counts[UNW_ADDR_PROBABLE_INDIRECT] +
-       hpcrun_validation_counts[UNW_ADDR_PROBABLE_TAIL] +
-       hpcrun_validation_counts[UNW_ADDR_PROBABLE],
+         hpcrun_validation_counts[UNW_ADDR_PROBABLE_TAIL] +
+         hpcrun_validation_counts[UNW_ADDR_PROBABLE],
        hpcrun_validation_counts[UNW_ADDR_PROBABLE_INDIRECT],
        hpcrun_validation_counts[UNW_ADDR_PROBABLE_TAIL],
        hpcrun_validation_counts[UNW_ADDR_PROBABLE],
@@ -362,27 +360,34 @@ vrecord(void *from, void *to, validation_status vstat)
 
 
 step_state
-hpcrun_unw_step(hpcrun_unw_cursor_t *cursor)
+hpcrun_unw_step(unw_cursor_t *cursor)
 {
   if ( ENABLED(DBG_UNW_STEP) ){
     return dbg_unw_step(cursor);
   }
   
-  hpcrun_unw_cursor_t saved = *cursor;
+  unw_cursor_t saved = *cursor;
   step_state rv = hpcrun_unw_step_real(cursor);
   if ( ENABLED(UNW_VALID) ) {
     if (rv == STEP_OK) {
       // try to validate all calls, except the one at the base of the call stack from libmonitor.
       // rather than recording that as a valid call, it is preferable to ignore it.
-      if (!monitor_in_start_func_wide(cursor->pc_unnorm)) {
-	validation_status vstat = deep_validate_return_addr(cursor->pc_unnorm,
-							    (void *) &saved);
-	vrecord(saved.pc_unnorm,cursor->pc_unnorm,vstat);
+      if (!monitor_in_start_func_wide(cursor->pc)) {
+	validation_status vstat = deep_validate_return_addr(cursor->pc, (void *) &saved);
+	vrecord(saved.pc,cursor->pc,vstat);
       }
     }
   }
   return rv;
 }
+
+
+void
+hpcrun_unw_throw(void)
+{
+  _drop_sample(false);
+}
+
 
 //****************************************************************************
 // hpcrun_unw_step helpers
@@ -403,7 +408,7 @@ unw_step_prefer_sp(void)
 
 
 static step_state
-unw_step_sp(hpcrun_unw_cursor_t* cursor)
+unw_step_sp(unw_cursor_t *cursor)
 {
   TMSG(UNW_STRATEGY,"Using SP step");
 
@@ -412,7 +417,7 @@ unw_step_sp(hpcrun_unw_cursor_t* cursor)
   // current frame
   void** bp = cursor->bp;
   void*  sp = cursor->sp;
-  void*  pc = cursor->pc_unnorm;
+  void*  pc = cursor->pc;
   unwind_interval* uw = (unwind_interval *)cursor->intvl;
   
   TMSG(UNW,"step_sp: bp=%p, sp=%p, pc=%p", bp, sp, pc);
@@ -461,9 +466,7 @@ unw_step_sp(hpcrun_unw_cursor_t* cursor)
     }
   }
   next_sp += 1;
-  ip_normalized_t next_pc_norm = ip_normalized_NULL;
-  cursor->intvl = hpcrun_addr_to_interval(((char *)next_pc) - 1,
-					  next_pc, &next_pc_norm);
+  cursor->intvl = hpcrun_addr_to_interval(((char *)next_pc) - 1);
 
   if (! cursor->intvl){
     if (((void *)next_sp) >= monitor_stack_bottom()){
@@ -478,16 +481,13 @@ unw_step_sp(hpcrun_unw_cursor_t* cursor)
     // sanity check to avoid infinite unwind loop
     if (next_sp <= cursor->sp){
       TMSG(INTV_ERR,"@ pc = %p. sp unwind does not advance stack." 
-	   " New sp = %p, old sp = %p", cursor->pc_unnorm, next_sp,
-	   cursor->sp);
-      
+	   " New sp = %p, old sp = %p", cursor->pc, next_sp, cursor->sp);
       return STEP_ERROR;
     }
-    cursor->pc_unnorm = next_pc;
-    cursor->bp 	      = next_bp;
-    cursor->sp 	      = next_sp;
-    cursor->ra_loc    = ra_loc;
-    cursor->pc_norm   = next_pc_norm;
+    cursor->pc 	   = next_pc;
+    cursor->bp 	   = next_bp;
+    cursor->sp 	   = next_sp;
+    cursor->ra_loc = ra_loc;
   }
 
   TMSG(UNW,"==== sp advance ok ===");
@@ -496,7 +496,7 @@ unw_step_sp(hpcrun_unw_cursor_t* cursor)
 
 
 static step_state
-unw_step_bp(hpcrun_unw_cursor_t* cursor)
+unw_step_bp(unw_cursor_t *cursor)
 {
   void *sp, **bp, *pc; 
   void **next_sp, **next_bp, *next_pc;
@@ -507,7 +507,7 @@ unw_step_bp(hpcrun_unw_cursor_t* cursor)
   // current frame
   bp = cursor->bp;
   sp = cursor->sp;
-  pc = cursor->pc_unnorm;
+  pc = cursor->pc;
   uw = (unwind_interval *)cursor->intvl;
 
   TMSG(UNW,"cursor in ==> bp=%p, sp=%p, pc=%p", bp, sp, pc);
@@ -537,9 +537,7 @@ unw_step_bp(hpcrun_unw_cursor_t* cursor)
   if ((void *)next_sp > sp) {
     // this condition is a weak correctness check. only
     // try building an interval for the return address again if it succeeds
-    ip_normalized_t next_pc_norm = ip_normalized_NULL;
-    uw = (unwind_interval *)hpcrun_addr_to_interval(((char *)next_pc) - 1, 
-						    next_pc, &next_pc_norm);
+    uw = (unwind_interval *)hpcrun_addr_to_interval(((char *)next_pc) - 1);
     if (! uw){
       if (((void *)next_sp) >= monitor_stack_bottom()) {
         TMSG(UNW_STRATEGY,"BP advance reaches monitor_stack_bottom,"
@@ -550,12 +548,11 @@ unw_step_bp(hpcrun_unw_cursor_t* cursor)
       return STEP_ERROR;
     }
     else {
-      cursor->pc_unnorm = next_pc;
-      cursor->bp        = next_bp;
-      cursor->sp        = next_sp;
-      cursor->ra_loc    = ra_loc;
-      cursor->pc_norm   = next_pc_norm;
-      
+      cursor->pc     = next_pc;
+      cursor->bp     = next_bp;
+      cursor->sp     = next_sp;
+      cursor->ra_loc = ra_loc;
+
       cursor->intvl = (splay_interval_t *)uw;
       TMSG(UNW,"cursor advances ==>has_intvl=%d, bp=%p, sp=%p, pc=%p",
 	   cursor->intvl != NULL, next_bp, next_sp, next_pc);
@@ -571,7 +568,7 @@ unw_step_bp(hpcrun_unw_cursor_t* cursor)
 
 
 static step_state
-unw_step_std(hpcrun_unw_cursor_t* cursor)
+unw_step_std(unw_cursor_t *cursor)
 {
   int unw_res;
 
@@ -598,16 +595,16 @@ unw_step_std(hpcrun_unw_cursor_t* cursor)
 
 // special steppers to artificially introduce error conditions
 static step_state
-t1_dbg_unw_step(hpcrun_unw_cursor_t* cursor)
+t1_dbg_unw_step(unw_cursor_t *cursor)
 {
-  simulate_segv();
+  drop_sample();
 
   return STEP_ERROR;
 }
 
 
 static step_state GCC_ATTR_UNUSED
-t2_dbg_unw_step(hpcrun_unw_cursor_t* cursor)
+t2_dbg_unw_step(unw_cursor_t *cursor)
 {
   static int s = 0;
   step_state rv;
@@ -623,44 +620,47 @@ t2_dbg_unw_step(hpcrun_unw_cursor_t* cursor)
 }
 
 
+
+
 //****************************************************************************
 // private operations
 //****************************************************************************
 
 static void 
-help_simulate_segv(bool no_backtrace)
+_drop_sample(bool no_backtrace)
 {
-  if (DEBUG_NO_LONGJMP) return;
-
-  if (no_backtrace) {
+  if (DEBUG_NO_LONGJMP) {
+    TMSG(UNW, "_drop_sample DEBUG_NO_LONGJMP return");
     return;
   }
+
+  if (no_backtrace) {
+    TMSG(UNW, "_drop_sample no backtrace return");
+    return;
+  }
+  TMSG(UNW, "_drop sample normal -DROP-");
   if (hpcrun_below_pmsg_threshold()) {
-    hpcrun_bt_dump(TD_GET(btbuf_cur), "DROP");
+    hpcrun_bt_dump(TD_GET(unwind), "DROP");
   }
 
   hpcrun_up_pmsg_count();
 
+  TMSG(UNW, "About to longjump f drop");
   sigjmp_buf_t *it = &(TD_GET(bad_unwind));
   (*hpcrun_get_real_siglongjmp())(it->jb, 9);
 }
 
 
 static void
-simulate_segv(void)
+drop_sample(void)
 {
-  help_simulate_segv(false);
+  _drop_sample(false);
 }
 
 
 static void
-update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
+update_cursor_with_troll(unw_cursor_t *cursor, int offset)
 {
-  if (ENABLED(NO_TROLLING)){
-    TMSG(TROLL, "Trolling disabled");
-    hpcrun_unw_throw();
-  }
-
   unsigned int tmp_ra_offset;
 
   int ret = stack_troll(cursor->sp, &tmp_ra_offset, &deep_validate_return_addr,
@@ -677,34 +677,31 @@ update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
     next_sp += 1;
     if ( next_sp <= cursor->sp){
       PMSG_LIMIT(PMSG(TROLL,"Something weird happened! trolling from %p"
-		      " resulted in sp not advancing", cursor->pc_unnorm));
+		      " resulted in sp not advancing", cursor->pc));
       hpcrun_unw_throw();
     }
 
-    ip_normalized_t next_pc_norm = ip_normalized_NULL;
-    cursor->intvl = hpcrun_addr_to_interval(((char *)next_pc) + offset,
-					    next_pc, &next_pc_norm);
+    cursor->intvl = hpcrun_addr_to_interval(((char *)next_pc) + offset);
     if (cursor->intvl) {
       PMSG_LIMIT(PMSG(TROLL,"Trolling advances cursor to pc = %p, sp = %p", 
 		      next_pc, next_sp));
-      PMSG_LIMIT(PMSG(TROLL,"TROLL SUCCESS pc = %p", cursor->pc_unnorm));
+      PMSG_LIMIT(PMSG(TROLL,"TROLL SUCCESS pc = %p", cursor->pc));
 
-      cursor->pc_unnorm = next_pc;
-      cursor->bp        = next_bp;
-      cursor->sp        = next_sp;
-      cursor->ra_loc    = ra_loc;
-      cursor->pc_norm   = next_pc_norm;
+      cursor->pc     = next_pc;
+      cursor->bp     = next_bp;
+      cursor->sp     = next_sp;
+      cursor->ra_loc = ra_loc;
 
       cursor->flags = 1; // trolling_used
       return; // success!
     }
     PMSG_LIMIT(PMSG(TROLL, "No interval found for trolled pc, dropping sample,"
-		    " cursor pc = %p", cursor->pc_unnorm));
+		    " cursor pc = %p", cursor->pc));
     // fall through for error handling
   } else {
     PMSG_LIMIT(PMSG(TROLL, "Troll failed: dropping sample, cursor pc = %p", 
-		    cursor->pc_unnorm));
-    PMSG_LIMIT(PMSG(TROLL,"TROLL FAILURE pc = %p", cursor->pc_unnorm));
+		    cursor->pc));
+    PMSG_LIMIT(PMSG(TROLL,"TROLL FAILURE pc = %p", cursor->pc));
     // fall through for error handling
   }
   // assert(0);
@@ -713,7 +710,7 @@ update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
 
 
 static int 
-hpcrun_check_fence(void* ip)
+hpcrun_check_fence(void *ip)
 {
   return monitor_in_start_func_wide(ip);
 }
@@ -723,19 +720,18 @@ hpcrun_check_fence(void* ip)
 // debug operations
 //****************************************************************************
 
-static hpcrun_unw_cursor_t _dbg_cursor;
+static unw_cursor_t _dbg_cursor;
 
 static void GCC_ATTR_UNUSED
-dbg_init_cursor(void* context)
+dbg_init_cursor(void *context)
 {
   DEBUG_NO_LONGJMP = 1;
 
   mcontext_t *mc = GET_MCONTEXT(context);
 
-  _dbg_cursor.pc_unnorm = MCONTEXT_PC(mc);
-  _dbg_cursor.bp        = MCONTEXT_BP(mc);
-  _dbg_cursor.sp        = MCONTEXT_SP(mc);
-  _dbg_cursor.pc_norm = hpcrun_normalize_ip(_dbg_cursor.pc_unnorm, NULL);
+  _dbg_cursor.pc = MCONTEXT_PC(mc);
+  _dbg_cursor.bp = MCONTEXT_BP(mc);
+  _dbg_cursor.sp = MCONTEXT_SP(mc);
 
   DEBUG_NO_LONGJMP = 0;
 }

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -75,9 +72,9 @@ using std::ostream;
 
 //*************************** Forward Declarations ***************************
 
-static VMA
+static VMA 
 GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
-{
+{ 
   // N.B.: The GNU decoders assume that the address of 'insn_addr' is
   // the actual the VMA in order to calculate VMA-relative targets.
   VMA x = (di_vma - PTR_TO_BFDVMA(insn_addr)) + insn_vma;
@@ -85,7 +82,7 @@ GNUvma2vma(bfd_vma di_vma, MachInsn* insn_addr, VMA insn_vma)
 }
 
 
-static void
+static void 
 GNUbu_print_addr(bfd_vma di_vma, struct disassemble_info* di)
 {
   GNUbu_disdata* data = (GNUbu_disdata*)di->application_data;
@@ -131,14 +128,13 @@ SparcISA::~SparcISA()
 
 
 ISA::InsnDesc
-SparcISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		      ushort GCC_ATTR_UNUSED sz)
+SparcISA::GetInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   ISA::InsnDesc d;
 
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
 
   // The target field is set (to an absolute vma) on PC-relative
@@ -153,44 +149,44 @@ SparcISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
   switch (m_di->insn_type) {
     case dis_noninsn:
-      d.set(InsnDesc::INVALID);
+      d.Set(InsnDesc::INVALID);
       break;
     case dis_branch:
       if (m_di->target != 0 && isPCRel) {
-	d.set(InsnDesc::BR_UN_COND_REL);
+	d.Set(InsnDesc::BR_UN_COND_REL);
       }
       else {
-	d.set(InsnDesc::BR_UN_COND_IND);
+	d.Set(InsnDesc::BR_UN_COND_IND);
       }
       break;
     case dis_condbranch:
       if (m_di->target != 0 && isPCRel) {
-	d.set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_REL); // arbitrarily choose int
       }
       else {
-	d.set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
+	d.Set(InsnDesc::INT_BR_COND_IND); // arbitrarily choose int
       }
       break;
     case dis_jsr:
       if (m_di->target != 0 && isPCRel) {
-	d.set(InsnDesc::SUBR_REL);
+	d.Set(InsnDesc::SUBR_REL);
       }
       else {
-	d.set(InsnDesc::SUBR_IND);
+	d.Set(InsnDesc::SUBR_IND);
       }
       break;
     case dis_condjsr:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
     case dis_return:
-      d.set(InsnDesc::SUBR_RET);
+      d.Set(InsnDesc::SUBR_RET);
       break;
     case dis_dref:
     case dis_dref2:
-      d.set(InsnDesc::MEM_OTHER);
+      d.Set(InsnDesc::MEM_OTHER);
       break;
     default:
-      d.set(InsnDesc::OTHER);
+      d.Set(InsnDesc::OTHER);
       break;
   }
   return d;
@@ -198,18 +194,18 @@ SparcISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-SparcISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
+SparcISA::GetInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 {
   // N.B.: The GNU decoders assume that the address of 'mi' is
   // actually the VMA in order to calculate VMA-relative targets.
 
-  if (cacheLookup(mi) == NULL) {
-    int size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+  if (CacheLookup(mi) == NULL) {
+    ushort size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
+    CacheSet(mi, size);
   }
-
-  ISA::InsnDesc d = getInsnDesc(mi, opIndex, sz);
-  if (d.isBrRel() || d.isSubrRel()) {
+  
+  ISA::InsnDesc d = GetInsnDesc(mi, opIndex, sz);
+  if (d.IsBrRel() || d.IsSubrRel()) {
     return GNUvma2vma(m_di->target, mi, vma);
   }
   else {
@@ -220,8 +216,8 @@ SparcISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 
 
 ushort
-SparcISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
-{
+SparcISA::GetInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
+{ 
   // SPARC branch instructions have an architectural delay slot of one
   // instruction, but in certain cases it can effectively be zero.  If
   // the annul bit is set in the case of an unconditional
@@ -235,8 +231,8 @@ SparcISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
 
   // (We don't care about delays on instructions such as loads/stores)
 
-  ISA::InsnDesc d = getInsnDesc(mi, opIndex, sz);
-  if (d.isBr() || d.isSubr() || d.isSubrRet()) {
+  ISA::InsnDesc d = GetInsnDesc(mi, opIndex, sz);
+  if (d.IsBr() || d.IsSubr() || d.IsSubrRet()) {
     return 1;
   }
   else {
@@ -246,8 +242,7 @@ SparcISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
 
 
 void
-SparcISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		 ushort GCC_ATTR_UNUSED opIndex)
+SparcISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

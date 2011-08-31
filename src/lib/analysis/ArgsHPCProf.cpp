@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -68,13 +65,9 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/hpctoolkit-config.h>
-
 #include "ArgsHPCProf.hpp"
 
 #include "CallPath.hpp" /* for normalizeFilePath */
-
-#include <lib/analysis/Util.hpp>
 
 #include <lib/support/diagnostics.h>
 #include <lib/support/Trace.hpp>
@@ -91,23 +84,16 @@ using std::string;
 
 //***************************************************************************
 
-static const char* version_info = HPCTOOLKIT_VERSION_STRING;
+static const char* version_info =
+#include <include/HPCToolkitVersionInfo.h>
 
 static const char* usage_summary =
-"[options] <measurement-group>...\n";
+"[options] <profile-dir-or-file>...\n";
 
 static const char* usage_details = "\
-hpcprof and hpcprof-mpi analyze call path profile performance measurements,\n\
-attribute them to static source code structure, and generate an Experiment\n\
-database for use with hpcviewer. hpcprof-mpi is a scalable (parallel)\n\
-version of hpcprof.\n\
-\n\
-Both hpcprof and hpcprof-mpi expect a list of measurement-groups, where a\n\
-group is a call path profile directory or an individual profile file.\n\
-\n\
-N.B.: For best results (a) compile your application with debugging\n\
-information (e.g., -g); (b) pass recursive search paths with the -I option;\n\
-and (c) pass structure information with the -S option.\n\
+hpcprof correlates call path profiling metrics with static source code\n\
+structure and generates an Experiment database for use with hpcviewer. It\n\
+expects a list of call path profile directories or files.\n\
 \n\
 Options: General:\n\
   -v [<n>], --verbose [<n>]\n\
@@ -120,14 +106,6 @@ Options: General:\n\
 Options: Source Structure Correlation:\n\
   --name <name>, --title <name>\n\
                        Set the database's name (title) to <name>.\n\
-  -M <metric>, --metric <metric>\n\
-                       Specify the set of metrics computed by hpcprof.\n\
-                       <metric> is one of the following:\n\
-                         sum:    Show (only) summary metrics\n\
-                                 (Sum, Mean, StdDev, CoefVar, Min, Max)\n\
-                         sum+:   Show thread and summary metrics\n\
-                         thread: Show only thread metrics\n\
-                       Default is 'sum'; hpcprof-mpi always computes 'sum'.\n\
   -I <path>, --include <path>\n\
                        Use <path> when searching for source files. For a\n\
                        recursive search, append a '*' after the last slash,\n\
@@ -136,26 +114,18 @@ Options: Source Structure Correlation:\n\
   -S <file>, --structure <file>\n\
                        Use hpcstruct structure file <file> for correlation.\n\
                        May pass multiple times (e.g., for shared libraries).\n\
-  -R '<old-path>=<new-path>', --replace-path '<old-path>=<new-path>'\n\
-                       Substitute instances of <old-path> with <new-path>;\n\
-                       apply to all paths (profile's load map, source code)\n\
-                       for which <old-path> is a prefix.  Use '\\' to escape\n\
-                       instances of '=' within a path. May pass multiple\n\
-                       times.\n\
 \n\
 Options: Special:\n\
-  --force-metric       Force hpcprof to show all thread-level metrics,\n\
-                       regardless of their number.\n\
+  --force              Currently, hpcprof permits at most 32 profile-files\n\
+                       to prevent unmanageably large Experiment databases.\n\
+                       Use this option to remove this limit.  We are working\n\
+                       on solutions.\n\
 \n\
 Options: Output:\n\
   -o <db-path>, --db <db-path>, --output <db-path>\n\
                        Specify Experiment database name <db-path>.\n\
                        {./"Analysis_DB_DIR"}\n\
-                       Experiment format {"Analysis_OUT_DB_EXPERIMENT"}\n\
-  --metric-db <yes|no>\n\
-                       Control whether to generate a thread-level metric\n\
-                       value database for hpcviewer scatter plots. {yes}\n\
-";
+                       Experiment format {"Analysis_OUT_DB_EXPERIMENT"}\n";
 
 
 
@@ -164,11 +134,9 @@ Options: Output:\n\
 
 // Note: Changing the option name requires changing the name in Parse()
 CmdLineParser::OptArgDesc Analysis::ArgsHPCProf::optArgs[] = {
-  {  0 , "agent-cilk",      CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
-     NULL },
-  {  0 , "agent-mpi",       CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
-     NULL },
   {  0 , "agent-pthread",   CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
+     NULL },
+  {  0 , "agent-cilk",      CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
      NULL },
 
   // Source structure correlation options
@@ -177,21 +145,12 @@ CmdLineParser::OptArgDesc Analysis::ArgsHPCProf::optArgs[] = {
   {  0 , "title",           CLP::ARG_REQ,  CLP::DUPOPT_CLOB, CLP_SEPARATOR,
      NULL },
 
-  { 'M', "metric",          CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
-     NULL },
-
   { 'I', "include",         CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
   { 'S', "structure",       CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
      NULL },
-  { 'R', "replace-path",    CLP::ARG_REQ,  CLP::DUPOPT_CAT,  CLP_SEPARATOR,
-     NULL},
 
   { 'N', "normalize",       CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
-     NULL },
-
-  // Special options
-  {  0 , "force-metric",    CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
      NULL },
 
   // Output options
@@ -199,7 +158,11 @@ CmdLineParser::OptArgDesc Analysis::ArgsHPCProf::optArgs[] = {
      NULL },
   {  0 , "db",              CLP::ARG_REQ , CLP::DUPOPT_CLOB, NULL,
      NULL },
-  {  0 , "metric-db",       CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
+
+  // Special options for now
+  {  0 , "force",           CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
+     NULL },
+  {  0 , "metric",          CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
      NULL },
 
   // General
@@ -226,11 +189,6 @@ namespace Analysis {
 ArgsHPCProf::ArgsHPCProf()
 {
   Diagnostics_SetDiagnosticFilterLevel(1);
-
-  // Analysis::Args
-  prof_metrics = Analysis::Args::MetricSet_SumOnly;
-
-  db_makeMetricDB = true;
 }
 
 
@@ -310,17 +268,11 @@ ArgsHPCProf::parse(int argc, const char* const argv[])
     }
 
     // Check for agent options
-    if (parser.isOpt("agent-cilk")) {
-      if (!agent.empty()) { ARG_ERROR("Only one agent is supported!"); }
-      agent = "agent-cilk";
-    }
-    if (parser.isOpt("agent-mpi")) {
-      if (!agent.empty()) { ARG_ERROR("Only one agent is supported!"); }
-      agent = "agent-mpi";
-    }
     if (parser.isOpt("agent-pthread")) {
-      if (!agent.empty()) { ARG_ERROR("Only one agent is supported!"); }
       agent = "agent-pthread";
+    }
+    if (parser.isOpt("agent-cilk")) {
+      agent = "agent-cilk";
     }
 
     // Check for other options: Correlation options
@@ -347,31 +299,15 @@ ArgsHPCProf::parse(int argc, const char* const argv[])
     }
     if (parser.isOpt("normalize")) { 
       const string& arg = parser.getOptArg("normalize");
-      doNormalizeTy = parseArg_norm(arg, "--normalize/-N option");
+      doNormalizeTy = parseArg_norm(arg, "--normalize option");
     }
 
-    if (parser.isOpt("replace-path")) {
-      string arg = parser.getOptArg("replace-path");
-      
-      std::vector<std::string> replacePaths;
-      StrUtil::tokenize_str(arg, CLP_SEPARATOR, replacePaths);
-      
-      for (uint i = 0; i < replacePaths.size(); ++i) {
-	int occurancesOfEquals =
-	  Analysis::Util::parseReplacePath(replacePaths[i]);
-	
-	if (occurancesOfEquals > 1) {
-	  ARG_ERROR("Too many occurances of \'=\'; make sure to escape any \'=\' in your paths");
-	}
-	else if(occurancesOfEquals == 0) {
-	  ARG_ERROR("The \'=\' between the old path and new path is missing");
-	}
-      }
+    // Check for special hpcprof options:
+    if (parser.isOpt("force")) {
+      isHPCProfForce = true;
     }
-
     if (parser.isOpt("metric")) {
-      string opt = parser.getOptArg("metric");
-      parseArg_metric(opt, "--metric/-M option");
+      isHPCProfMetric = true;
     }
     
     // Check for other options: Output options
@@ -383,10 +319,6 @@ ArgsHPCProf::parse(int argc, const char* const argv[])
     if (parser.isOpt("db")) {
       db_dir = parser.getOptArg("db");
       isDbDirSet = true;
-    }
-    if (parser.isOpt("metric-db")) {
-      const string& arg = parser.getOptArg("metric-db");
-      db_makeMetricDB = CmdLineParser::parseArg_bool(arg, "--metric-db option");
     }
 
     // Check for required arguments
@@ -401,13 +333,37 @@ ArgsHPCProf::parse(int argc, const char* const argv[])
     }
 
 
-    // For now, parse first file name to determine name of database
+    // TEMPORARY: parse first file name to determine name of database
+    string mynm;
     if (!isDbDirSet) {
-      std::string nm = makeDBDirName(profileFiles[0]);
-      if (!nm.empty()) {
-	db_dir = nm;
+      // hpctoolkit-<nm>-measurements[-sfx]/<nm>-000000-tid-hostid-pid.hpcrun
+      const string& fnm = profileFiles[0];
+      size_t pos1 = fnm.find("hpctoolkit-");
+      size_t pos2 = fnm.find("-measurements");
+      if (pos1 == 0 && pos2 != string::npos) {
+	size_t nm_beg = fnm.find_first_of('-') + 1; 
+	size_t nm_end = pos2 - 1;
+	mynm = fnm.substr(nm_beg, nm_end - nm_beg + 1);
+	
+	string sfx;
+	size_t sfx_beg = fnm.find_first_of('-', pos2 + 1); // [inclusive
+	size_t sfx_end = fnm.find_first_of('/', pos2 + 1); // exclusive)
+	if (sfx_end == string::npos) {
+	  sfx_end = fnm.size();
+	}
+	if (sfx_beg < sfx_end) {
+	  sfx = fnm.substr(sfx_beg, sfx_end - sfx_beg);
+	}
+	
+	db_dir = Analysis_DB_DIR_pfx "-" + mynm + "-" Analysis_DB_DIR_nm + sfx;
       }
     }
+
+    // TEMPORARY: 
+    if (title.empty() && !mynm.empty()) {
+      title = mynm;
+    }
+
   }
   catch (const CmdLineParser::ParseError& x) {
     ARG_ERROR(x.what());
@@ -430,7 +386,7 @@ ArgsHPCProf::dump(std::ostream& os) const
 //***************************************************************************
 
 bool
-ArgsHPCProf::parseArg_norm(const string& value, const char* errTag)
+ArgsHPCProf::parseArg_norm(const string& value, const char* err_note)
 {
   if (value == "all") {
     return true;
@@ -439,85 +395,9 @@ ArgsHPCProf::parseArg_norm(const string& value, const char* errTag)
     return false;
   }
   else {
-    ARG_ERROR(errTag << ": Unexpected value received: '" << value << "'");
+    ARG_ERROR(err_note << ": Unexpected value received: " << value);
   }
 }
-
-
-// Cf. hpcproftt/Args::parseArg_metric()
-void
-ArgsHPCProf::parseArg_metric(const std::string& value, const char* errTag)
-{
-  if (value == "sum") {
-    prof_metrics = Analysis::Args::MetricSet_SumOnly;
-  }
-  else if (value == "sum+") {
-    // TODO: issue error with hpcprof-mpi
-    prof_metrics = Analysis::Args::MetricSet_ThreadAndSum;
-  }
-  else if (value == "thread") {
-    // TODO: issue error with hpcprof-mpi
-    prof_metrics = Analysis::Args::MetricSet_ThreadOnly;
-  }
-  else {
-    ARG_ERROR(errTag << ": Unexpected value received: '" << value << "'");
-  }
-}
-
-
-std::string
-ArgsHPCProf::makeDBDirName(const std::string& profileArg)
-{
-  static const string str1 = "hpctoolkit-";
-  static const string str2 = "-measurements";
-
-  string db_dir = "";
-  
-  // 'profileArg' has the following structure:
-  //   <path>/[pfx]hpctoolkit-<nm>-measurements[sfx]/<file>.hpcrun
-
-  const string& fnm = profileArg;
-  size_t pos1 = fnm.find(str1);
-  size_t pos2 = fnm.find(str2);
-  if (pos1 < pos2 && pos2 != string::npos) {
-    // ---------------------------------
-    // prefix
-    // ---------------------------------
-    size_t pfx_a   = fnm.find_last_of('/', pos1);
-    size_t pfx_beg = (pfx_a == string::npos) ? 0 : pfx_a + 1; // [inclusive
-    size_t pfx_end = pos1;                                    // exclusive)
-    string pfx = fnm.substr(pfx_beg, pfx_end - pfx_beg);
-
-    // ---------------------------------
-    // nm (N.B.: can have 'negative' length with fnm='hpctoolkit-measurements')
-    // ---------------------------------
-    size_t nm_beg = pos1 + str1.length();            // [inclusive
-    size_t nm_end = (nm_beg > pos2) ? nm_beg : pos2; // exclusive)
-    string nm = fnm.substr(nm_beg, nm_end - nm_beg);
-    
-    // ---------------------------------
-    // suffix
-    // ---------------------------------
-    string sfx;
-    size_t sfx_beg = pos2 + str2.length();            // [inclusive
-    size_t sfx_end = fnm.find_first_of('/', sfx_beg); // exclusive)
-    if (sfx_end == string::npos) {
-      sfx_end = fnm.size();
-    }
-    if (sfx_beg < sfx_end) {
-      sfx = fnm.substr(sfx_beg, sfx_end - sfx_beg);
-    }
-    
-    db_dir = pfx + Analysis_DB_DIR_pfx;
-    if (!nm.empty()) {
-      db_dir += "-" + nm;
-    }
-    db_dir += "-" Analysis_DB_DIR_nm + sfx;
-  }
-
-  return db_dir;
-}
-
 
 //***************************************************************************
 

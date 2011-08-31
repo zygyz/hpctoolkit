@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -260,15 +257,14 @@ lush_step_bichord(lush_cursor_t* cursor)
   lush_cursor_unset_flag(cursor, LUSH_CURSOR_FLAGS_END_PCHORD);
   lush_cursor_unset_flag(cursor, LUSH_CURSOR_FLAGS_END_LCHORD);
 
-  unw_word_t ip_unnorm = lush_cursor_get_ip_unnorm(cursor);
-  ip_normalized_t ip_norm = lush_cursor_get_ip_norm(cursor);
+  unw_word_t ip = lush_cursor_get_ip(cursor);
   lush_agentid_t first_aid = lush_agentid_NULL;
 
   // Attempt to find an agent
   lush_agent_pool_t* pool = cursor->apool;
   lush_agentid_t aid = 1;
   for (aid = 1; aid <= 1; ++aid) { // FIXME: first in list, etc.
-    if (pool->LUSHI_ismycode[aid]((void*) ip_unnorm)) { 
+    if (pool->LUSHI_ismycode[aid](ip)) {
       ty = pool->LUSHI_step_bichord[aid](cursor);
       lush_cursor_set_aid_prev(cursor, aid);
       first_aid = aid;
@@ -281,9 +277,8 @@ lush_step_bichord(lush_cursor_t* cursor)
   if (first_aid == lush_agentid_NULL) {
     lush_lip_t* lip = lush_cursor_get_lip(cursor);
 
-    // 32-bit warnings
-    lush_lip_setLMId(lip, ip_norm.lm_id);
-    lush_lip_setLMIP(lip, (uint64_t)(uintptr_t)ip_norm.lm_ip);
+    //lush_lip_setLMId(lip, ...); // FIXME
+    lush_lip_setIP(lip, (uint64_t)(uintptr_t)ip); // 32-bit warnings
 
     ty = LUSH_STEP_CONT;
     lush_cursor_set_assoc(cursor, LUSH_ASSOC_1_to_1);

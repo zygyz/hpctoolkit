@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #ifndef SAMPLE_SOURCE_H
@@ -91,10 +88,7 @@ typedef struct sample_source_t {
   // specific methods
 
   VMETHOD_DEF(init);
-  VMETHOD_DEF(thread_init);
-  VMETHOD_DEF(thread_init_action);
   VMETHOD_DEF(start);
-  VMETHOD_DEF(thread_fini_action);
   VMETHOD_DEF(stop);
   VMETHOD_DEF(shutdown);
   METHOD_DEF(bool, supports_event, const char* ev_str);
@@ -103,13 +97,11 @@ typedef struct sample_source_t {
   VMETHOD_DEF(display_events);
 
   // data
-  evlist_t       	  evl;       	 // event list
-  int            	  evset_idx; 	 // index of sample source
-  const char*    	  name;      	 // text name of sample source
-  source_state_t 	  state;     	 // state of sample source: limited to UNINIT or INIT
-  ss_class_t     	  cls;       	 // kind of sample source: see ss_class_t typedef at top of file
-  struct sample_source_t* next_reg;      // simple linked list of REGISTERED sample source objects
-  struct sample_source_t* next_sel;      // simple linked list of SELECTED   sample source objects
+  evlist_t       evl;       // event list
+  int            evset_idx; // index of sample source
+  const char*    name;      // text name of sample source
+  source_state_t state;     // state of sample source: limited to UNINIT or INIT
+  ss_class_t     cls;       // kind of sample source: see ss_class_t typedef at top of file
   
 } sample_source_t;
 

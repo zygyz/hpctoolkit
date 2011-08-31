@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -87,7 +84,6 @@
 #include "thread_data.h"
 #include "thread_use.h"
 #include "monitor.h"
-#include "sample_prob.h"
 
 #include <messages/debug-flag.h>
 #include <messages/messages.h>
@@ -134,7 +130,6 @@ void
 messages_init()
 {
   debug_flag_init();
-  global_msg_count = 0;
 
   spinlock_unlock(&pmsg_lock); // initialize lock for async operations
 
@@ -152,23 +147,23 @@ messages_logfile_create()
   char log_name[PATH_MAX];
   files_log_name(log_name, 0, PATH_MAX);
 
+
   // open log file
-  if (! hpcrun_sample_prob_active()) {
-    // Output files turned off.
-    log_file_fd = open("/dev/null", O_RDWR);
-  }
-  else if (getenv("HPCRUN_LOG_STDERR") != NULL) {
-    // HPCRUN_LOG_STDERR variable set ==> log goes to stderr
-    log_file_fd = 2;
-  }
-  else {
-    // Normal case of opening .log file.
-    log_file_fd = open(log_name, O_RDWR | O_CREAT,
-		       S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  }
+#if 1
+  log_file_fd = open(log_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   if (log_file_fd == -1) {
     log_file_fd = 2; // cannot open log_file ==> revert to stderr
   }
+#else
+  log_file = fopen(log_name,"w");
+  if (!log_file) {
+    log_file = stderr; // reset to stderr
+    log_file_fd = 2;
+  }
+  else {
+    log_file_fd = fileno(log_file);
+  }
+#endif
 }
 
 
@@ -177,12 +172,18 @@ messages_fini(void)
 {
   if (hpcrun_get_disabled()) return;
 
+#if 1
   if (log_file_fd != 2) {
     int rv = close(log_file_fd);
     if (rv) {
       static char close_err[] = "An error occurred during the close of the log file! Be warned!\n";
       write(2, close_err, strlen(close_err));
     }
+#else
+  if (log_file != stderr){
+    fclose(log_file);
+#endif
+
     //----------------------------------------------------------------------
     // if this is an execution of an MPI program, we opened the log file 
     // before the MPI rank was known. thus, the name of the log file is 
@@ -190,7 +191,7 @@ messages_fini(void)
     // it should be.
     //----------------------------------------------------------------------
     int rank = monitor_mpi_comm_rank();
-    if (rank >= 0 && hpcrun_sample_prob_active()) {
+    if (rank >= 0) {
       char old[PATH_MAX];
       char new[PATH_MAX];
       files_log_name(old, 0, PATH_MAX);

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -88,11 +85,9 @@
 #include <messages/messages.h>
 
 #include <utilities/tokenize.h>
-#include <utilities/arch/context-pc.h>
 
+#include <lib/prof-lean/timer.h>
 #include <unwind/common/unwind.h>
-
-#include <lib/support-lean/timer.h>
 
 /******************************************************************************
  * macros
@@ -137,8 +132,6 @@
 
 #endif // !defined(RESET_ITIMER_EACH_SAMPLE)
 
-#define DEFAULT_PERIOD  5000L
-
 /******************************************************************************
  * local constants
  *****************************************************************************/
@@ -174,74 +167,46 @@ static const struct itimerval zerotimer = {
 
 };
 
-static long period = DEFAULT_PERIOD;
+static long period = 5000L;
 
 static sigset_t sigset_itimer;
 
 // ******* METHOD DEFINITIONS ***********
+
 static void
 METHOD_FN(init)
 {
-  TMSG(ITIMER_CTL, "setting up itimer interrupt");
-  sigemptyset(&sigset_itimer);
-  sigaddset(&sigset_itimer, HPCRUN_PROFILE_SIGNAL);
-
-  int ret = monitor_real_sigprocmask(SIG_UNBLOCK, &sigset_itimer, NULL);
-
-  if (ret){
-    EMSG("WARNING: Thread init could not unblock SIGPROF, ret = %d",ret);
-  }
-  self->state = INIT;
-}
-
-static void
-METHOD_FN(thread_init)
-{
-  TMSG(ITIMER_CTL, "thread init (no action needed)");
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
-  TMSG(ITIMER_CTL, "thread action (noop)");
+  self->state = INIT; // no actual init actions necessary for itimer
 }
 
 static void
 METHOD_FN(start)
 {
   if (! hpcrun_td_avail()){
-    TMSG(ITIMER_CTL, "Thread data unavailable ==> sampling suspended");
     return; // in the unlikely event that we are trying to start, but thread data is unavailable,
             // assume that all sample source ops are suspended.
   }
 
   TMSG(ITIMER_CTL,"starting itimer w value = (%d,%d), interval = (%d,%d)",
-       itimer.it_value.tv_sec,
-       itimer.it_value.tv_usec,
        itimer.it_interval.tv_sec,
-       itimer.it_interval.tv_usec);
+       itimer.it_interval.tv_usec,
+       itimer.it_value.tv_sec,
+       itimer.it_value.tv_usec);
 
   if (setitimer(HPCRUN_PROFILE_TIMER, &itimer, NULL) != 0) {
-    TMSG(ITIMER_CTL, "setitimer failed to start!!");
     EMSG("setitimer failed (%d): %s", errno, strerror(errno));
     hpcrun_ssfail_start("itimer");
   }
 
 #ifdef USE_ELAPSED_TIME_FOR_WALLCLOCK
-  int ret = time_getTimeReal(&TD_GET(last_time_us));
+  int ret = time_getTimeCPU(&TD_GET(last_time_us));
   if (ret != 0) {
-    EMSG("time_getTimeReal (clock_gettime) failed!");
+    EMSG("time_getTimeCPU (clock_gettime) failed!");
     abort();
   }
 #endif
 
   TD_GET(ss_state)[self->evset_idx] = START;
-}
-
-static void
-METHOD_FN(thread_fini_action)
-{
-  TMSG(ITIMER_CTL, "thread action (noop)");
 }
 
 static void
@@ -258,14 +223,7 @@ METHOD_FN(stop)
 static void
 METHOD_FN(shutdown)
 {
-  TMSG(ITIMER_CTL, "shutodown itimer");
   METHOD_CALL(self, stop); // make sure stop has been called
-
-  int ret = monitor_real_sigprocmask(SIG_BLOCK, &sigset_itimer, NULL);
-  if (ret){
-    EMSG("WARNING: process fini could not block SIGPROF, ret = %d",ret);
-  }
-
   self->state = UNINIT;
 }
 
@@ -279,7 +237,18 @@ static void
 METHOD_FN(process_event_list, int lush_metrics)
 {
 
-  TMSG(ITIMER_CTL, "process event list, lush_metrics = %d", lush_metrics);
+#ifdef OLD_SS
+  char *_p = strchr(METHOD_CALL(self,get_event_str),'@');
+  if ( _p) {
+    period = strtol(_p+1,NULL,10);
+  }
+  else {
+    TMSG(OPTIONS,"WALLCLOCK event default period (5000) selected");
+  }
+  METHOD_CALL(self, store_event, ITIMER_EVENT, period);
+  TMSG(OPTIONS,"wallclock period set to %ld",period);
+#endif
+
   // fetch the event string for the sample source
   char* _p = METHOD_CALL(self, get_event_str);
   
@@ -293,7 +262,7 @@ METHOD_FN(process_event_list, int lush_metrics)
   TMSG(ITIMER_CTL,"checking event spec = %s",event);
 
   // extract event threshold
-  hpcrun_extract_ev_thresh(event, sizeof(name), name, &period, DEFAULT_PERIOD);
+  extract_ev_thresh(event, sizeof(name), name, &period);
 
   // store event threshold
   METHOD_CALL(self, store_event, ITIMER_EVENT, period);
@@ -328,17 +297,17 @@ METHOD_FN(process_event_list, int lush_metrics)
 # define sample_period period
 #endif
 
-  TMSG(ITIMER_CTL, "setting metric itimer period = %ld", sample_period);
+  TMSG(ITIMER_CTL, "setting metric ITIMER, period = %ld", sample_period);
   hpcrun_set_metric_info_and_period(metric_id, "WALLCLOCK (us)",
-				    MetricFlags_ValFmt_Int,
+				    HPCRUN_MetricFlag_Async,
 				    sample_period);
   if (lush_metrics == 1) {
     int mid_idleness = hpcrun_new_metric();
     lush_agents->metric_time = metric_id;
     lush_agents->metric_idleness = mid_idleness;
 
-    hpcrun_set_metric_info_and_period(mid_idleness, "idleness (us)",
-				      MetricFlags_ValFmt_Real,
+    hpcrun_set_metric_info_and_period(mid_idleness, "idleness (ms)",
+				      HPCRUN_MetricFlag_Async | HPCRUN_MetricFlag_Real,
 				      sample_period);
   }
 
@@ -352,12 +321,16 @@ METHOD_FN(process_event_list, int lush_metrics)
 }
 
 //
-// There is only 1 event for itimer, hence the event "set" is always the same.
-// The signal setup, however, is done here.
+// Event "sets" not possible for this sample source.
+// It has only 1 event.
+// Initialize the sigset and installing the signal handler are
+// the only actions
 //
 static void
 METHOD_FN(gen_event_set, int lush_metrics)
 {
+  sigemptyset(&sigset_itimer);
+  sigaddset(&sigset_itimer, HPCRUN_PROFILE_SIGNAL);
   monitor_sigaction(HPCRUN_PROFILE_SIGNAL, &itimer_signal_handler, 0, NULL);
 }
 
@@ -392,9 +365,6 @@ itimer_signal_handler(int sig, siginfo_t* siginfo, void* context)
   // Must check for async block first and avoid any MSG if true.
   void* pc = hpcrun_context_pc(context);
   if (hpcrun_async_is_blocked(pc)) {
-    if (ENABLED(ITIMER_CTL)) {
-      ; // message to stderr here for debug
-    }
     hpcrun_stats_num_samples_blocked_async_inc();
   }
   else {
@@ -403,9 +373,9 @@ itimer_signal_handler(int sig, siginfo_t* siginfo, void* context)
     uint64_t metric_incr = 1; // default: one time unit
 #ifdef USE_ELAPSED_TIME_FOR_WALLCLOCK
     uint64_t cur_time_us;
-    int ret = time_getTimeReal(&cur_time_us);
+    int ret = time_getTimeCPU(&cur_time_us);
     if (ret != 0) {
-      EMSG("time_getTimeReal (clock_gettime) failed!");
+      EMSG("time_getTimeCPU (clock_gettime) failed!");
       abort();
     }
     metric_incr = cur_time_us - TD_GET(last_time_us);

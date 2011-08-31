@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,15 +37,15 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
 //
 // NonUniformDegreeTree.C
 //
-//   a general purpose abstraction for non-uniform degree trees.
+//   a general purpose abstraction for non-uniform degree trees. 
 //   children of a node are represented by a circularly linked-list
 //   of siblings.
 //
@@ -74,8 +71,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
-
 #include "NonUniformDegreeTree.hpp"
 #include "StrUtil.hpp"
 #include "diagnostics.h"
@@ -90,18 +85,18 @@ using std::endl;
 
 
 //-----------------------------------------------
-// links a node to a parent and at the end of the
-// circular doubly-linked list of its siblings
+// links a node to a parent and at the end of the 
+// circular doubly-linked list of its siblings 
 // (if any)
 //-----------------------------------------------
 void NonUniformDegreeTreeNode::link(NonUniformDegreeTreeNode *newParent)
 {
   DIAG_Assert(this->m_parent == 0, ""); // can only have one parent
   if (newParent != 0) {
-    // children maintained as a doubly linked ring.
-    // a new node is linked at the end of the ring (as a predecessor
+    // children maintained as a doubly linked ring. 
+    // a new node is linked at the end of the ring (as a predecessor 
     // of "m_parent->children") which points to first child in the ring
-
+    
     NonUniformDegreeTreeNode *first_sibling = newParent->m_children;
     if (first_sibling) linkAfter(first_sibling->m_prev_sibling);
     else {
@@ -112,22 +107,46 @@ void NonUniformDegreeTreeNode::link(NonUniformDegreeTreeNode *newParent)
   }
 }
 
+// (Xu)
+void NonUniformDegreeTreeNode::mallocLinks(uint x)
+{
+  m_malloc_ids = (NonUniformDegreeTreeNode**)malloc(x*sizeof(NonUniformDegreeTreeNode*));
+  for (uint i=0; i<x; i++)
+    m_malloc_ids[i] = NULL;
+}
+
+//link to malloc node (Xu)
+void NonUniformDegreeTreeNode::linkMalloc(NonUniformDegreeTreeNode *mallocNode)
+{
+  for (uint i=0; i< m_num_malloc_ids; i++) {
+    if(m_malloc_ids[i]==NULL) {
+      m_malloc_ids[i] = mallocNode;
+      return;
+    }
+  }
+}
+
+void NonUniformDegreeTreeNode::linkMalloc(int static_id)
+{
+  static_data_id = static_id;
+}
+
 
 //-----------------------------------------------
 void NonUniformDegreeTreeNode::linkAfter(NonUniformDegreeTreeNode *sibling)
 {
   DIAG_Assert(sibling != NULL, "");
   DIAG_Assert(this->m_parent == NULL, ""); // can only have one parent
-
+  
   this->m_parent = sibling->m_parent;
   if (m_parent) m_parent->m_child_count++;
-
-  // children maintained as a doubly linked ring.
-
+    
+  // children maintained as a doubly linked ring. 
+    
   // link forward chain
   m_next_sibling = sibling->m_next_sibling;
   sibling->m_next_sibling = this;
-
+      
   // link backward chain
   m_prev_sibling = sibling;
   m_next_sibling->m_prev_sibling = this;
@@ -144,16 +163,14 @@ void NonUniformDegreeTreeNode::linkBefore(NonUniformDegreeTreeNode *sibling)
   }
 }
 
-
 //-----------------------------------------------
 // unlinks a node from a parent and siblings
 //-----------------------------------------------
-
 void NonUniformDegreeTreeNode::unlink()
 {
   if (m_parent != 0) {
-    // children maintained as a doubly linked ring.
-    // excise this node from from the ring
+    // children maintained as a doubly linked ring. 
+    // excise this node from from the ring 
     if (--(m_parent->m_child_count) == 0) {
       // current node is removed as only child of parent
       // leaving it linked in a circularly linked list with
@@ -166,10 +183,10 @@ void NonUniformDegreeTreeNode::unlink()
 	
       // relink predecessor's forward link
       m_prev_sibling->m_next_sibling = m_next_sibling;
-
+      
       // relink successor's backward link
       m_next_sibling->m_prev_sibling = m_prev_sibling;
-
+      
       // relink own pointers into self-circular configuration
       m_prev_sibling = this;
       m_next_sibling = this;
@@ -179,7 +196,7 @@ void NonUniformDegreeTreeNode::unlink()
 }
 
 
-uint
+unsigned int
 NonUniformDegreeTreeNode::ancestorCount() const
 {
   unsigned int ancestorCount = 0;
@@ -191,34 +208,11 @@ NonUniformDegreeTreeNode::ancestorCount() const
   return ancestorCount;
 }
 
-
-uint
-NonUniformDegreeTreeNode::maxDepth(uint parentDepth)
-{
-  uint depth = parentDepth + 1;
-
-  if (isLeaf()) {
-    return depth;
-  }
-  else {
-    uint max_depth = 0;
-    NonUniformDegreeTreeNodeChildIterator it(this);
-    for (NonUniformDegreeTreeNode* x = NULL; (x = it.Current()); ++it) {
-      uint x_depth = x->maxDepth(depth);
-      max_depth = std::max(max_depth, x_depth);
-    }
-    return max_depth;
-  }
-}
-
-
 std::string
-NonUniformDegreeTreeNode::toString(uint GCC_ATTR_UNUSED oFlags,
-				   const char* GCC_ATTR_UNUSED pfx) const
+NonUniformDegreeTreeNode::toString() const
 {
   return "NonUniformDegreeTreeNode: " + StrUtil::toStr((void*)this);
 }
-
 
 //****************************************************************************
 // class NonUniformDegreeTreeNodeChildIterator interface operations
@@ -263,11 +257,11 @@ NonUniformDegreeTreeIterator::IteratorToPushIfAny(void *current)
 
   if (GetTraversalOrder() == PreAndPostOrder) {
     StackableIterator *top = dynamic_cast<StackableIterator*>(Top());
-    SingletonIterator *stop = dynamic_cast<SingletonIterator*>(top);
-    if (stop == 0) { // not a SingletonIterator
+    SingletonIterator *stop = dynamic_cast<SingletonIterator*>(top); 
+    if (stop == 0) { // not a SingletonIterator 
       Push(new SingletonIterator(node, PostVisit));
     } else {
-      if (stop->VisitType() == PreVisit) {
+      if (stop->VisitType() == PreVisit) { 
 	Push(new SingletonIterator(node, PostVisit));
       } else return 0;
     }
@@ -283,25 +277,24 @@ NonUniformDegreeTreeIterator::IteratorToPushIfAny(void *current)
 /**********************************************************************/
 /* debugging support                                                  */
 /**********************************************************************/
-void
+void 
 NonUniformDegreeTreeIterator::DumpAndReset(std::ostream& os)
 {
-  os << "NonUniformDegreeTreeIterator: " << endl;
+  os << "NonUniformDegreeTreeIterator: " << endl; 
   while (Current()) {
-    os << Current()->toString() << endl;
-    (*this)++;
-  }
-  Reset();
-}
+    os << Current()->toString() << endl; 
+    (*this)++; 
+  } 
+  Reset(); 
+} 
 
-
-void
+void 
 NonUniformDegreeTreeNodeChildIterator::DumpAndReset(std::ostream& os)
 {
-  os << "NonUniformDegreeTreeNodeChildIterator: " << endl;
+  os << "NonUniformDegreeTreeNodeChildIterator: " << endl; 
   while (Current()) {
-    os << Current()->toString() << endl;
-    (*this)++;
-  }
-  Reset();
-}
+    os << Current()->toString() << endl; 
+    (*this)++; 
+  } 
+  Reset(); 
+} 

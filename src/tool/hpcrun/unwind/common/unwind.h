@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -67,8 +64,17 @@
 // local include files
 //***************************************************************************
 
-#include <unwind/common/unw-datatypes.h> 
-#include <hpcrun/utilities/ip-normalized.h>
+#include "unwind_cursor.h"
+
+
+//***************************************************************************
+// interface to ucontext_t
+//***************************************************************************
+
+// tallent: probably should be moved
+void*
+hpcrun_context_pc(void *context);
+
 
 //***************************************************************************
 //
@@ -80,6 +86,8 @@
 //
 //***************************************************************************
 
+typedef void* unw_word_t;
+
 // ----------------------------------------------------------
 // hpcrun_unw_init
 // ----------------------------------------------------------
@@ -89,26 +97,26 @@ hpcrun_unw_init();
 
 
 // ----------------------------------------------------------
-// hpcrun_unw_get_ip_reg
+// hpcrun_unw_get_reg
 // ----------------------------------------------------------
 
-int
-hpcrun_unw_get_ip_norm_reg(hpcrun_unw_cursor_t* c, 
-			     ip_normalized_t* reg_value);
+typedef enum {
+  UNW_REG_IP
+} unw_reg_code_t;
 
 int
-hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value);
+hpcrun_unw_get_reg(unw_cursor_t *c, unw_reg_code_t reg_id, void **reg_value);
 
 
 void*
-hpcrun_unw_get_ra_loc(hpcrun_unw_cursor_t* c);
+hpcrun_unw_get_ra_loc(unw_cursor_t* c);
 
 // ----------------------------------------------------------
 // hpcrun_unw_init_cursor
 // ----------------------------------------------------------
 
 void
-hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context);
+hpcrun_unw_init_cursor(unw_cursor_t* cursor, void* context);
 
 
 // ----------------------------------------------------------
@@ -131,7 +139,7 @@ typedef enum {
 
 
 step_state
-hpcrun_unw_step(hpcrun_unw_cursor_t* c);
+hpcrun_unw_step(unw_cursor_t *c);
 
 
 //***************************************************************************
@@ -149,6 +157,15 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* c);
 // ----------------------------------------------------------
 
 // FIXME: tallent: move stack trolling code here
+
+
+// ----------------------------------------------------------
+// hpcrun_unw_throw:
+// ----------------------------------------------------------
+
+// FIXME: tallent: the code in x86-unwind.c probably should be common
+void
+hpcrun_unw_throw(void);
 
 
 //***************************************************************************

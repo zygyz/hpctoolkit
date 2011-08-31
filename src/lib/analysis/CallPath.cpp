@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -77,19 +74,17 @@ using std::string;
 //*************************** User Include Files ****************************
 
 #include <include/uint.h>
-#include <include/gcc-attr.h>
 
 #include "CallPath.hpp"
-#include "CallPath-MetricComponentsFact.hpp"
+#include "CallPath-OverheadMetricFact.hpp"
 #include "Util.hpp"
 
-#include <lib/profxml/XercesUtil.hpp>
-#include <lib/profxml/PGMReader.hpp>
+#include <lib/prof-juicy-x/XercesUtil.hpp>
+#include <lib/prof-juicy-x/PGMReader.hpp>
 
 #include <lib/prof-lean/hpcrun-metric.h>
 
 #include <lib/binutils/LM.hpp>
-#include <lib/binutils/VMAInterval.hpp>
 
 #include <lib/xml/xml.hpp>
 using namespace xml;
@@ -101,8 +96,6 @@ using namespace xml;
 
 
 //*************************** Forward Declarations ***************************
-
-std::ostream* Analysis::CallPath::dbgOs = NULL; // for parallel debugging
 
 
 //****************************************************************************
@@ -120,7 +113,7 @@ namespace CallPath {
 
 Prof::CallPath::Profile*
 read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
-     int mergeTy, uint rFlags, uint mrgFlags)
+     int mergeTy, uint rFlags)
 {
   // Special case
   if (profileFiles.empty()) {
@@ -135,7 +128,7 @@ read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
   for (uint i = 1; i < profileFiles.size(); ++i) {
     groupId = (groupMap) ? (*groupMap)[i] : 0;
     Prof::CallPath::Profile* p = read(profileFiles[i], groupId, rFlags);
-    prof->merge(*p, mergeTy, mrgFlags);
+    prof->merge(*p, mergeTy);
     delete p;
   }
   
@@ -152,7 +145,6 @@ read(const char* prof_fnm, uint groupId, uint rFlags)
 
   Prof::CallPath::Profile* prof = NULL;
   try {
-    DIAG_MsgIf(0, "Reading: '" << prof_fnm << "'");
     prof = Prof::CallPath::Profile::make(prof_fnm, rFlags, /*outfs*/ NULL);
   }
   catch (...) {
@@ -180,35 +172,16 @@ read(const char* prof_fnm, uint groupId, uint rFlags)
 void
 readStructure(Prof::Struct::Tree* structure, const Analysis::Args& args)
 {
-  DocHandlerArgs docargs(&RealPathMgr::singleton());
+  DocHandlerArgs docargs; // NOTE: override for replacePath()
 
   Prof::Struct::readStructure(*structure, args.structureFiles,
 			      PGMDocHandler::Doc_STRUCT, docargs);
 
-  // BAnal::Struct::makeStructure() creates a Struct::Tree that
-  // distinguishes between non-call-site statements and call site
-  // statements mapping to the same line.
-  // 
-  // To maintain the Non-Overlapping Principle with respect to the
-  // Struct::Tree, we used to coalesce non-call-site statements and
-  // call site statements mapping to the same source line.  However,
-  // this is problematic on two counts.
-  // 
-  // First, it is somewhat pointless unless (1)
-  // Analysis::Util::demandStructure() enforces the Non-Overlapping
-  // Principle; and (2) overlayStaticStructureMain(), in addition to
-  // creating frames, merges nodes (Stmts and Calls) that map to the
-  // same structure.
-  // 
-  // Second, for constructing hpcviewer's Callers view, we need
-  // static-structure ids to maintain call site distinctions, even if
-  // several call sites map to the same line.
-  //
-  // (Cf. Analysis::CallPath::noteStaticStructureOnLeaves() and
-  // Prof::CCT::ADynNode::isMergable().)
-  if (0) {
-    coalesceStmts(*structure);
-  }
+  // TODO:tallent: An elegant idea but somewhat pointless unless
+  // Analysis::Util::demandStructure() enforces Non-Overlapping
+  // Principle and overlayStaticStructure() both creates frames and
+  // merges nodes that map to the same structure.
+  coalesceStmts(*structure);
 }
 
 
@@ -233,8 +206,8 @@ coalesceStmts(Prof::Struct::Tree& structure)
 
 // coalesceStmts: Maintain Non-Overlapping Principle of source code
 // for static struture.  Structure information currently distinguishes
-// non-callsite statements from callsite statements, even if they are
-// within the same scope and on the same source line.
+// callsites from statements, even if they are within the same scope
+// and on the same source line.
 void
 coalesceStmts(Prof::Struct::ANode* node)
 {
@@ -262,10 +235,10 @@ coalesceStmts(Prof::Struct::ANode* node)
       // Test for duplicate source line info.
       Prof::Struct::Stmt* n_stmt = static_cast<Prof::Struct::Stmt*>(n);
       SrcFile::ln line = n_stmt->begLine();
-      LineToStmtMap::iterator it_stmt = stmtMap.find(line);
-      if (it_stmt != stmtMap.end()) {
+      LineToStmtMap::iterator it = stmtMap.find(line);
+      if (it != stmtMap.end()) {
 	// found -- we have a duplicate
-	Prof::Struct::Stmt* n_stmtOrig = (*it_stmt).second;
+	Prof::Struct::Stmt* n_stmtOrig = (*it).second;
 	DIAG_MsgIf(0, "coalesceStmts: deleting " << n_stmt->toStringMe());
 	Prof::Struct::ANode::merge(n_stmtOrig, n_stmt); // deletes n_stmt
       }
@@ -290,11 +263,11 @@ typedef std::map<Prof::Struct::ANode*, Prof::CCT::ANode*> StructToCCTMap;
 
 static void
 overlayStaticStructure(Prof::CCT::ANode* node,
-		       Prof::LoadMap::LM* loadmap_lm,
+		       Prof::LoadMap::LM* loadmap_lm, 
 		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm);
 
 static Prof::CCT::ANode*
-demandScopeInFrame(Prof::CCT::ADynNode* node, Prof::Struct::ANode* strct,
+demandScopeInFrame(Prof::CCT::ADynNode* node, Prof::Struct::ANode* strct, 
 		   StructToCCTMap& strctToCCTMap);
 
 static Prof::CCT::ProcFrm*
@@ -306,75 +279,54 @@ makeFrameStructure(Prof::CCT::ANode* node_frame,
 		   Prof::Struct::ACodeNode* node_strct,
 		   StructToCCTMap& strctToCCTMap);
 
-static void
-coalesceStmts(Prof::CallPath::Profile& prof);
-
 
 //****************************************************************************
-
 
 void
 Analysis::CallPath::
 overlayStaticStructureMain(Prof::CallPath::Profile& prof,
 			   string agent, bool doNormalizeTy)
 {
-  const Prof::LoadMap* loadmap = prof.loadmap();
+  const Prof::LoadMapMgr* loadmap = prof.loadMapMgr();
   Prof::Struct::Root* rootStrct = prof.structure()->root();
-
-  std::string errors;
-
-  // -------------------------------------------------------
-  // Overlay static structure. N.B. To process spurious samples,
-  // iteration includes LoadMap::LMId_NULL
-  // -------------------------------------------------------
-  for (Prof::LoadMap::LMId_t i = Prof::LoadMap::LMId_NULL;
-       i <= loadmap->size(); ++i) {
-    Prof::LoadMap::LM* lm = loadmap->lm(i);
-    if (lm->isUsed()) {
-      try {
-	const string& lm_nm = lm->name();
-	
-	Prof::Struct::LM* lmStrct = Prof::Struct::LM::demand(rootStrct, lm_nm);
-	Analysis::CallPath::overlayStaticStructureMain(prof, lm, lmStrct);
-      }
-      catch (const Diagnostics::Exception& x) {
-	errors += "  " + x.what() + "\n";
-      }
+  
+  for (Prof::LoadMapMgr::LMSet_nm::const_iterator it = loadmap->lm_begin_nm();
+       it != loadmap->lm_end_nm(); ++it) {
+    Prof::ALoadMap::LM* loadmap_lm = *it;
+    
+    // tallent:TODO: The call to LoadMap::compute_relocAmt() in
+    // Profile::hpcrun_fmt_epoch_fread has emitted a warning if a
+    // load module is unavailable.  Probably should be here...
+    if (loadmap_lm->isAvail() && loadmap_lm->isUsed()) {
+      const string& lm_nm = loadmap_lm->name();
+      
+      Prof::Struct::LM* lmStrct = Prof::Struct::LM::demand(rootStrct, lm_nm);
+      Analysis::CallPath::overlayStaticStructureMain(prof, loadmap_lm, 
+						     lmStrct);
     }
   }
 
-  if (!errors.empty()) {
-    DIAG_EMsg("Cannot fully process samples because of errors reading load modules:\n" << errors);
-  }
-
-
-  // -------------------------------------------------------
-  // Basic normalization
-  // -------------------------------------------------------
-  if (doNormalizeTy) {
-    coalesceStmts(prof);
-  }
+  Analysis::CallPath::normalize(prof, agent, doNormalizeTy);
   
-  applyThreadMetricAgents(prof, agent);
+  // Note: Use StructMetricIdFlg to flag that static structure is used
+  rootStrct->aggregateMetrics(Prof::CallPath::Profile::StructMetricIdFlg);
+  rootStrct->pruneByMetrics();
 }
 
 
 void
 Analysis::CallPath::
-overlayStaticStructureMain(Prof::CallPath::Profile& prof,
+overlayStaticStructureMain(Prof::CallPath::Profile& prof, 
 			   Prof::LoadMap::LM* loadmap_lm,
 			   Prof::Struct::LM* lmStrct)
 {
   const string& lm_nm = loadmap_lm->name();
   BinUtil::LM* lm = NULL;
 
-  bool useStruct = ((lmStrct->childCount() > 0)
-		    || (loadmap_lm->id() == Prof::LoadMap::LMId_NULL));
+  bool useStruct = (lmStrct->childCount() > 0);
 
   if (useStruct) {
-    if (loadmap_lm->id() != Prof::LoadMap::LMId_NULL) {
-      DIAG_Msg(1, "STRUCTURE: " << lm_nm);
-    }
+    DIAG_Msg(1, "STRUCTURE: " << lm_nm);
   }
   else {
     DIAG_Msg(1, "Line map : " << lm_nm);
@@ -384,12 +336,7 @@ overlayStaticStructureMain(Prof::CallPath::Profile& prof,
       lm->open(lm_nm.c_str());
       lm->read(BinUtil::LM::ReadFlg_Proc);
     }
-    catch (const Diagnostics::Exception& x) {
-      delete lm;
-      DIAG_Throw(/*"While reading '" << lm_nm << "': " <<*/ x.what());
-    }
     catch (...) {
-      delete lm;
       DIAG_EMsg("While reading '" << lm_nm << "'...");
       throw;
     }
@@ -397,7 +344,7 @@ overlayStaticStructureMain(Prof::CallPath::Profile& prof,
 
   Analysis::CallPath::overlayStaticStructure(prof, loadmap_lm, lmStrct, lm);
   
-  // account for new structure inserted by BAnal::Struct::makeStructureSimple()
+  // account for new structure inserted by banal::bloop::makeStructureSimple()
   lmStrct->computeVMAMaps();
 
   delete lm;
@@ -428,17 +375,16 @@ noteStaticStructureOnLeaves(Prof::CallPath::Profile& prof)
   for (Prof::CCT::ANode* n = NULL; (n = it.current()); ++it) {
     Prof::CCT::ADynNode* n_dyn = dynamic_cast<Prof::CCT::ADynNode*>(n);
     if (n_dyn) {
-      Prof::LoadMap::LMId_t lmId = n_dyn->lmId(); // ok if LoadMap::LMId_NULL
-      Prof::LoadMap::LM* loadmap_lm = prof.loadmap()->lm(lmId);
+      Prof::LoadMap::LM* loadmap_lm = prof.loadMapMgr()->lm(n_dyn->lmId());
       const string& lm_nm = loadmap_lm->name();
 
       const Prof::Struct::LM* lmStrct = rootStrct->findLM(lm_nm);
       DIAG_Assert(lmStrct, "failed to find Struct::LM: " << lm_nm);
 
-      VMA lm_ip = n_dyn->lmIP();
-      const Prof::Struct::ACodeNode* strct = lmStrct->findByVMA(lm_ip);
-      DIAG_Assert(strct, "Analysis::CallPath::noteStaticStructureOnLeaves: failed to find structure for: " << n_dyn->toStringMe(Prof::CCT::Tree::OFlg_DebugAll));
-
+      VMA ip_ur = n_dyn->ip();
+      const Prof::Struct::ACodeNode* strct = lmStrct->findByVMA(ip_ur);
+      DIAG_Assert(strct, "failed to find structure: (" << n_dyn->lmId() << ", " << hex << ip_ur << dec << ")");
+      
       n->structure(strct);
     }
   }
@@ -460,18 +406,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
 
   bool useStruct = (!lm);
 
-  // N.B.: dynamically allocate to better handle the deep recursion
-  // required for very deep CCTs.
-  StructToCCTMap* strctToCCTMap = new StructToCCTMap;
-
-  if (0 && Analysis::CallPath::dbgOs) {
-    (*Analysis::CallPath::dbgOs) << "overlayStaticStructure: node (";
-    Prof::CCT::ADynNode* node_dyn = dynamic_cast<Prof::CCT::ADynNode*>(node);
-    if (node_dyn) {
-      (*Analysis::CallPath::dbgOs) << node_dyn->lmId() << ", " << hex << node_dyn->lmIP() << dec;
-    }
-    (*Analysis::CallPath::dbgOs) << "): " << node->toStringMe() << std::endl;
-  }
+  StructToCCTMap strctToCCTMap;
 
   // ---------------------------------------------------
   // For each immediate child of this node...
@@ -482,7 +417,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
   for (Prof::CCT::ANodeSortedChildIterator it(node, Prof::CCT::ANodeSortedIterator::cmpByDynInfo);
        it.current(); /* */) {
     Prof::CCT::ANode* n = it.current();
-    it++; // advance iterator -- it is pointing at 'n'
+    it++; // advance iterator -- it is pointing at 'n' 
     
     // ---------------------------------------------------
     // process Prof::CCT::ADynNode nodes
@@ -494,33 +429,23 @@ overlayStaticStructure(Prof::CCT::ANode* node,
     if (n_dyn && (n_dyn->lmId() == loadmap_lm->id())) {
       using namespace Prof;
 
-      const string* unkProcNm = NULL;
-      if (n_dyn->isSecondarySynthRoot()) {
-	unkProcNm = &Struct::Tree::PartialUnwindProcNm;
-      }
-
       // 1. Add symbolic information to 'n_dyn'
-      VMA lm_ip = n_dyn->lmIP();
-      Struct::ACodeNode* strct =
-	Analysis::Util::demandStructure(lm_ip, lmStrct, lm, useStruct,
-					unkProcNm);
-      
+      VMA ip_ur = n_dyn->ip();
+      Struct::ACodeNode* strct = 
+	Analysis::Util::demandStructure(ip_ur, lmStrct, lm, useStruct);
       n->structure(strct);
-      //strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
+      strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
 
-      DIAG_MsgIf(0, "overlayStaticStructure: dyn (" << n_dyn->lmId() << ", " << hex << lm_ip << ") --> struct " << strct << dec << " " << strct->toStringMe());
-      if (0 && Analysis::CallPath::dbgOs) {
-	(*Analysis::CallPath::dbgOs) << "dyn (" << n_dyn->lmId() << ", " << hex << lm_ip << dec << ") --> struct " << strct->toStringMe() << std::endl;
-      }
+      DIAG_MsgIf(0, "overlayStaticStructure: dyn (" << n_dyn->lmId() << ", " << hex << ip_ur << ") --> struct " << strct << dec << " " << strct->toStringMe());
 
       // 2. Demand a procedure frame for 'n_dyn' and its scope within it
       Struct::ANode* scope_strct = strct->ancestor(Struct::ANode::TyLoop,
 						   Struct::ANode::TyAlien,
 						   Struct::ANode::TyProc);
-      //scope_strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
+      scope_strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
 
-      Prof::CCT::ANode* scope_frame =
-	demandScopeInFrame(n_dyn, scope_strct, *strctToCCTMap);
+      Prof::CCT::ANode* scope_frame = 
+	demandScopeInFrame(n_dyn, scope_strct, strctToCCTMap);
 
       // 3. Link 'n' to its parent
       n->unlink();
@@ -528,14 +453,12 @@ overlayStaticStructure(Prof::CCT::ANode* node,
     }
     
     // ---------------------------------------------------
-    // recur
+    // recur 
     // ---------------------------------------------------
     if (!n->isLeaf()) {
       overlayStaticStructure(n, loadmap_lm, lmStrct, lm);
     }
   }
-
-  delete strctToCCTMap;
 }
 
 
@@ -590,14 +513,14 @@ makeFrame(Prof::CCT::ADynNode* node, Prof::Struct::Proc* procStrct,
 // and alien structure within 'frame'.  Populate 'strctToCCTMap'.
 // 
 // NOTE: this *eagerly* adds structure to a frame that may later be
-// pruned by pruneTrivialNodes().  We could be a little smarter, but on
+// pruned by pruneByMetrics().  We could be a little smarter, but on
 // another day.
 static void
 makeFrameStructure(Prof::CCT::ANode* node_frame,
 		   Prof::Struct::ACodeNode* node_strct,
 		   StructToCCTMap& strctToCCTMap)
 {
-  for (Prof::Struct::ACodeNodeChildIterator it(node_strct);
+  for (Prof::Struct::ACodeNodeChildIterator it(node_strct); 
        it.Current(); ++it) {
     Prof::Struct::ACodeNode* n_strct = it.current();
 
@@ -612,7 +535,7 @@ makeFrameStructure(Prof::CCT::ANode* node_frame,
       n_frame = new Prof::CCT::Loop(node_frame, n_strct);
     }
     else if (typeid(*n_strct) == typeid(Prof::Struct::Alien)) {
-      n_frame = new Prof::CCT::Proc(node_frame, n_strct);
+      n_frame = new Prof::CCT::ProcFrm(node_frame, n_strct);
     }
     
     if (n_frame) {
@@ -621,6 +544,116 @@ makeFrameStructure(Prof::CCT::ANode* node_frame,
 
       // Recur
       makeFrameStructure(n_frame, n_strct, strctToCCTMap);
+    }
+  }
+}
+
+
+//***************************************************************************
+// Normaling the CCT
+//***************************************************************************
+
+static void
+pruneByMetrics(Prof::CallPath::Profile& prof);
+
+static void
+coalesceStmts(Prof::CallPath::Profile& prof);
+
+static void
+makeReturnCountMetric(Prof::CallPath::Profile& prof);
+
+static void
+mergeCilkMain(Prof::CallPath::Profile& prof);
+
+
+void
+Analysis::CallPath::normalize(Prof::CallPath::Profile& prof,
+			      string agent, bool doNormalizeTy)
+{
+  // N.B.: sets CallPath::Profile::StructMetricIdFlg
+  pruneByMetrics(prof);
+
+  if (doNormalizeTy) {
+    coalesceStmts(prof);
+  }
+
+  makeReturnCountMetric(prof);
+
+  if (!agent.empty()) {
+    OverheadMetricFact* overheadMetricFact = NULL;
+    if (agent == "agent-cilk") {
+      overheadMetricFact = new CilkOverheadMetricFact;
+    }
+    else if (agent == "agent-pthread") {
+      overheadMetricFact = new PthreadOverheadMetricFact;
+    }
+    else {
+      DIAG_Die("Bad value for 'agent': " << agent);
+    }
+    overheadMetricFact->make(prof);
+    delete overheadMetricFact;
+  }
+
+  if (agent == "agent-cilk") {
+    mergeCilkMain(prof);
+  }
+}
+
+
+//***************************************************************************
+
+// pruneByMetrics: 
+// 
+// Background: This function name should be surprising since we have
+// not computed metrics for interior nodes yet.  
+//
+// Observe that the fully dynamic CCT is sparse in the sense that *every*
+// node must have some non-zero inclusive metric value.  This is true
+// because every leaf node represents a sample point.  However, when
+// static structure is added, the CCT may contain 'spurious' static
+// scopes.  Since such scopes will not have STATEMENT nodes as
+// children, we can prune them by removing empty scopes rather than
+// computing inclusive values and pruning nodes whose metric values
+// are all zero.
+
+static void
+pruneByMetrics(Prof::CCT::ANode* node);
+
+static void
+pruneByMetrics(Prof::CallPath::Profile& prof)
+{
+  pruneByMetrics(prof.cct()->root());
+}
+
+
+static void
+pruneByMetrics(Prof::CCT::ANode* node)
+{
+  using namespace Prof;
+
+  if (!node) { return; }
+
+  for (CCT::ANodeChildIterator it(node); it.Current(); /* */) {
+    CCT::ANode* x = it.current();
+    it++; // advance iterator -- it is pointing at 'x'
+
+    // 1. Recursively do any trimming for this tree's children
+    pruneByMetrics(x);
+
+    // 2. Trim this node if necessary
+    bool isTy = (typeid(*x) == typeid(CCT::ProcFrm) || 
+		 typeid(*x) == typeid(CCT::Loop));
+    if (x->isLeaf() && isTy) {
+      x->unlink(); // unlink 'x' from tree
+      DIAG_DevMsgIf(0, "pruneByMetrics: " << hex << x << dec << " (sid: " << x->structureId() << ")");
+      delete x;
+    }
+    else {
+      // We are keeping the node -- set the static structure flag
+      Struct::ACodeNode* strct = x->structure();
+      if (strct) {
+	strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
+      }
     }
   }
 }
@@ -646,7 +679,10 @@ coalesceStmts(Prof::CallPath::Profile& prof)
 void
 coalesceStmts(Prof::CCT::ANode* node)
 {
-  typedef std::map<SrcFile::ln, Prof::CCT::Stmt*> LineToStmtMap;
+  typedef std::multimap<SrcFile::ln, Prof::CCT::Stmt*> LineToStmtMap;//changed by Xu Liu using multimap instead of map
+  typedef std::multimap<string, string>::size_type sz_type; //add by Xu Liu
+
+  int ret;
 
   if (!node) {
     return;
@@ -654,15 +690,13 @@ coalesceStmts(Prof::CCT::ANode* node)
 
   // A <line> -> <stmt> is sufficient because procedure frames
   // identify a unique load module and source file.
-  // 
-  // N.B.: dynamically allocate to better handle the deep recursion
-  // required for very deep CCTs.
-  LineToStmtMap* stmtMap = new LineToStmtMap;
+  LineToStmtMap stmtMap;
   
   // ---------------------------------------------------
   // For each immediate child of this node...
   //
-  // cmpByDynInfo()-ordering should be good enough
+  // Use cmpByDynInfo()-ordering so that results are deterministic
+  // (cf. hpcprof-mpi)
   // ---------------------------------------------------
   for (Prof::CCT::ANodeSortedChildIterator it(node, Prof::CCT::ANodeSortedIterator::cmpByDynInfo);
        it.current(); /* */) {
@@ -672,40 +706,65 @@ coalesceStmts(Prof::CCT::ANode* node)
     if ( n->isLeaf() && (typeid(*n) == typeid(Prof::CCT::Stmt)) ) {
       // Test for duplicate source line info.
       Prof::CCT::Stmt* n_stmt = static_cast<Prof::CCT::Stmt*>(n);
-      SrcFile::ln line = n_stmt->begLine();
-      LineToStmtMap::iterator it_stmt = stmtMap->find(line);
-      if (it_stmt != stmtMap->end()) {
+      SrcFile::ln line = n_stmt->begLine();//find the key
+      sz_type entries = stmtMap.count(line);
+      LineToStmtMap::iterator it1 = stmtMap.find(line);
+      if (entries != 0) {
+      int indicator = 0; //indicate whether the incoming node is merged
+      Prof::CCT::Stmt* stmtHost = NULL; //the incoming node is merged into stmtHost
+      for(sz_type cnt=0; cnt<entries; ++cnt, ++it1){
+      if(stmtHost == NULL){//no node is coalesced
 	// found -- we have a duplicate
-	Prof::CCT::Stmt* n_stmtOrig = (*it_stmt).second;
-
-	// N.B.: Because (a) trace records contain a function's
-	// representative IP and (b) two traces that contain samples
-	// from the same function should have their conflict resolved
-	// in Prof::CallPath::Profile::merge(), we would expect that
-	// merge effects are impossible.  That is, we expect that it
-	// is impossible that a CCT::ProcFrm has multiple CCT::Stmts
-	// with distinct trace ids.
-	//
-	// However, merge effects are possible *after* static
-	// structure is added to the CCT.  The reason is that multiple
-	// object-level procedures can map to one source-level
-	// procedure (e.g., multiple template instantiations mapping
-	// to the same source template or multiple stripped functions
-	// mapping to UnknownProcNm).
-	if (! Prof::CCT::ADynNode::hasMergeEffects(*n_stmtOrig, *n_stmt)) {
-	  Prof::CCT::MergeEffect effct = n_stmtOrig->mergeMe(*n_stmt);
-	  DIAG_Assert(effct.isNoop(), "Analysis::CallPath::coalesceStmts: trace ids lost (" << effct.toString() << ") when merging y into x:\n"
-		      << "\tx: " << n_stmtOrig->toStringMe(Prof::CCT::Tree::OFlg_Debug) << "\n"
-		      << "\ty: " << n_stmt->toStringMe(Prof::CCT::Tree::OFlg_Debug));
+	Prof::CCT::Stmt* n_stmtOrig = (*it1).second;
+        //add by Xu Liu begin
+        uint i;
+        for(i=0; i<n_stmtOrig->numMetrics(); i++)
+          if(n_stmtOrig->fmt(i)==1)
+            break;
+        if(i<n_stmtOrig->numMetrics())//we have address metrics
+        {
+          ret = n_stmtOrig->mergeMe_IBS(*n_stmt);
+          if(ret > 0)//merged
+          {
+            n_stmt->unlink();
+            delete n_stmt;
+            indicator = 1;//this node is merged
+            stmtHost = n_stmtOrig; //record the host node and check whether other nodes can be merged	
+            continue;
+//            break;
+          }
+        }
+        else//no address metrics
+        // add by Xu Liu end
+        {
+	  n_stmtOrig->mergeMe(*n_stmt);
 	
 	  // remove 'n_stmt' from tree
 	  n_stmt->unlink();
 	  delete n_stmt; // NOTE: could clear corresponding StructMetricIdFlg
-	}
+          indicator = 1;
+        }
+      }
+      else //the node is merged and check whether other nodes in stmtMap can be merged
+      {
+         Prof::CCT::Stmt* stmtGuest = (*it1).second;
+         ret = stmtHost->mergeMe_IBS(*stmtGuest);
+         if(ret > 0) //merged
+         {
+           stmtGuest->unlink();
+           //fix the problem that it1 cannot be erased
+//           stmtGuest = NULL;
+//           delete stmtGuest;
+//           stmtMap.erase(it1);
+         }
+      }
+      }
+        if(indicator == 0)//no merge
+          stmtMap.insert(std::make_pair(line, n_stmt));
       }
       else {
 	// no entry found -- add
-	stmtMap->insert(std::make_pair(line, n_stmt));
+	stmtMap.insert(std::make_pair(line, n_stmt));
       }
     }
     else if (!n->isLeaf()) {
@@ -713,131 +772,64 @@ coalesceStmts(Prof::CCT::ANode* node)
       coalesceStmts(n);
     }
   }
-
-  delete stmtMap;
 }
 
 
 //***************************************************************************
-// Normalizing the CCT
-//***************************************************************************
 
+// makeReturnCountMetric: A return count refers to the number of times
+// a given CCT node is called by its parent context.  However, when
+// hpcrun records return counts, there is no structure (e.g. procedure
+// frames) in the CCT.  An an example, in the CCT fragment below, the
+// return count [3] at 0xc means that 0xc returned to 0xbeef 3 times.
+// Simlarly, 0xbeef returned to its caller 5 times.
+//
+//              |               |
+//       ip: 0xbeef [5]         |
+//       /      |      \        |
+//   0xa [1]  0xb [2]  0xc [3]  |
+//      |       |       |       |
+//
+// To be able to say procedure F is called by procedure G x times
+// within this context, it is necessary to aggregate these counts at
+// the newly added procedure frames (Struct::ProcFrm).
 static void
-pruneTrivialNodes(Prof::CallPath::Profile& prof);
-
-static void
-mergeCilkMain(Prof::CallPath::Profile& prof);
-
-static void
-noteStaticStructure(Prof::CallPath::Profile& prof);
-
-
-void
-Analysis::CallPath::pruneBySummaryMetrics(Prof::CallPath::Profile& prof,
-					  uint8_t* prunedNodes)
+makeReturnCountMetric(Prof::CallPath::Profile& prof)
 {
-  VMAIntervalSet ivalset;
-  
-  const Prof::Metric::Mgr& mMgrGbl = *(prof.metricMgr());
-  for (uint mId = 0; mId < mMgrGbl.size(); ++mId) {
-    const Prof::Metric::ADesc* m = mMgrGbl.metric(mId);
-    if (m->isVisible()
-	&& m->type() == Prof::Metric::ADesc::TyIncl
-	&& (m->nameBase().find("Sum") != string::npos)) {
-      ivalset.insert(VMAInterval(mId, mId + 1)); // [ )
+  std::vector<uint> retCntId;
+
+  // -------------------------------------------------------
+  // find return count metrics, if any
+  // -------------------------------------------------------
+  Prof::Metric::Mgr* metricMgr = prof.metricMgr();
+  for (uint i = 0; i < metricMgr->size(); ++i) {
+    Prof::Metric::ADesc* m = metricMgr->metric(i);
+    if (m->nameBase().find(HPCRUN_METRIC_RetCnt) != string::npos) {
+      retCntId.push_back(m->id());
+      m->isComputed(true);
+      m->type(Prof::Metric::ADesc::TyExcl);
     }
   }
-  
-  prof.cct()->root()->pruneByMetrics(*prof.metricMgr(), ivalset,
-				     prof.cct()->root(), 0.001,
-				     prunedNodes);
-}
 
-
-void
-Analysis::CallPath::normalize(Prof::CallPath::Profile& prof,
-			      string agent, bool GCC_ATTR_UNUSED doNormalizeTy)
-{
-  pruneTrivialNodes(prof);
-
-  if (agent == "agent-cilk") {
-    mergeCilkMain(prof); // may delete CCT:ProcFrm
+  if (retCntId.empty()) {
+    return;
   }
-}
 
-
-void
-Analysis::CallPath::pruneStructTree(Prof::CallPath::Profile& prof)
-{
   // -------------------------------------------------------
-  // Prune Struct::Tree based on CallPath::Profile::StructMetricIdFlg
-  //
-  // Defer this until the end so that we keep the minimal
-  // Struct::Tree.  Note that this should almost certainly come after
-  // all uses of noteStaticStructureOnLeaves().
+  // propagate and aggregate return counts
   // -------------------------------------------------------
-  
-  noteStaticStructure(prof);
-
-  Prof::Struct::Root* rootStrct = prof.structure()->root();
-  rootStrct->aggregateMetrics(Prof::CallPath::Profile::StructMetricIdFlg);
-  rootStrct->pruneByMetrics();
-}
-
-
-//***************************************************************************
-
-// pruneTrivialNodes:
-// 
-// Without static structure, the CCT is sparse in the sense that
-// *every* node must have some non-zero inclusive metric value.  To
-// see this, note that every leaf node represents a sample point;
-// therefore all interior metric values must be greater than zero.
-//
-//  However, when static structure is added, the CCT may contain
-// 'spurious' static scopes in the sense that their metric values are
-// zero.  Since such scopes will not have CCT::Stmt nodes as children,
-// we can prune them by removing empty scopes rather than computing
-// inclusive values and pruning nodes whose metric values are all
-// zero.
-
-static void
-pruneTrivialNodes(Prof::CCT::ANode* node);
-
-static void
-pruneTrivialNodes(Prof::CallPath::Profile& prof)
-{
-  pruneTrivialNodes(prof.cct()->root());
-}
-
-
-static void
-pruneTrivialNodes(Prof::CCT::ANode* node)
-{
-  using namespace Prof;
-
-  if (!node) { return; }
-
-  for (CCT::ANodeChildIterator it(node); it.Current(); /* */) {
-    CCT::ANode* x = it.current();
-    it++; // advance iterator -- it is pointing at 'x'
-
-    // 1. Recursively do any trimming for this tree's children
-    pruneTrivialNodes(x);
-
-    // 2. Trim this node if necessary
-    if (x->isLeaf()) {
-      bool isPrunableTy = (typeid(*x) == typeid(CCT::ProcFrm) ||
-			   typeid(*x) == typeid(CCT::Proc) ||
-			   typeid(*x) == typeid(CCT::Loop));
-      bool isSynthetic =
-	(dynamic_cast<Prof::CCT::ADynNode*>(x)
-	 && static_cast<Prof::CCT::ADynNode*>(x)->isSecondarySynthRoot());
-	
-      if (isPrunableTy || isSynthetic) {
-	x->unlink(); // unlink 'x' from tree
-	DIAG_DevMsgIf(0, "pruneTrivialNodes: " << hex << x << dec << " (sid: " << x->structureId() << ")");
-	delete x;
+  Prof::CCT::ANode* cct_root = prof.cct()->root();
+  Prof::CCT::ANodeIterator it(cct_root, NULL/*filter*/, false/*leavesOnly*/,
+			      IteratorStack::PostOrder);
+  for (Prof::CCT::ANode* n = NULL; (n = it.current()); ++it) {
+    bool isFrame = (typeid(*n) == typeid(Prof::CCT::ProcFrm)
+		    && !(static_cast<Prof::CCT::ProcFrm*>(n)->isAlien()));
+    if (!isFrame && n != cct_root) {
+      Prof::CCT::ANode* n_parent = n->parent();
+      for (uint i = 0; i < retCntId.size(); ++i) {
+	uint mId = retCntId[i];
+	n_parent->demandMetric(mId) += n->demandMetric(mId);
+	n->metric(mId) = 0.0;
       }
     }
   }
@@ -881,144 +873,61 @@ mergeCilkMain(Prof::CallPath::Profile& prof)
       }
     }
   }
+
 }
 
-
-//***************************************************************************
-
+/* recursively traverse all node after coelescing statments (Xu) */
 static void
-noteStaticStructure(Prof::CallPath::Profile& prof)
+useReuseData(Prof::CCT::ANode* node, std::multimap<Prof::CCT::ANode*, Prof::CCT::ANode*> *mallocToNode,
+              std::multimap<int, Prof::CCT::ANode*> *staticToNode)
 {
-  using namespace Prof;
-
-  const Prof::CCT::ANode* cct_root = prof.cct()->root();
-
-  for (CCT::ANodeIterator it(cct_root); it.Current(); ++it) {
-    CCT::ANode* x = it.current();
-
-    Prof::Struct::ACodeNode* strct = x->structure();
-    if (strct) {
-      strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
-    }
-  }
-}
-
-
-//***************************************************************************
-// Making special CCT metrics
-//***************************************************************************
-
-static void
-makeReturnCountMetric(Prof::CallPath::Profile& prof);
-
-// N.B.: Expects that thread-level metrics are available.
-void
-Analysis::CallPath::applyThreadMetricAgents(Prof::CallPath::Profile& prof,
-					    string agent)
-{
-  makeReturnCountMetric(prof);
-
-  if (!agent.empty()) {
-    MetricComponentsFact* metricComponentsFact = NULL;
-    if (agent == "agent-cilk") {
-      metricComponentsFact = new CilkOverheadMetricFact;
-    }
-    else if (agent == "agent-mpi") {
-      // *** applySummaryMetricAgents() ***
-    }
-    else if (agent == "agent-pthread") {
-      metricComponentsFact = new PthreadOverheadMetricFact;
-    }
-    else {
-      DIAG_Die("Bad value for 'agent': " << agent);
-    }
-
-    if (metricComponentsFact) {
-      metricComponentsFact->make(prof);
-      delete metricComponentsFact;
-    }
-  }
-}
-
-
-// N.B.: Expects that summary metrics have been computed.
-void
-Analysis::CallPath::applySummaryMetricAgents(Prof::CallPath::Profile& prof,
-					     string agent)
-{
-  if (!agent.empty()) {
-    MetricComponentsFact* metricComponentsFact = NULL;
-    if (agent == "agent-mpi") {
-      metricComponentsFact = new MPIBlameShiftIdlenessFact;
-    }
-
-    if (metricComponentsFact) {
-      metricComponentsFact->make(prof);
-      delete metricComponentsFact;
-    }
-  }
-}
-
-
-//***************************************************************************
-
-// makeReturnCountMetric: A return count refers to the number of times
-// a given CCT node is called by its parent context.  However, when
-// hpcrun records return counts, there is no structure (e.g. procedure
-// frames) in the CCT.  An an example, in the CCT fragment below, the
-// return count [3] at 0xc means that 0xc returned to 0xbeef 3 times.
-// Simlarly, 0xbeef returned to its caller 5 times.
-//
-//              |               |
-//       ip: 0xbeef [5]         |
-//       /      |      \        |
-//   0xa [1]  0xb [2]  0xc [3]  |
-//      |       |       |       |
-//
-// To be able to say procedure F is called by procedure G x times
-// within this context, it is necessary to aggregate these counts at
-// the newly added procedure frames (Struct::ProcFrm).
-static void
-makeReturnCountMetric(Prof::CallPath::Profile& prof)
-{
-  std::vector<uint> retCntId;
-
-  // -------------------------------------------------------
-  // find return count metrics, if any
-  // -------------------------------------------------------
-  Prof::Metric::Mgr* metricMgr = prof.metricMgr();
-  for (uint i = 0; i < metricMgr->size(); ++i) {
-    Prof::Metric::ADesc* m = metricMgr->metric(i);
-    if (m->nameBase().find(HPCRUN_METRIC_RetCnt) != string::npos) {
-      retCntId.push_back(m->id());
-      m->computedType(Prof::Metric::ADesc::ComputedTy_Final);
-      m->type(Prof::Metric::ADesc::TyExcl);
-    }
-  }
-
-  if (retCntId.empty()) {
+  if(!node) {
     return;
   }
-
-  // -------------------------------------------------------
-  // propagate and aggregate return counts
-  // -------------------------------------------------------
-  Prof::CCT::ANode* cct_root = prof.cct()->root();
-  Prof::CCT::ANodeIterator it(cct_root, NULL/*filter*/, false/*leavesOnly*/,
-			      IteratorStack::PostOrder);
-  for (Prof::CCT::ANode* n = NULL; (n = it.current()); ++it) {
-    if (typeid(*n) != typeid(Prof::CCT::ProcFrm) && n != cct_root) {
-      Prof::CCT::ANode* n_parent = n->parent();
-      for (uint i = 0; i < retCntId.size(); ++i) {
-	uint mId = retCntId[i];
-	n_parent->demandMetric(mId) += n->demandMetric(mId);
-	n->metric(mId) = 0.0;
+  for (Prof::CCT::ANodeChildIterator it(node); it.Current(); /* */) {
+    Prof::CCT::ANode* n = it.current();
+    it++;
+    if(n->getStaticId() != 0)
+    {
+      staticToNode->insert(std::make_pair(n->getStaticId(), n));
+      continue;
+    }
+    if(n->getMallocNodeNum() > 0) {
+      for(uint i=0; i<n->getMallocNodeNum(); i++) {
+        printf("after coelesce: %d=>%d \n", n->id(), (static_cast<Prof::CCT::ANode*>(n->getMallocId(i)))->id());
+        mallocToNode->insert(std::make_pair(static_cast<Prof::CCT::ANode*>(n->getMallocId(i)), n));
       }
     }
+    useReuseData(n, mallocToNode, staticToNode);
   }
 }
 
+/*find the least commom ancestor for two nodes*/
+static Prof::CCT::ANode*
+is_ancestor(Prof::CCT::ANode* node, Prof::CCT::ANode* parent)
+{
+  Prof::CCT::ANode* parentNode;
+  for(parentNode=node; parentNode!=NULL; parentNode=parentNode->parent())
+  {
+    if(parentNode == parent)
+      return parentNode;
+  }
+  return NULL;
+}
 
+static Prof::CCT::ANode*
+LCA(Prof::CCT::ANode* node1, Prof::CCT::ANode* node2)
+{
+  Prof::CCT::ANode* parentNode1;
+  for(parentNode1=node1; parentNode1!=NULL; parentNode1=parentNode1->parent())
+  {
+    if(is_ancestor(node2, parentNode1))
+    {
+      return parentNode1;
+    }
+  }
+  return NULL;
+}
 //****************************************************************************
 // 
 //****************************************************************************
@@ -1027,24 +936,197 @@ namespace Analysis {
 
 namespace CallPath {
 
+//(Xu)
+void
+useReuseData(Prof::CallPath::Profile& prof, const Analysis::Args& args)
+{
+  std::deque<Prof::CCT::ANode*> LCAdeq, XMLdeq;
+  std::multimap<Prof::CCT::ANode*, Prof::CCT::ANode*> mallocToNode; //multiple map from malloc nodes to uses nodes
+  std::multimap<int, Prof::CCT::ANode*> staticToNode; //multiple map from static data to uses nodes
+  useReuseData(prof.cct()->root(), &mallocToNode, &staticToNode);
+  printf("finally malloc: size = %d with root=%d\n", mallocToNode.size(),prof.cct()->root()->id());
+  printf("finally static: size = %d with root=%d\n", staticToNode.size(),prof.cct()->root()->id());
+  std::multimap<Prof::CCT::ANode*, Prof::CCT::ANode*>::iterator it,it1;
+  std::multimap<int, Prof::CCT::ANode*>::iterator itt,itt1;
+  std::pair<std::multimap<Prof::CCT::ANode*,Prof::CCT::ANode*>::iterator,std::multimap<Prof::CCT::ANode*,Prof::CCT::ANode*>::iterator> sameKey;
+  std::pair<std::multimap<int,Prof::CCT::ANode*>::iterator,std::multimap<int,Prof::CCT::ANode*>::iterator> sameKey_static;
+
+  Prof::CCT::ANode *node1, *node2, *parnode, *mallocnode;
+  /*Create the file to store use-reuse info*/
+  uint metricBegId = 0;
+  uint metricEndId = prof.metricMgr()->size();
+  if (true /* CCT::Tree::OFlg_VisibleMetricsOnly*/) {
+    Prof::Metric::ADesc* mBeg = prof.metricMgr()->findFirstVisible();
+    Prof::Metric::ADesc* mEnd = prof.metricMgr()->findLastVisible();
+    metricBegId = (mBeg) ? mBeg->id()     : Prof::Metric::Mgr::npos;
+    metricEndId = (mEnd) ? mEnd->id() + 1 : Prof::Metric::Mgr::npos;
+  }
+  bool prettyPrint = (Diagnostics_GetDiagnosticFilterLevel() >= 5);
+  int oFlags = 0; // CCT::Tree::OFlg_LeafMetricsOnly;
+  if (!prettyPrint) {
+    oFlags |= Prof::CCT::Tree::OFlg_Compressed;
+  }
+  DIAG_If(5) {
+    oFlags |= Prof::CCT::Tree::OFlg_Debug;
+  }
+  const string& db_dir = args.db_dir;
+  string useReuse_fnm = db_dir + "/" + "use-reuse.xml";
+  std::ostream* useReuseOs = IOUtil::OpenOStream(useReuse_fnm.c_str());
+  /*write to xml file*/
+  Analysis::CallPath::useReuseWriteHdr(prof, *useReuseOs, args.title, prettyPrint);
+  *useReuseOs << "<SecCallPathProfileData>\n";
+
+  /*cope with heap data*/
+  it = mallocToNode.begin(); 
+  /*one malloc node => multiple CCT nodes*/
+  while(it != mallocToNode.end()) {
+    sameKey = mallocToNode.equal_range(it->first);
+    if(sameKey.first == sameKey.second) { //this is already erased
+      it++;
+      continue;
+    }
+    mallocnode = it->first;
+    printf("finally: %d=>", it->first->id());fflush(stdout);
+    for(it1 = sameKey.first; it1 != sameKey.second; it1++) {//all the uses of malloc node (it->first)
+      printf(" %d", it1->second->id());fflush(stdout);
+      LCAdeq.push_back(it1->second);
+    }
+    XMLdeq = LCAdeq;//maintain all the uses in MXLdeq
+    while(LCAdeq.size()>1)//only when the size>1 we can find the LCA
+    {
+      node1 = LCAdeq.front();
+      LCAdeq.pop_front();
+      node2 = LCAdeq.front();
+      LCAdeq.pop_front();
+      parnode = LCA(node1, node2);
+      if(parnode != NULL)
+      {
+        printf("  %d(%d, %d)\n", parnode->id(), node1->id(), node2->id());
+//        parnode->useReuseWriteXML(*useReuseOs, metricBegId, metricEndId, oFlags, node1, node2, true);
+      }
+
+      LCAdeq.push_back(parnode);
+    }
+    parnode = LCAdeq.front(); //this is the toppest level of use-reuse
+    /*LCA should be a PF*/
+    while (parnode->parent() != NULL)//the highest level is main
+    {
+      if (parnode->type() == Prof::CCT::ANode::TyProcFrm)
+      {
+        const Prof::CCT::ProcFrm* fr = dynamic_cast<const Prof::CCT::ProcFrm*>(parnode);
+        if(!fr->isAlien())
+          break;
+        else
+          parnode=parnode->parent();
+      }
+      else
+        parnode=parnode->parent();
+    }
+    /*find PF for mallocnode*/
+/*    bool level = true;//find the PF containing malloc
+    while (mallocnode->parent() != NULL)//the highest level is main
+    {
+      mallocnode = mallocnode->parent();
+      if (mallocnode->type() == Prof::CCT::ANode::TyProcFrm)
+      {
+        const Prof::CCT::ProcFrm* fr = dynamic_cast<const Prof::CCT::ProcFrm*>(mallocnode);
+        if(!fr->isAlien())
+        {
+          if(level)
+            break;
+          else
+          {
+            level = true;
+            mallocnode=mallocnode->parent();
+          }
+        }
+        else
+          mallocnode=mallocnode->parent();
+      }
+      else
+        mallocnode=mallocnode->parent();
+    }*/
+
+    parnode->useReuseWriteXML(*useReuseOs, XMLdeq, metricBegId, metricEndId, oFlags, mallocnode);
+    LCAdeq.clear();//clear the deque
+    mallocToNode.erase(it->first);
+    printf("\n");
+    it++;
+  }
+
+  /*cope with static data*/
+  int staticId;
+  itt = staticToNode.begin(); 
+  /*one malloc node => multiple CCT nodes*/
+  while(itt != staticToNode.end()) {
+    sameKey_static = staticToNode.equal_range(itt->first);
+    if(sameKey_static.first == sameKey_static.second) { //this is already erased
+      itt++;
+      continue;
+    }
+    staticId = itt->first;
+    printf("finally: %d=>", staticId);fflush(stdout);
+    for(itt1 = sameKey_static.first; itt1 != sameKey_static.second; itt1++) {//all the uses of malloc node (it->first)
+      printf(" %d", itt1->second->id());fflush(stdout);
+      LCAdeq.push_back(itt1->second);
+    }
+    XMLdeq = LCAdeq;//maintain all the uses in MXLdeq
+    while(LCAdeq.size()>1)//only when the size>1 we can find the LCA
+    {
+      node1 = LCAdeq.front();
+      LCAdeq.pop_front();
+      node2 = LCAdeq.front();
+      LCAdeq.pop_front();
+      parnode = LCA(node1, node2);
+      if(parnode != NULL)
+      {
+        printf("  %d(%d, %d)\n", parnode->id(), node1->id(), node2->id());
+      }
+ 
+      LCAdeq.push_back(parnode);
+    }
+    parnode = LCAdeq.front(); //this is the toppest level of use-reuse
+    /*LCA should be a PF*/
+    while (parnode->parent() != NULL)//the highest level is main
+    {
+      if (parnode->type() == Prof::CCT::ANode::TyProcFrm)
+      {
+        const Prof::CCT::ProcFrm* fr = dynamic_cast<const Prof::CCT::ProcFrm*>(parnode);
+        if(!fr->isAlien())
+          break;
+        else
+          parnode=parnode->parent();
+      }
+      else
+        parnode=parnode->parent();
+    }
+    /*need not print the location of the static allocation*/
+    parnode->useReuseWriteXML(*useReuseOs, XMLdeq, metricBegId, metricEndId, oFlags, NULL);
+    LCAdeq.clear();//clear the deque
+    staticToNode.erase(itt->first);
+    printf("\n");
+    itt++;
+  }
+
+  /*write the end of the xml file*/
+  *useReuseOs << "</SecCallPathProfileData>\n";
+
+  *useReuseOs << "</SecCallPathProfile>\n";
+  *useReuseOs << "</HPCToolkitExperiment>\n";
+
+  IOUtil::CloseStream(useReuseOs);
+}
 
 // makeDatabase: assumes Analysis::Args::makeDatabaseDir() has been called
 void
 makeDatabase(Prof::CallPath::Profile& prof, const Analysis::Args& args)
 {
   const string& db_dir = args.db_dir;
-
-  DIAG_Msg(1, "Populating Experiment database: " << db_dir);
-  
-  // 1. Copy source files.  
-  //    NOTE: makes file names in 'prof.structure' relative to database
-  Analysis::Util::copySourceFiles(prof.structure()->root(),
+  DIAG_Msg(1, "Copying source files reached by PATH option to " << db_dir);
+  // NOTE: makes file names in structure relative to database
+  Analysis::Util::copySourceFiles(prof.structure()->root(), 
 				  args.searchPathTpls, db_dir);
-
-  // 2. Copy trace files (if necessary)
-  Analysis::Util::copyTraceFiles(db_dir, prof.traceFileNameSet());
-
-  // 3. Create 'experiment.xml'
+  
   string experiment_fnm = db_dir + "/" + args.out_db_experiment;
   std::ostream* os = IOUtil::OpenOStream(experiment_fnm.c_str());
   bool prettyPrint = (Diagnostics_GetDiagnosticFilterLevel() >= 5);
@@ -1054,7 +1136,7 @@ makeDatabase(Prof::CallPath::Profile& prof, const Analysis::Args& args)
 
 
 void
-write(Prof::CallPath::Profile& prof, std::ostream& os,
+write(Prof::CallPath::Profile& prof, std::ostream& os, 
       const string& title, bool prettyPrint)
 {
   static const char* experimentDTD =
@@ -1083,8 +1165,7 @@ write(Prof::CallPath::Profile& prof, std::ostream& os,
   string name = (title.empty()) ? prof.name() : title;
 
   os << "<?xml version=\"1.0\"?>" << std::endl;
-  os << "<!DOCTYPE HPCToolkitExperiment [\n" << experimentDTD << "]>"
-     << std::endl;
+  os << "<!DOCTYPE hpc-experiment [\n" << experimentDTD << "]>" << std::endl;
   os << "<HPCToolkitExperiment version=\"2.0\">\n";
   os << "<Header n" << MakeAttrStr(name) << ">\n";
   os << "  <Info/>\n";
@@ -1110,6 +1191,55 @@ write(Prof::CallPath::Profile& prof, std::ostream& os,
 
   os << "</SecCallPathProfile>\n";
   os << "</HPCToolkitExperiment>\n";
+  os.flush();
+
+}
+
+void
+useReuseWriteHdr(Prof::CallPath::Profile& prof, std::ostream& os, 
+      const string& title, bool prettyPrint)
+{
+  static const char* experimentDTD =
+#include <lib/xml/hpc-experiment.dtd.h>
+
+  using namespace Prof;
+
+  int oFlags = 0; // CCT::Tree::OFlg_LeafMetricsOnly;
+  if (!prettyPrint) {
+    oFlags |= CCT::Tree::OFlg_Compressed;
+  }
+  DIAG_If(5) {
+    oFlags |= CCT::Tree::OFlg_Debug;
+  }
+
+  uint metricBegId = 0;
+  uint metricEndId = prof.metricMgr()->size();
+
+  if (true /* CCT::Tree::OFlg_VisibleMetricsOnly*/) {
+    Metric::ADesc* mBeg = prof.metricMgr()->findFirstVisible();
+    Metric::ADesc* mEnd = prof.metricMgr()->findLastVisible();
+    metricBegId = (mBeg) ? mBeg->id()     : Metric::Mgr::npos;
+    metricEndId = (mEnd) ? mEnd->id() + 1 : Metric::Mgr::npos;
+  }
+
+  string name = (title.empty()) ? prof.name() : title;
+
+  os << "<?xml version=\"1.0\"?>" << std::endl;
+  os << "<!DOCTYPE hpc-experiment [\n" << experimentDTD << "]>" << std::endl;
+  os << "<HPCToolkitExperiment version=\"2.0\">\n";
+  os << "<Header n" << MakeAttrStr(name) << ">\n";
+  os << "  <Info/>\n";
+  os << "</Header>\n";
+
+  os << "<SecCallPathProfile i=\"0\" n" << MakeAttrStr(name) << ">\n";
+
+  // ------------------------------------------------------------
+  //    
+  // ------------------------------------------------------------
+  os << "<SecHeader>\n";
+  prof.writeXML_hdr(os, metricBegId, metricEndId, oFlags);
+  os << "  <Info/>\n";
+  os << "</SecHeader>\n";
   os.flush();
 }
 

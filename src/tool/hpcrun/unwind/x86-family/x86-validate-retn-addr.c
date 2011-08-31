@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -67,13 +64,11 @@
 #include "x86-unwind-analysis.h"
 #include "fnbounds_interface.h"
 #include "validate_return_addr.h"
+#include "unwind_cursor.h"
 #include "ui_tree.h"
 #include "x86-unwind-interval.h"
 
-#include <unwind/common/unw-datatypes.h>
 #include <messages/messages.h>
-
-#include <lib/isa-lean/x86/instruction-set.h>
 
 
 //****************************************************************************
@@ -170,7 +165,7 @@ confirm_call(void *addr, void *routine)
 
 
 static bool
-confirm_indirect_call_specific(void* addr, size_t offset, void** call_ins)
+confirm_indirect_call_specific(void *addr, size_t offset, void **call_ins)
 {
   void *callee;
   if ( ! confirm_call_fetch_addr(addr, offset, &callee)) {
@@ -184,8 +179,9 @@ confirm_indirect_call_specific(void* addr, size_t offset, void** call_ins)
   return (callee == NULL);
 }
 
+
 static bool
-confirm_indirect_call(void* addr, void** call_ins)
+confirm_indirect_call(void *addr, void **call_ins)
 {
   TMSG(VALIDATE_UNW,"trying to confirm an indirect call preceeding %p", addr);
   for (size_t i=1;i <= 7;i++) {
@@ -200,7 +196,7 @@ static validation_status
 contains_tail_call_to_f(void *callee, void *target_fn)
 {
   void *routine_start, *routine_end;
-  if (! fnbounds_enclosing_addr(callee, &routine_start, &routine_end, NULL)) {
+  if (fnbounds_enclosing_addr(callee, &routine_start, &routine_end)) {
     TMSG(VALIDATE_UNW,"unwind addr %p does NOT have function bounds, so it is invalid",callee);
     return status_is_wrong(); // hard error: callee is nonsense
   }
@@ -277,8 +273,7 @@ confirm_tail_call(void *addr, void *target_fn)
   }
 
   TMSG(VALIDATE_UNW,"Checking routine %p for possible tail calls", callee);
-  unwind_interval *ri =
-    (unwind_interval *) hpcrun_addr_to_interval(callee, NULL, NULL);
+  unwind_interval *ri = (unwind_interval *) hpcrun_addr_to_interval(callee);
   bool rv = (ri && ri->has_tail_calls);
 
   if (rv) return contains_tail_call_to_f(callee, target_fn);
@@ -299,7 +294,7 @@ x86_plt_branch_target(void *ins, xed_decoded_inst_t *xptr)
       op0_type == XED_OPERAND_TYPE_IMM_CONST) {
     xed_operand_values_t *vals = xed_decoded_inst_operands(xptr);
     xed_reg_enum_t reg = xed_operand_values_get_base_reg(vals,0);
-    if (x86_isReg_IP(reg)) {
+    if (reg == XED_REG_RIP) {
       int ins_len = xed_decoded_inst_get_length(xptr);
       xed_int64_t disp =  xed_operand_values_get_memory_displacement_int64(vals);
       xed_int64_t **memloc = ins + disp + ins_len;
@@ -335,8 +330,7 @@ confirm_plt_call(void *addr, void *callee)
   void *plt_callee = x86_plt_branch_target(plt_ins, xptr);
   if (plt_callee == callee) return UNW_ADDR_CONFIRMED;
 
-  unwind_interval *plt_callee_ui =
-    (unwind_interval *) hpcrun_addr_to_interval(plt_callee, NULL, NULL);
+  unwind_interval *plt_callee_ui = (unwind_interval *) hpcrun_addr_to_interval(plt_callee);
   if (plt_callee_ui && plt_callee_ui->has_tail_calls) return contains_tail_call_to_f(plt_callee, callee);
 
   return UNW_ADDR_WRONG;
@@ -346,45 +340,46 @@ confirm_plt_call(void *addr, void *callee)
 // interface operations 
 //****************************************************************************
 validation_status
-deep_validate_return_addr(void* addr, void* generic)
+deep_validate_return_addr(void *addr, void *generic)
 {
-  hpcrun_unw_cursor_t* cursor = (hpcrun_unw_cursor_t*) generic;
+  unw_cursor_t *cursor = (unw_cursor_t *)generic;
 
-  TMSG(VALIDATE_UNW,"validating unwind step from %p ==> %p",cursor->pc_unnorm,
-       addr);
-
-  void* dont_care;
-  if (! fnbounds_enclosing_addr(addr, &dont_care, &dont_care, NULL)) {
+  TMSG(VALIDATE_UNW,"validating unwind step from %p ==> %p",cursor->pc, addr);
+  void *beg, *end;
+  if (fnbounds_enclosing_addr(addr, &beg, &end)) {
     TMSG(VALIDATE_UNW,"unwind addr %p does NOT have function bounds, so it is invalid", addr);
     return status_is_wrong();
   }
-
-  void* callee;
-  if (fnbounds_enclosing_addr(cursor->pc_unnorm, &callee, &dont_care, NULL)) {
-    TMSG(VALIDATE_UNW, "beginning of my routine = %p", callee);
-    if (confirm_call(addr, callee)) {
-      TMSG(VALIDATE_UNW, "Instruction preceeding %p is a call to this routine. Unwind confirmed", addr);
-      return UNW_ADDR_CONFIRMED;
-    }
-    validation_status result = confirm_plt_call(addr, callee);
-    if (result != UNW_ADDR_WRONG) {
-      TMSG(VALIDATE_UNW,
-	   "Instruction preceeding %p is a call through the PLT to this routine. Unwind confirmed",
-	   addr);
-      return result;
-    }
-    result = confirm_tail_call(addr, callee);
-    if (result != UNW_ADDR_WRONG) {
-      TMSG(VALIDATE_UNW,"Instruction preceeding %p is a call to a routine that has tail calls. Unwind is LIKELY ok", addr);
-      return result;
-    }
+  if (fnbounds_enclosing_addr(cursor->pc, &beg, &end)) {
+    TMSG(VALIDATE_UNW,"***The pc in the unwind cursor (= %p) does not have function bounds\n"
+         "***INTERNAL ERROR: please check arguments",cursor->pc);
+    return status_is_wrong();
   }
-  void* call_ins;
+  void *callee = beg;
+  TMSG(VALIDATE_UNW,"beginning of my routine = %p", callee);
+  if (confirm_call(addr, callee)) {
+    TMSG(VALIDATE_UNW,"Instruction preceeding %p is a call to this routine. Unwind confirmed",addr);
+    return UNW_ADDR_CONFIRMED;
+  }
+  validation_status result = confirm_plt_call(addr, callee);
+  if (result != UNW_ADDR_WRONG) {
+    TMSG(VALIDATE_UNW,"Instruction preceeding %p is a call through the PLT to this routine. Unwind confirmed",addr);
+    return result;
+  }
+  void *call_ins;
   if (confirm_indirect_call(addr, &call_ins)){
-    TMSG(VALIDATE_UNW,"Instruction preceeding %p is an indirect call. Unwind is LIKELY ok", addr);
+#if 0
+    x86_mark_indirect_for_validation(addr, call_ins, callee); 
+#endif
+    TMSG(VALIDATE_UNW,"Instruction preceeding %p is an indirect call. Unwind is LIKELY ok",addr);
     return UNW_ADDR_PROBABLE_INDIRECT;
   }
-  TMSG(VALIDATE_UNW,"Unwind addr %p is NOT confirmed", addr);
+  result = confirm_tail_call(addr, callee);
+  if (result != UNW_ADDR_WRONG) {
+    TMSG(VALIDATE_UNW,"Instruction preceeding %p is a call to a routine that has tail calls. Unwind is LIKELY ok",addr);
+    return result;
+  }
+  TMSG(VALIDATE_UNW,"Unwind addr %p is NOT confirmed",addr);
   return status_is_wrong();
 }
 
@@ -392,9 +387,9 @@ deep_validate_return_addr(void* addr, void* generic)
 validation_status
 dbg_val(void *addr, void *pc)
 {
-  hpcrun_unw_cursor_t cursor;
+  unw_cursor_t cursor;
 
-  cursor.pc_unnorm = pc;
+  cursor.pc = pc;
   return deep_validate_return_addr(addr, &cursor);
 }
 
@@ -403,9 +398,11 @@ validation_status
 validate_return_addr(void *addr, void *generic)
 {
   void *beg, *end;
-  if (fnbounds_enclosing_addr(addr, &beg, &end, NULL)) {
+  if (fnbounds_enclosing_addr(addr, &beg, &end)) {
     return UNW_ADDR_WRONG;
   }
 
   return UNW_ADDR_PROBABLE;
 }
+
+

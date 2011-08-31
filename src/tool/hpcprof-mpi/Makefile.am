@@ -5,31 +5,28 @@
 ## $HeadURL$
 ## $Id$
 ##
-## --------------------------------------------------------------------------
+## -----------------------------------
 ## Part of HPCToolkit (hpctoolkit.org)
-##
-## Information about sources of support for research and development of
-## HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-## --------------------------------------------------------------------------
-##
-## Copyright ((c)) 2002-2011, Rice University
+## -----------------------------------
+## 
+## Copyright ((c)) 2002-2010, Rice University 
 ## All rights reserved.
-##
+## 
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions are
 ## met:
-##
+## 
 ## * Redistributions of source code must retain the above copyright
 ##   notice, this list of conditions and the following disclaimer.
-##
+## 
 ## * Redistributions in binary form must reproduce the above copyright
 ##   notice, this list of conditions and the following disclaimer in the
 ##   documentation and/or other materials provided with the distribution.
-##
+## 
 ## * Neither the name of Rice University (RICE) nor the names of its
 ##   contributors may be used to endorse or promote products derived from
 ##   this software without specific prior written permission.
-##
+## 
 ## This software is provided by RICE and contributors "as is" and any
 ## express or implied warranties, including, but not limited to, the
 ## implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 ## business interruption) however caused and on any theory of liability,
 ## whether in contract, strict liability, or tort (including negligence
 ## or otherwise) arising in any way out of the use of this software, even
-## if advised of the possibility of such damage.
-##
+## if advised of the possibility of such damage. 
+## 
 ## ******************************************************* EndRiceCopyright *
 
 #############################################################################
@@ -78,28 +75,14 @@ MYSOURCES = \
 MYCFLAGS   = @HOST_CFLAGS@   $(HPC_IFLAGS) @GNUBINUTILS_IFLAGS@
 MYCXXFLAGS = @HOST_CXXFLAGS@ $(HPC_IFLAGS) @GNUBINUTILS_IFLAGS@ @XERCES_IFLAGS@
 
-MYLDFLAGS = \
-	@HPCPROFMPI_LT_LDFLAGS@ \
-	@HPC_LT_LDFLAGS@ \
-	@HOST_CXXFLAGS@ \
-	@XERCES_LDFLAGS@ \
-	@GNUBINUTILS_LDFLAGS@
+MYLDFLAGS = @HOST_CXXFLAGS@
 
 MYLDADD = \
 	@HOST_LIBTREPOSITORY@ \
-	$(HPCLIB_Analysis) \
-	$(HPCLIB_Banal) \
-	$(HPCLIB_ProfXML) \
-	$(HPCLIB_Prof) \
-	$(HPCLIB_ProfLean) \
-	$(HPCLIB_Binutils) \
-	$(HPCLIB_ISA) \
-	$(HPCLIB_XML) \
-	$(HPCLIB_Support) \
-	$(HPCLIB_SupportLean) \
-	@XERCES_LDLIBS@ \
-	@GNUBINUTILS_LDLIBS@ \
-	@HOST_HPCPROF_LDFLAGS@
+	$(HPC_LIBANALYSIS) $(HPC_LIBBANAL) $(HPC_LIBPROFJUICYX) $(HPC_LIBPROFJUICY) $(HPC_LIBPROFLEAN) $(HPC_LIBBINUTILS) $(HPC_LIBISA) $(HPC_LIBXML) $(HPC_LIBSUPPORT) \
+	@XERCES_LDFLAGS@ @GNUBINUTILS_LDFLAGS@ \
+	@HOST_HPCPROF_LDFLAGS@ \
+	-lm
 
 MYCLEAN = @HOST_LIBTREPOSITORY@
 
@@ -109,23 +92,16 @@ MYCLEAN = @HOST_LIBTREPOSITORY@
 
 CXX = $(MPICXX)
 
-pkglibexecdir = $(libexecdir)/$(PACKAGE)
+bin_PROGRAMS = hpcprof-mpi
 
-bin_SCRIPTS = hpcprof-mpi
-
-pkglibexec_PROGRAMS = hpcprof-mpi-bin
-
-hpcprof_mpi_bin_SOURCES  = $(MYSOURCES)
-hpcprof_mpi_bin_CFLAGS   = $(MYCFLAGS)
-hpcprof_mpi_bin_CXXFLAGS = $(MYCXXFLAGS)
-hpcprof_mpi_bin_LDFLAGS  = $(MYLDFLAGS)
-hpcprof_mpi_bin_LDADD    = $(MYLDADD)
+#hpcprof_mpi_LINK
+hpcprof_mpi_SOURCES  = $(MYSOURCES)
+hpcprof_mpi_CFLAGS   = $(MYCFLAGS)
+hpcprof_mpi_CXXFLAGS = $(MYCXXFLAGS)
+hpcprof_mpi_LDFLAGS  = $(MYLDFLAGS)
+hpcprof_mpi_LDADD    = $(MYLDADD)
 
 MOSTLYCLEANFILES = $(MYCLEAN)
-
-install-exec-hook:
-	$(call HPC_moveIfStaticallyLinked,$(DESTDIR)$(pkglibexecdir)/hpcprof-mpi-bin$(EXEEXT),$(DESTDIR)$(bindir)/hpcprof-mpi$(EXEEXT))
-
 
 #############################################################################
 # Common rules

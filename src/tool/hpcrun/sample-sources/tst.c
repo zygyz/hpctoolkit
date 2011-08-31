@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
@@ -88,11 +85,9 @@
 #include <messages/messages.h>
 
 #include <utilities/tokenize.h>
-#include <utilities/arch/context-pc.h>
 
+#include <lib/prof-lean/timer.h>
 #include <unwind/common/unwind.h>
-
-#include <lib/support-lean/timer.h>
 
 /******************************************************************************
  * macros
@@ -137,8 +132,6 @@
 
 #endif // !defined(RESET_ITIMER_EACH_SAMPLE)
 
-#define DEFAULT_THRESHOLD  5000L
-
 /******************************************************************************
  * local constants
  *****************************************************************************/
@@ -174,7 +167,7 @@ static const struct itimerval zerotimer = {
 
 };
 
-static long period = DEFAULT_THRESHOLD;
+static long period = 5000L;
 
 static sigset_t sigset_itimer;
 
@@ -184,16 +177,6 @@ static void
 METHOD_FN(init)
 {
   self->state = INIT; // no actual init actions necessary for _tst
-}
-
-static void
-METHOD_FN(thread_init)
-{
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
 }
 
 static void
@@ -224,11 +207,6 @@ METHOD_FN(start)
 #endif
 
   TD_GET(ss_state)[self->evset_idx] = START;
-}
-
-static void
-METHOD_FN(thread_fini_action)
-{
 }
 
 static void
@@ -272,7 +250,7 @@ METHOD_FN(process_event_list, int lush_metrics)
   TMSG(_TST_CTL,"checking event spec = %s",event);
 
   // extract event threshold
-  hpcrun_extract_ev_thresh(event, sizeof(name), name, &period, DEFAULT_THRESHOLD);
+  extract_ev_thresh(event, sizeof(name), name, &period);
 
   // store event threshold
   METHOD_CALL(self, store_event, _TST_EVENT, period);
@@ -309,7 +287,7 @@ METHOD_FN(process_event_list, int lush_metrics)
 
   TMSG(_TST_CTL, "setting metric _TST, period = %ld", sample_period);
   hpcrun_set_metric_info_and_period(metric_id, "_TST",
-				    MetricFlags_ValFmt_Int,
+				    HPCRUN_MetricFlag_Async,
 				    sample_period);
   if (lush_metrics == 1) {
     int mid_idleness = hpcrun_new_metric();
@@ -317,7 +295,7 @@ METHOD_FN(process_event_list, int lush_metrics)
     lush_agents->metric_idleness = mid_idleness;
 
     hpcrun_set_metric_info_and_period(mid_idleness, "idleness (ms)",
-				      MetricFlags_ValFmt_Real,
+				      HPCRUN_MetricFlag_Async | HPCRUN_MetricFlag_Real,
 				      sample_period);
   }
 

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,12 +37,12 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //
-// SYNC sample source simple oo interface
+// NONE sample source simple oo interface
 //
 
 /******************************************************************************
@@ -93,40 +90,23 @@
 static void
 METHOD_FN(init)
 {
-  self->state = INIT; // no actual init actions necessary for sync events
-}
-
-static void
-METHOD_FN(thread_init)
-{
-  TMSG(SYNC_CTL, "thread init (no action needed)");
-}
-
-static void
-METHOD_FN(thread_init_action)
-{
-  TMSG(SYNC_CTL, "thread action (noop)");
+  self->state = INIT; // no actual init actions necessary for NONE
 }
 
 
 static void
 METHOD_FN(start)
 {
-  TMSG(SYNC_CTL,"starting SYNC");
+  TMSG(NONE_CTL,"starting SYNC");
 
   TD_GET(ss_state)[self->evset_idx] = START;
 }
 
-static void
-METHOD_FN(thread_fini_action)
-{
-  TMSG(SYNC_CTL, "thread fini (no action needed");
-}
 
 static void
 METHOD_FN(stop)
 {
-  TMSG(SYNC_CTL,"stopping SYNC");
+  TMSG(NONE_CTL,"stopping SYNC");
   TD_GET(ss_state)[self->evset_idx] = STOP;
 }
 
@@ -150,6 +130,7 @@ METHOD_FN(supports_event,const char *ev_str)
 // Special SYNC protocol:
 //  if event is SYNC@xxx, then create xxx events
 //  if event is just plain SYNC, then default to 1 event
+//  
 //
 static void
 METHOD_FN(process_event_list,int lush_metrics)
@@ -159,11 +140,9 @@ METHOD_FN(process_event_list,int lush_metrics)
   if (_p) {
     n_events = atoi(_p+1);
   }
-#ifdef OLD_DEFAULT
   if (! n_events ) {
     n_events = 1;
   }
-#endif // OLD_DEFAULT
   for (int i = 0; i < n_events; i++) {
     int n = hpcrun_new_metric();
     hpcrun_set_metric_info(n, "RENAME");
@@ -183,16 +162,19 @@ METHOD_FN(gen_event_set,int lush_metrics)
 }
 
 
+//
+//
+//
 static void
 METHOD_FN(display_events)
 {
   printf("===========================================================================\n");
-  printf("Available synchronous events\n");
+  printf("Available sync events\n");
   printf("===========================================================================\n");
   printf("Name\t\tDescription\n");
   printf("---------------------------------------------------------------------------\n");
-  printf("SYNC\t\tThe number of synchronous metric slots allocated,\n"
-	 "\t\teg, SYNC@3 would generate 3 slots\n");
+  printf("SYNC\t# of synchronous metric slots needed for the app\n");
+  printf("\t  Example: SYNC@3 would generate 3 metric slots ");
   printf("\n");
 }
 

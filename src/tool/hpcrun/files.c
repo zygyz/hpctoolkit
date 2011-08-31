@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************
@@ -57,6 +54,7 @@
 #include <sys/types.h>  // struct stat
 #include <sys/stat.h>   // stat 
 #include <stdbool.h>
+#include <fcntl.h>     /* For open() */
 
 //***************************************************************
 // local includes 
@@ -67,16 +65,15 @@
 #include "files.h"
 #include "messages.h"
 #include "thread_data.h"
-#include "loadmap.h"
 
-#include <lib/prof-lean/spinlock.h>
-
-#include <lib/support-lean/OSUtil.h>
-
+#include "ibs_init.h"
 
 //***************************************************************
 // macros
 //***************************************************************
+
+#define NO_HOST_ID      (-1)
+#define NO_PID          (~0)
 
 
 
@@ -92,37 +89,36 @@
 
 static char *os_realpath(const char *inpath, char *outpath);
 
-static char *files_name(char *filename, unsigned int mpi,
-			const char *suffix, int len);
+static char *files_name(char *filename, unsigned int mpi, const char *suffix);
 
 
 //***************************************************************
 // local data 
 //***************************************************************
 
-static char default_path[PATH_MAX] = {'\0'};
-static char output_directory[PATH_MAX] = {'\0'};
-static char executable_name[PATH_MAX] = {'\0'};
-static char executable_pathname[PATH_MAX] = {'\0'};
+static char default_path[PATH_MAX];
+static char output_directory[PATH_MAX];
+static char *executable_name = 0;
+static char *executable_pathname = 0;
+
 
 //***************************************************************
 // interface operations
 //***************************************************************
 
-void
+void 
 files_trace_name(char *filename, unsigned int mpi, int len)
 {
-  files_name(filename, mpi, HPCRUN_TraceFnmSfx, len);
+  files_name(filename, mpi, CSPROF_TRACE_FNM_SFX);
 }
 
 
-const char*
-files_executable_pathname()
+const char *
+files_executable_pathname(void)
 {
-  const char* load_name = hpcrun_loadmap_findLoadName(executable_name);
-
-  return load_name ? load_name : executable_name;
+  return executable_pathname;
 }
+
 
 const char * 
 files_executable_name()
@@ -134,25 +130,25 @@ files_executable_name()
 void
 files_profile_name(char *filename, unsigned int mpi, int len)
 {
-  files_name(filename, mpi, HPCRUN_ProfileFnmSfx, len);
+  files_name(filename, mpi, CSPROF_PROFILE_FNM_SFX);
 }
 
 
 void
 files_log_name(char *filename, unsigned int mpi, int len)
 {
-  files_name(filename, mpi, HPCRUN_LogFnmSfx, len);
+  files_name(filename, mpi, CSPROF_LOG_FNM_SFX);
 }
 
 
 void 
 files_set_directory()
 {  
-  char *path = getenv(HPCRUN_OUT_PATH);
+  char *path = getenv(CSPROF_OPT_OUT_PATH);
 
   // compute path for default measurement directory
   if (path == NULL || strlen(path) == 0) {
-    const char *jid = OSUtil_jobid();
+    const char *jid = os_job_id();
     if (jid == NULL) {
       sprintf(default_path, "./hpctoolkit-%s-measurements", executable_name);
     } else {
@@ -174,17 +170,75 @@ files_set_directory()
 }
 
 
+static const size_t PATH_MAX_LEN = 2048;
+
 void 
 files_set_executable(char *execname)
 {
-  strncpy(executable_name, basename(execname), sizeof(executable_name));
-
-  if ( ! realpath(execname, executable_pathname) ) {
-    strncpy(executable_pathname, execname, sizeof(executable_pathname));
+  executable_name = strdup(basename(execname));
+  if (executable_name[0] != '/') {
+    char path[PATH_MAX_LEN];
+    // check return code; use pathname in fnbounds_static loadmap finalize
+    realpath(executable_name, path);
+    executable_pathname = strdup(path);
+  }
+  else {
+    executable_pathname = executable_name;
   }
 }
 
+//Xu create static data table
+/*void
+create_static_data_table()
+{
+  int fd = -1;
+  fd = open(executable_pathname, O_RDONLY);
+  bss_partition(fd);
+  close(fd);
+}
+*/
 //*****************************************************************************
+
+long
+os_hostid()
+{
+  static long hostid = NO_HOST_ID;
+
+  if (hostid == NO_HOST_ID) {
+    // gethostid returns a 32-bit id.  treat it as unsigned 
+    // to prevent useless sign extension
+    hostid = (uint32_t) gethostid();
+  }
+
+  return hostid;
+}
+
+
+unsigned int
+os_pid()
+{
+  static unsigned int pid = NO_PID;
+
+  if (pid == NO_PID) pid = getpid();
+
+  return pid;
+}
+
+const char* 
+os_job_id()
+{
+  char *jid = NULL;
+  if (jid == NULL) {
+    jid = getenv("COBALT_JOBID"); /* check for Cobalt job id */
+  }
+  if (jid == NULL) {
+    jid = getenv("PBS_JOBID"); /* check for PBS job id */
+  }
+  if (jid == NULL) {
+    jid = getenv("JOB_ID"); /* check for Sun Grid Engine job id */
+  }
+  return jid;
+}
 
 
 //***************************************************************
@@ -198,42 +252,15 @@ os_realpath(const char *inpath, char *outpath)
 }
 
 
-// Add a generation number to the file name pid to handle processes
-// that exec (same pid).  The first file for the current pid sets the
-// gen number, then all later files use the same number.
-
-#define FILENAME_TEMPLATE  "%s/%s-%06u-%03d-%lx-%u-%d.%s"
-
 static char *
-files_name(char* filename, unsigned int mpi, const char* suffix, int len)
+files_name(char *filename, unsigned int mpi, const char *suffix)
 {
   thread_data_t *td = hpcrun_get_thread_data();
-  static spinlock_t gen_lock = SPINLOCK_UNLOCKED;
-  static pid_t cur_pid, last_pid = 0;
-  static int gen, ret;
 
-  spinlock_lock(&gen_lock);
-
-  cur_pid = getpid();
-  if (last_pid != cur_pid) {
-    for (gen = 0; gen < 9; gen++) {
-      snprintf(filename, len, FILENAME_TEMPLATE,
-	       output_directory, executable_name, mpi,
-	       td->id, OSUtil_hostid(), cur_pid, gen, suffix);
-      if (access(filename, F_OK) != 0)
-	break;
-    }
-    last_pid = cur_pid;
-  }
-
-  spinlock_unlock(&gen_lock);
-
-  ret = snprintf(filename, len, FILENAME_TEMPLATE,
-		 output_directory, executable_name, mpi,
-		 td->id, OSUtil_hostid(), cur_pid, gen, suffix);
-  if (ret > len) {
-    EMSG("%s: filename truncated: %s", __func__, filename);
-  }
+  sprintf(filename, "%s/%s-%06u-%03d-%lx-%u.%s",
+          output_directory, executable_name, mpi,
+          td->id,
+          os_hostid(), os_pid(), suffix); 
 
   return filename;
 }

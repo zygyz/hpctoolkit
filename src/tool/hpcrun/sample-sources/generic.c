@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //******************************************************************************
@@ -86,7 +83,6 @@
 #include <hpcrun/sample_event.h>
 #include <hpcrun/thread_data.h>
 #include <utilities/tokenize.h>
-#include <utilities/arch/context-pc.h>
 #include <messages/messages.h>
 #include <lush/lush-backtrace.h>
 #include <lib/prof-lean/hpcrun-fmt.h>
@@ -127,7 +123,6 @@ struct event_info { // Typical structure to hold event info
 static int n_events = 0;                               // # events for this sample source
 static const int MAX_EVENTS = SAMPLE_SOURCE_SPECIFIC;
 static struct event_info local_event[MAX_EVENTS];      // event codes (derived from event names usually)
-static const long DEFAULT_THRESHOLD = 1000000L;  // sample source specific
 
 //
 // Sample source events almost always get at least 1 metric slot.
@@ -178,28 +173,6 @@ METHOD_FN(init)
   self->state = INIT;
 }
 
-//
-// Many sample sources require additional initialization when employed in
-// threaded programs.
-// The 'thread_init' method is the hook to supply the additional initialization
-//
-
-static void
-METHOD_FN(thread_init)
-{
-  // sample source thread init code here
-}
-
-//
-// Some sample sources may require each thread function to take some 'thread_init_action'
-// whenever a thread is started
-// [ For example, PAPI source uses 'PAPI_register_thread' function ]
-//
-
-static void
-METHOD_FN(thread_init_action)
-{
-}
 
 static void
 METHOD_FN(start)
@@ -241,17 +214,6 @@ METHOD_FN(start)
 
   // This line must always appear at the end of a start method
   TD_GET(ss_state)[self->evset_idx] = START;
-}
-
-//
-// Some sample sources may require each thread function to take some 'thread_fini_action'
-// whenever the thread is shut down.
-// [ For example, PAPI source uses 'PAPI_unregister_thread' function ]
-//
-
-static void
-METHOD_FN(thread_fini_action)
-{
 }
 
 static void
@@ -355,7 +317,7 @@ METHOD_FN(process_event_list, int lush_metrics)
     long thresh;
 
     // extract event threshold
-    hpcrun_extract_ev_thresh(event, sizeof(name), name, &thresh, DEFAULT_THRESHOLD);
+    extract_ev_thresh(event, sizeof(name), name, &thresh);
 
     // process events, store whatever is needed for starting/stopping
     // the sample source in the file local variable
@@ -482,7 +444,7 @@ static int
 generic_signal_handler(int sig, siginfo_t* siginfo, void* context)
 {
   // Must check for async block first and avoid any MSG if true.
-  void* pc = hpcrun_context_pc(context);
+  void* pc = context_pc(context);
   if (hpcrun_async_is_blocked(pc)) {
     hpcrun_stats_num_samples_blocked_async_inc();
   }

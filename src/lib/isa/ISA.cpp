@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -67,8 +64,6 @@ using std::ostream;
 #include <cstring>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "ISA.hpp"
 
@@ -99,8 +94,8 @@ ISA::~ISA()
 // ISA::InstDesc
 //****************************************************************************
 
-const char*
-ISA::InsnDesc::toString() const
+const char* 
+ISA::InsnDesc::ToString() const
 {
   switch(ty) {
   case MEM_LOAD:        return "MEM_LOAD";
@@ -114,11 +109,11 @@ ISA::InsnDesc::toString() const
 
   case BR_UN_COND_REL:  return "BR_UN_COND_REL";
   case BR_UN_COND_IND:  return "BR_UN_COND_IND";
-
+      
   case SUBR_REL:        return "SUBR_REL";
   case SUBR_IND:        return "SUBR_IND";
   case SUBR_RET:        return "SUBR_RET";
-
+      
   case INT_ADD:         return "INT_ADD";
   case INT_SUB:         return "INT_SUB";
   case INT_MUL:         return "INT_MUL";
@@ -127,7 +122,7 @@ ISA::InsnDesc::toString() const
   case INT_SHIFT:       return "INT_SHIFT";
   case INT_MOV:         return "INT_MOV";
   case INT_OTHER:       return "INT_OTHER";
-
+  
   case FP_ADD:          return "FP_ADD";
   case FP_SUB:          return "FP_SUB";
   case FP_MUL:          return "FP_MUL";
@@ -148,17 +143,17 @@ ISA::InsnDesc::toString() const
 }
 
 
-void
-ISA::InsnDesc::dump(std::ostream& o)
+void 
+ISA::InsnDesc::Dump(std::ostream& o)
 {
-  o << toString();
+  o << ToString();
 }
 
 
-void
-ISA::InsnDesc::ddump()
+void 
+ISA::InsnDesc::DDump()
 {
-  dump(std::cerr);
+  Dump(std::cerr);
 }
 
 
@@ -167,9 +162,9 @@ ISA::InsnDesc::ddump()
 //***************************************************************************
 
 
-extern "C" {
+extern "C" { 
 
-int
+int 
 GNUbu_fprintf(void* stream, const char* format, ...)
 {
 #define BUF_SZ 512
@@ -182,29 +177,27 @@ GNUbu_fprintf(void* stream, const char* format, ...)
 
   ostream* os = (ostream*)stream;
   *os << BUF;
-
+  
   return n;
 }
 
 
-int
-GNUbu_fprintf_stub(void* GCC_ATTR_UNUSED stream, 
-		   const char* GCC_ATTR_UNUSED format, ...)
+int 
+GNUbu_fprintf_stub(void* stream, const char* format, ...)
 {
   return 0;
 }
 
 
-void
-GNUbu_print_addr_stub(bfd_vma GCC_ATTR_UNUSED di_vma,
-		      struct disassemble_info* GCC_ATTR_UNUSED di)
+void 
+GNUbu_print_addr_stub(bfd_vma di_vma, struct disassemble_info* di)
 {
 }
 
 
-int
+int 
 GNUbu_read_memory(bfd_vma vma, bfd_byte* myaddr, unsigned int len,
-		  struct disassemble_info* GCC_ATTR_UNUSED di)
+		  struct disassemble_info* di)
 {
   memcpy(myaddr, BFDVMA_TO_PTR(vma, const char*), len);
   return 0; /* success */

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -104,18 +101,17 @@ union cilk_ip {
   // superimposed with:
   // ------------------------------------------------------------
   struct {
-    // NOTE: coordinate with lush_lip_getLMId() and lush_lip_getLMIP()
+    // NOTE: coordinate with lush_lip_getLMId() and lush_lip_getIP()
     uint64_t lm_id;
-    uint64_t lm_ip;
+    uint64_t ip;
   } u;
 };
 
-
 static inline void 
-cilk_ip_set(cilk_ip_t* x, ip_normalized_t ip /*uint32_t status*/)
+cilk_ip_set(cilk_ip_t* x, void* ip /*uint32_t status*/)
 {
-  lush_lip_setLMId(&(x->official_lip), (uint64_t)ip.lm_id);
-  lush_lip_setLMIP(&(x->official_lip), (uint64_t)ip.lm_ip);
+  //lush_lip_setLMId(lip, ...); // FIXME
+  x->u.ip = (uint64_t)ip;
   //x->u.status = status;
 }
 
@@ -208,8 +204,7 @@ union cilk_cursor {
     // ---------------------------------
     // intra-bichord data (valid for only one bichord)
     // ---------------------------------
-    void* ref_ip;                // reference physical ip (unnormalized)
-    ip_normalized_t ref_ip_norm; // reference physical ip (normalized)
+    void* ref_ip;          // reference physical ip
 
   } u;
 };

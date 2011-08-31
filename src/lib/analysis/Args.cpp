@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -99,11 +96,12 @@ Args::Ctor()
   // Correlation arguments
   // -------------------------------------------------------
 
+  isHPCProfForce = false;
+
+  metrics_computeInteriorValues = false;
+  isHPCProfMetric = false;
+
   doNormalizeTy = true;
-
-  prof_metrics = Analysis::Args::MetricSet_NULL;
-
-  profflat_computeFinalMetricValues = true;
 
   // -------------------------------------------------------
   // Output arguments
@@ -114,7 +112,6 @@ Args::Ctor()
   db_dir            = Analysis_DB_DIR_pfx "-" Analysis_DB_DIR_nm;
   db_copySrcFiles   = true;
   out_db_config     = "";
-  db_makeMetricDB   = true;
 
   out_txt           = Analysis_OUT_TXT;
   txt_summary       = TxtSum_NULL;
@@ -136,7 +133,7 @@ Args::toString() const
 }
 
 
-void
+void 
 Args::dump(std::ostream& os) const
 {
   os << "db_dir= " << db_dir << std::endl;
@@ -146,7 +143,7 @@ Args::dump(std::ostream& os) const
 }
 
 
-void
+void 
 Args::ddump() const
 {
   dump(std::cerr);
@@ -167,12 +164,12 @@ Args::normalizeSearchPaths()
   char cwd[PATH_MAX+1];
   getcwd(cwd, PATH_MAX);
 
-  for (PathTupleVec::iterator it = searchPathTpls.begin();
+  for (PathTupleVec::iterator it = searchPathTpls.begin(); 
        it != searchPathTpls.end(); /* */) {
     string& x = it->first; // current path
     PathTupleVec::iterator x_it = it;
-
-    ++it; // advance iterator
+    
+    ++it; // advance iterator 
     
     if (chdir(x.c_str()) == 0) {
       char norm_x[PATH_MAX+1];
@@ -200,17 +197,17 @@ Args::makeDatabaseDir()
 {
   // prepare output directory (N.B.: chooses a unique name!)
   string dir = db_dir; // make copy
-  std::pair<string, bool> ret =
+  std::pair<string, bool> ret = 
     FileUtil::mkdirUnique(dir); // N.B.: exits on failure...
   db_dir = RealPath(ret.first.c_str());
 }
 
 
-std::string
+std::string 
 Args::searchPathStr() const
 {
   string path = ".";
-  for (uint i = 0; i < searchPathTpls.size(); ++i) {
+  for (uint i = 0; i < searchPathTpls.size(); ++i) { 
     path += string(":") + searchPathTpls[i].first;
   }
   return path;
@@ -221,5 +218,5 @@ Args::searchPathStr() const
 
 
 //***************************************************************************
-
+ 
 

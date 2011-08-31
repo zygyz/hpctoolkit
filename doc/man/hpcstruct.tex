@@ -30,7 +30,7 @@
 \rcsInfo $Id$
 \setDate{\rcsInfoLongDate}
 }{
-\setDate{ 2011/02/22}
+\setDate{ 2009/04/15}
 \message{package rcsinfo not present, discard it}
 }
 
@@ -80,7 +80,7 @@ Note that \Prog{hpcstruct} does not recover program structure for libraries that
 
 Default values for an option's optional arguments are shown in \{\}.
 
-\subsection{Options: Informational}
+\subsection{Options: General}
 
 \begin{Description}
 \item[\OptoArg{-v}{n}, \OptoArg{--verbose}{n}]
@@ -124,10 +124,6 @@ Specify normalizations to apply to program structure. \{all\}
   \item \textbf{none}: apply no normalizations
   \end{itemize}
 
-\item[\OptArg{-R}{'old-path=new-path'}, \OptArg{--replace-path}{'old-path=new-path'}]
-Substitute instances of \Arg{old-path} with \Arg{new-path}; apply to all paths (e.g., a profile's load map and source code) for which \Arg{old-path} is a prefix.  Use '\\' to escape instances of '=' within a path. May pass multiple times.
-  
-Use this option when a profile or binary contains references to files that have been relocated, such as might occur with a file system change.
 \end{Description}
 
 
@@ -209,7 +205,7 @@ Version: \Version\ of \Date.
 \section{License and Copyright}
 
 \begin{description}
-\item[Copyright] \copyright\ 2002-2011, Rice University.
+\item[Copyright] \copyright\ 2002-2009, Rice University.
 \item[License] See \File{README.License}.
 \end{description}
 
@@ -220,8 +216,7 @@ Version: \Version\ of \Date.
 Nathan Tallent \\
 John Mellor-Crummey \\
 Rob Fowler \\
-Rice HPCToolkit Research Group \\
-Email: \Email{hpctoolkit-forum =at= rice.edu} \\
+Email: \Email{hpc =at= cs.rice.edu} \\
 WWW: \URL{http://hpctoolkit.org}.
 
 Thanks to Gabriel Marin and Jason Eckhardt.

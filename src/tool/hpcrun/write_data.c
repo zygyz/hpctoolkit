@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //*****************************************************************************
@@ -49,7 +46,6 @@
 //*****************************************************************************
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <setjmp.h>
 
 //*****************************************************************************
@@ -62,22 +58,22 @@
 #include "files.h"
 #include "epoch.h"
 #include "thread_data.h"
-#include "cct_bundle.h"
+#include "cct.h"
 #include "hpcrun_return_codes.h"
 #include "write_data.h"
 #include "loadmap.h"
-#include "sample_prob.h"
+#include "ibs_init.h"
 
 #include <messages/messages.h>
-
-#include <lush/lush-backtrace.h>
 
 #include <lib/prof-lean/hpcio.h>
 #include <lib/prof-lean/hpcfmt.h>
 #include <lib/prof-lean/hpcrun-fmt.h>
-
-#include <lib/support-lean/OSUtil.h>
-
+#if 0
+#include <lush/lush-backtrace.h>
+#else
+#define hpcrun_isLogicalUnwind() 0
+#endif
 
 //*****************************************************************************
 // structs and types
@@ -158,23 +154,13 @@ lazy_open_data_file(void)
   TMSG(DATA_WRITE, "Filename = %s", fnm);
 
   /* Open file for writing; fail if the file already exists. */
-  if (hpcrun_sample_prob_active()) {
-    fs = hpcio_fopen_w(fnm, /* overwrite */ 0);
-  } else {
-    fs = hpcio_fopen_w("/dev/null", 2);
-  }
-  if (fs == NULL) {
-    EEMSG("HPCToolkit: %s: unable to open: %s", __func__, fnm);
-    return NULL;
-  }
+  fs = hpcio_fopen_w(fnm, /* overwrite */ 0);
+
   td->hpcrun_file = fs;
 
-  if (! hpcrun_sample_prob_active())
-    return fs;
+  const uint bufSZ = 32;
 
-  const uint bufSZ = 32; // sufficient to hold a 64-bit integer in base 10
-
-  const char* jobIdStr = OSUtil_jobid();
+  const char* jobIdStr = os_job_id();
   if (!jobIdStr) {
     jobIdStr = "";
   }
@@ -189,16 +175,11 @@ lazy_open_data_file(void)
   snprintf(tidStr, bufSZ, "%d", td->id);
 
   char hostidStr[bufSZ];
-  snprintf(hostidStr, bufSZ, "%lx", OSUtil_hostid());
+  snprintf(hostidStr, bufSZ, "%lx", os_hostid());
 
   char pidStr[bufSZ];
-  snprintf(pidStr, bufSZ, "%u", OSUtil_pid());
+  snprintf(pidStr, bufSZ, "%u", os_pid());
 
-  char traceMinTimeStr[bufSZ];
-  snprintf(traceMinTimeStr, bufSZ, "%"PRIu64, td->trace_min_time_us);
-
-  char traceMaxTimeStr[bufSZ];
-  snprintf(traceMaxTimeStr, bufSZ, "%"PRIu64, td->trace_max_time_us);
 
   //
   // ==== file hdr =====
@@ -207,27 +188,21 @@ lazy_open_data_file(void)
   TMSG(DATA_WRITE,"writing file header");
   hpcrun_fmt_hdr_fwrite(fs,
                         HPCRUN_FMT_NV_prog, files_executable_name(),
-                        HPCRUN_FMT_NV_progPath, files_executable_pathname(),
-			HPCRUN_FMT_NV_envPath, getenv("PATH"),
+                        HPCRUN_FMT_NV_path, files_executable_pathname(),
                         HPCRUN_FMT_NV_jobId, jobIdStr,
                         HPCRUN_FMT_NV_mpiRank, mpiRankStr,
                         HPCRUN_FMT_NV_tid, tidStr,
                         HPCRUN_FMT_NV_hostid, hostidStr,
                         HPCRUN_FMT_NV_pid, pidStr,
-			HPCRUN_FMT_NV_traceMinTime, traceMinTimeStr,
-			HPCRUN_FMT_NV_traceMaxTime, traceMaxTimeStr,
+                        "nasty-message", "Please support <lm-id, lm-offset>!",
                         NULL);
   return fs;
 }
-
 
 static int
 write_epochs(FILE* fs, epoch_t* epoch)
 {
   uint32_t num_epochs = 0;
-
-  if (! hpcrun_sample_prob_active())
-    return HPCRUN_OK;
 
   //
   // === # epochs === 
@@ -248,14 +223,12 @@ write_epochs(FILE* fs, epoch_t* epoch)
 
   for(epoch_t* s = current_epoch; s; s = s->next) {
 
-#if 0
-    if (ENABLED(SKIP_WRITE_EMPTY_EPOCH)){
-      if (hpcrun_empty_cct_bundle(&(s->csdata))){
+    if (! ENABLED(WRITE_EMPTY_EPOCH)){
+      if (hpcrun_empty_cct(&(s->csdata))){
 	EMSG("Empty cct encountered: it is not written out");
 	continue;
       }
     }
-#endif
     //
     //  == epoch header ==
     //
@@ -265,15 +238,19 @@ write_epochs(FILE* fs, epoch_t* epoch)
     // set epoch flags before writing
     //
 
-    epoch_flags.fields.isLogicalUnwind = hpcrun_isLogicalUnwind();
-    TMSG(LUSH,"epoch lush flag set to %s", epoch_flags.fields.isLogicalUnwind ? "true" : "false");
+    epoch_flags.flags.isLogicalUnwind = hpcrun_isLogicalUnwind();
+    TMSG(LUSH,"epoch lush flag set to %s", epoch_flags.flags.isLogicalUnwind ? "true" : "false");
     
-    TMSG(DATA_WRITE,"epoch flags = %"PRIx64"", epoch_flags.bits);
-    hpcrun_fmt_epochHdr_fwrite(fs, epoch_flags,
-			       default_measurement_granularity,
-			       default_ra_to_callsite_distance,
-			       "TODO:epoch-name","TODO:epoch-value",
-			       NULL);
+    //add by Xu Liu
+    epoch_flags.flags.isUseReuse = is_use_reuse;
+    TMSG(IBS_SAMPLE,"epoch use-reuse flag set to %s", epoch_flags.flags.isUseReuse ? "true" : "false");
+    
+    TMSG(DATA_WRITE,"epoch flags = %"PRIx64"", epoch_flags.flags);
+    hpcrun_fmt_epoch_hdr_fwrite(fs, epoch_flags,
+                                default_measurement_granularity,
+                                default_ra_to_callsite_distance,
+                                "TODO:epoch-name","TODO:epoch-value",
+                                NULL);
 
     //
     // == metrics ==
@@ -293,17 +270,20 @@ write_epochs(FILE* fs, epoch_t* epoch)
 
     hpcrun_loadmap_t* current_loadmap = s->loadmap;
     
-    hpcfmt_int4_fwrite(current_loadmap->size, fs);
+    hpcfmt_byte4_fwrite(current_loadmap->num_modules, fs);
 
-    // N.B.: Write in reverse order to obtain nicely ascending LM ids.
-    for (load_module_t* lm_src = current_loadmap->lm_end;
-	 (lm_src); lm_src = lm_src->prev) {
+    loadmap_src_t* lm_src = current_loadmap->loaded_modules;
+    for (uint32_t i = 0; i < current_loadmap->num_modules; i++) {
       loadmap_entry_t lm_entry;
       lm_entry.id = lm_src->id;
       lm_entry.name = lm_src->name;
+      lm_entry.vaddr = (uint64_t)(uintptr_t)lm_src->vaddr; // 32-bit warnings
+      lm_entry.mapaddr = (uint64_t)(uintptr_t)lm_src->mapaddr;
       lm_entry.flags = 0;
-      
+
       hpcrun_fmt_loadmapEntry_fwrite(&lm_entry, fs);
+
+      lm_src = lm_src->next;
     }
 
     TMSG(DATA_WRITE, "Done writing loadmap");
@@ -312,8 +292,13 @@ write_epochs(FILE* fs, epoch_t* epoch)
     // == cct ==
     //
 
-    cct_bundle_t* cct      = &(s->csdata);
-    int ret = hpcrun_cct_bundle_fwrite(fs, epoch_flags, cct);
+    hpcrun_cct_t* cct      = &(s->csdata);
+    cct_ctxt_t*   cct_ctxt = s->csdata_ctxt;
+
+    TMSG(DATA_WRITE, "Writing %ld nodes", cct->num_nodes);
+
+    int ret = hpcrun_cct_fwrite(fs, epoch_flags, cct, cct_ctxt);
+          
     if(ret != HPCRUN_OK) {
       TMSG(DATA_WRITE, "Error writing tree %#lx", cct);
       TMSG(DATA_WRITE, "Number of tree nodes lost: %ld", cct->num_nodes);
@@ -331,14 +316,10 @@ write_epochs(FILE* fs, epoch_t* epoch)
   return HPCRUN_OK;
 }
 
-
 void
 hpcrun_flush_epochs(void)
 {
   FILE *fs = lazy_open_data_file();
-  if (fs == NULL)
-    return;
-
   write_epochs(fs, TD_GET(epoch));
   hpcrun_epoch_reset();
 }
@@ -346,11 +327,9 @@ hpcrun_flush_epochs(void)
 int
 hpcrun_write_profile_data(epoch_t *epoch)
 {
+
   TMSG(DATA_WRITE,"Writing hpcrun profile data");
   FILE* fs = lazy_open_data_file();
-  if (fs == NULL)
-    return HPCRUN_ERR;
-
   write_epochs(fs, epoch);
 
   TMSG(DATA_WRITE,"closing file");

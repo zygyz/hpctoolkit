@@ -1,34 +1,32 @@
 dnl -*-Mode: autoconf;-*-
+
 dnl * BeginRiceCopyright *****************************************************
 dnl
 dnl $HeadURL$
 dnl $Id$
 dnl
-dnl --------------------------------------------------------------------------
+dnl -----------------------------------
 dnl Part of HPCToolkit (hpctoolkit.org)
-dnl
-dnl Information about sources of support for research and development of
-dnl HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-dnl --------------------------------------------------------------------------
-dnl
-dnl Copyright ((c)) 2002-2011, Rice University
+dnl -----------------------------------
+dnl 
+dnl Copyright ((c)) 2002-2010, Rice University 
 dnl All rights reserved.
-dnl
+dnl 
 dnl Redistribution and use in source and binary forms, with or without
 dnl modification, are permitted provided that the following conditions are
 dnl met:
-dnl
+dnl 
 dnl * Redistributions of source code must retain the above copyright
 dnl   notice, this list of conditions and the following disclaimer.
-dnl
+dnl 
 dnl * Redistributions in binary form must reproduce the above copyright
 dnl   notice, this list of conditions and the following disclaimer in the
 dnl   documentation and/or other materials provided with the distribution.
-dnl
+dnl 
 dnl * Neither the name of Rice University (RICE) nor the names of its
 dnl   contributors may be used to endorse or promote products derived from
 dnl   this software without specific prior written permission.
-dnl
+dnl 
 dnl This software is provided by RICE and contributors "as is" and any
 dnl express or implied warranties, including, but not limited to, the
 dnl implied warranties of merchantability and fitness for a particular
@@ -39,8 +37,8 @@ dnl substitute goods or services; loss of use, data, or profits; or
 dnl business interruption) however caused and on any theory of liability,
 dnl whether in contract, strict liability, or tort (including negligence
 dnl or otherwise) arising in any way out of the use of this software, even
-dnl if advised of the possibility of such damage.
-dnl
+dnl if advised of the possibility of such damage. 
+dnl 
 dnl ******************************************************* EndRiceCopyright *
 
 dnl ##########################################################################
@@ -66,49 +64,44 @@ dnl  6. Generate output
 dnl
 dnl ##########################################################################
 
-dnl--------------------------------------------------------------------------
-dnl Autoconf dictionary:
-dnl   build : platform on which the package is configured and
-dnl           compiled. Defaults to the result of running config.guess.
-dnl   host  : platform on which the package runs. Defaults to build.
-dnl   target: platform for which any compiler tools in the package
-dnl           produce code (rarely needed). Defaults to host.
-dnl--------------------------------------------------------------------------
-
 m4_include(config/hpc-cxxutils.m4)
 m4_include(config/hpc-mpiutils.m4)
 
 #----------------------------------------------------------------------------
 # Initialization: 
+# Careful: 
+#   - Libtool 1.5.18 has a bug interacting with Tru64's ksh.
+# Require libtool 1.5.10 and automake 1.9.3 to 1) correctly link
+#   templates with MIPSPro compiler on IRIX64, 2) link on alpha-Tru64
+#   and 3) fix missing .so problem on Linux.
+# Update to autoconf 2.59 and automake 1.8.3
+# Require autoconf 2.54 because automake 1.7.6 needs it.  
+#  - automake 1.7.6 is needed to generate Intel 7.1 dependencies correctly.
+#  - automake 1.6.1 failed to generate separate lists of object files for
+#    the two library versions. automake 1.7.5 handles the specification
+#    correctly
 #----------------------------------------------------------------------------
 
-AC_INIT([hpctoolkit], [5.1.0],
-        [hpctoolkit-forum@rice.edu],
-	[hpctoolkit],
-	[http://hpctoolkit.org/])
-AC_CONFIG_SRCDIR([src/include/hpctoolkit-config.h.in])
+AC_INIT([hpctoolkit], [4.9.9], 
+        [hpc@cs.rice.edu], [hpctoolkit])
+AC_CONFIG_SRCDIR([src/include/HPCToolkitVersionInfo.h])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([config])
 
-AC_MSG_NOTICE([*** INFO: from user: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: from user: CC='${CC}' CFLAGS='${CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPIF77='${MPIF77}' ***])
-
 # NOTE: please update config/README.version
-AC_PREREQ(2.67)
-AM_INIT_AUTOMAKE(1.11.1)
-LT_PREREQ([2.2.10])
-
+AC_PREREQ(2.63)
+AM_INIT_AUTOMAKE(1.10.2)
+LT_PREREQ([2.2.6])
 AM_MAINTAINER_MODE()
 
 AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
 
-MPICC_ORIG=${MPICC}
+AC_MSG_NOTICE([INFO: on entry: CXX=${CXX} CXXFLAGS=${CXXFLAGS}])
+AC_MSG_NOTICE([INFO: on entry: CC=${CC} CFLAGS=${CFLAGS}])
+AC_MSG_NOTICE([INFO: on entry: MPICXX=${MPICXX}])
+
 MPICXX_ORIG=${MPICXX}
-MPIF77_ORIG=${MPIF77}
 
 #----------------------------------------------------------------------------
 # Setup
@@ -119,6 +112,7 @@ hpctoolkit_top=`cd ${srcdir} && pwd`
 hpctoolkit_build=`pwd`
 HPCTOOLKIT_PLATFORM=`cd ${hpctoolkit_top}/config && ./hpcplatform`
 AC_SUBST([HPCTOOLKIT_PLATFORM])
+
 
 #-------------------------------------------------
 # SVN version
@@ -132,63 +126,50 @@ AC_SUBST([HPCTOOLKIT_PLATFORM])
 # precedence over the file.
 #
 # *** N.B.: since PACKAGE_VERSION is also used in the 'dist' tarball,
-# it is better not to use spaces or special characters ***
+# it is better not to include spaces or special characters within. ***
 
 version_file="${srcdir}/.svn-revision"
 
 AC_MSG_CHECKING([for svn revision])
 
 svn_revision=`svn info $srcdir 2>/dev/null | grep -e '^Revision' | awk '{ print $2 }'`
-if test -n "${svn_revision}" ; then
-  PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
-  rm -f "$version_file"
-  echo "$svn_revision" > "$version_file"
+if test "x$svn_revision" != x ; then
+    PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
+    rm -f "$version_file"
+    echo "$svn_revision" > "$version_file"
 elif test -f "$version_file" ; then
-  svn_revision=`cat $version_file`
-  PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
+    svn_revision=`cat $version_file`
+    PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
 else
-  svn_revision=0
+    svn_revision=0
 fi
 
 AC_MSG_RESULT([$svn_revision])
 
 if test "$svn_revision" = 0 ; then
-  AC_MSG_WARN([unable to find svn revision])
+    AC_MSG_WARN([unable to find svn revision])
 fi
 
+# NOTE (tallent): Setting PACKAGE_VERSION in this way does not affect
+# the corresponding -D that is automatically placed on the compilation
+# line!  We add our own because 
+AC_DEFINE_UNQUOTED([HPCTOOLKIT_VERSION], "${PACKAGE_VERSION}", [])
+dnl AC_SUBST([HPCTOOLKIT_VERSION])
 
-AC_DEFINE_UNQUOTED([HPCTOOLKIT_VERSION],
-	  ["${PACKAGE_VERSION}"],
-	  [HPCToolkit version])
-
-AC_DEFINE_UNQUOTED([HPCTOOLKIT_VERSION_STRING],
-	  ["A member of HPCToolkit, version ${PACKAGE_VERSION}"],
-	  [HPCToolkit version string])
 
 #-------------------------------------------------
 # is_cross_compile: non-empty string if cross-compiling
 #-------------------------------------------------
 
 is_cross_compile=""
-if test "${build}" != "${host}" ; then
-  is_cross_compile=${host}
+if test "x$build" != "x$host" ; then
+   is_cross_compile=${host}
 fi
 
 
 #----------------------------------------------------------------------------
 # Special Options that should be tested first
 #----------------------------------------------------------------------------
-
-#-------------------------------------------------
-# HPC_LT_LDFLAGS, HPCPROFMPI_LT_LDFLAGS: pass libtool link mode flags
-#-------------------------------------------------
-
-AC_ARG_VAR([HPC_LT_LDFLAGS],
-           [pass libtool link mode flags to hpcstruct, hpcprof*, hpclump])
-
-AC_ARG_VAR([HPCPROFMPI_LT_LDFLAGS],
-           [pass libtool link mode flags to hpcprof-mpi (before HPC_LT_LDFLAGS)])
-
 
 #-------------------------------------------------
 # enable-develop
@@ -223,6 +204,7 @@ HPC_ENSURE_DEFINED_CFLAGS()
 
 # Check for programs.
 # Note: libtool makes PROG_RANLIB obsolete
+AC_PROG_LIBTOOL()
 
 AC_PROG_CXX(HPC_CXX_LIST)
 
@@ -232,76 +214,26 @@ if test "${ac_cv_prog_cc_c99}" = "no" ; then
   AC_MSG_ERROR([${CC} ${CFLAGS} does not support C99 mode!])
 fi
 AM_PROG_CC_C_O()
-
-# Note: this will set CC and CFLAGS if not already set
-LT_INIT()
-AC_SUBST([LIBTOOL_DEPS])
-
 AM_PROG_AS()
 
 AC_PROG_CXXCPP()
 
-HPC_PROG_MPICXX(HPC_MPICXX_LIST)
 
 AC_PROG_INSTALL()
 
-AC_MSG_NOTICE([*** INFO: post autoconf tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}'  ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: CC='${CC}' CFLAGS='${CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPIF77='${MPIF77}' ***])
+HPC_PROG_MPICXX(HPC_MPICXX_LIST)
 
 
-#-------------------------------------------------
-# C compiler checks
-#-------------------------------------------------
-
-AC_MSG_NOTICE([*** Using C comiler for tests ***])
-
-AC_LANG([C])
-
-# Check for header files
-AC_HEADER_STDC()
-AC_CHECK_HEADERS(unistd.h)
-AC_CHECK_HEADERS(inttypes.h)
-
-AS_UNSET([ac_cv_header_unistd_h])   # retest for C++
-AS_UNSET([ac_cv_header_inttypes_h]) # retest for C++
+AC_MSG_NOTICE([INFO: post ac_prog: CXX=${CXX} CXXFLAGS=${CXXFLAGS}])
+AC_MSG_NOTICE([INFO: post ac_prog: CC=${CC} CFLAGS=${CFLAGS}])
+AC_MSG_NOTICE([INFO: post ac_prog: MPICXX=${MPICXX} ])
 
 
-# Check for types
-AC_CHECK_SIZEOF([void*])
-AC_CHECK_TYPES([ushort, uint, ulong])
-
-if test "${ac_cv_type_voidp}" = "yes" ; then
-  AC_DEFINE([HAVE_VOIDP_LANG_C], [1], [C compiler supports type "voidp"])
-fi
-if test "${ac_cv_type_ushort}" = "yes" ; then
-  AC_DEFINE([HAVE_USHORT_LANG_C], [1], [C compiler supports type "ushort"])
-fi
-if test "${ac_cv_type_uint}" = "yes" ; then
-  AC_DEFINE([HAVE_UINT_LANG_C], [1], [C compiler supports type "uint"])
-fi
-if test "${ac_cv_type_ulong}" = "yes" ; then
-  AC_DEFINE([HAVE_ULONG_LANG_C], [1], [C compiler supports type "ulong"])
-fi
-
-AS_UNSET([ac_cv_sizeof_voidp])      # retest for C++
-AS_UNSET([ac_cv_type_ushort])       # retest for C++
-AS_UNSET([ac_cv_type_uint])         # retest for C++
-AS_UNSET([ac_cv_type_ulong])        # retest for C++
-
-
-#-------------------------------------------------
-# C++ compiler checks
-#-------------------------------------------------
-
-AC_MSG_NOTICE([*** Using C++ comiler for tests ***])
-
+# Use C++ compiler for all checks
 AC_LANG([C++])
 
 # Check for header files
-#AC_HEADER_STDC()
+AC_HEADER_STDC()
 AC_CHECK_HEADERS(unistd.h)
 AC_CHECK_HEADERS(inttypes.h)
 HPC_CHECK_CXX_STDC_HEADERS()
@@ -310,29 +242,23 @@ HPC_CHECK_CXX_STDC_HEADERS()
 AC_CHECK_SIZEOF([void*])
 AC_CHECK_TYPES([ushort, uint, ulong])
 
-host_sizeof_voidp="${ac_cv_sizeof_voidp}"
-
 # Check pthread.h
 HPC_CHECK_COMPILE_PTHREAD_H()
 
-
-#-------------------------------------------------
 # Check for multilib
-#-------------------------------------------------
-
 # NOTE: can this be made more elegant?  This value should be used to
 # automatically add/exclude lib32/lib64 paths below.
 HAVE_OS_MULTILIB="no"
 LIB_SEARCH_PATH="lib"
 AC_MSG_CHECKING([for multilib platform])
-case "${host}" in
+case ${host} in
   x86_64*-*-linux* | mips64*-*-linux* | powerpc64*-*-linux*)
     HAVE_OS_MULTILIB="yes"
     LIB_SEARCH_PATH="lib lib64 lib32"
     ;;
 esac
 if test "${HAVE_OS_MULTILIB}" = "yes" ; then
-  AC_DEFINE([HAVE_OS_MULTILIB], [1], [HOST OS: 32 and 64 bit OS libraries])
+  AC_DEFINE([HAVE_OS_MULTILIB], [], [])
 fi
 AC_MSG_RESULT([${HAVE_OS_MULTILIB} (searching: ${LIB_SEARCH_PATH})])
 
@@ -351,12 +277,6 @@ AC_MSG_RESULT([${HAVE_OS_MULTILIB} (searching: ${LIB_SEARCH_PATH})])
 HPC_DEF_CXXCMP()
 
 #-------------------------------------------------
-# set unwinder variable
-#-------------------------------------------------
-
-UNWINDER=no
-
-#-------------------------------------------------
 # Host-specific defines
 #-------------------------------------------------
 
@@ -370,57 +290,36 @@ HOST_OS=
 HOST_CPU_MIPS=no
 HOST_CPU_PPC=no
 HOST_CPU_X86=no
-HOST_CPU_X86_64=no
-HOST_CPU_X86_FAMILY=no
 
-case "${host}" in
+case ${host} in
   # Linux
-  i386*-*-linux* | i686*-*-linux*)
-    # __i386 && __linux
+  i386*-*-linux* | i686*-*-linux* | x86_64*-*-linux*)
+    # __i386 / __x86_64 && __linux
     HOST_OS="Linux"
     HOST_CPU_X86=yes
-    HOST_CPU_X86_FAMILY=yes
-    UNWINDER=x86-family
-    AC_DEFINE([HOST_CPU_x86], [1], [HOST CPU: x86 (32-bit)])
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
-    ;;
-
-  x86_64*-*-linux*)
-    # __x86_64 && __linux
-    HOST_OS="Linux"
-    if test "${host_sizeof_voidp}" = "4"; then
-      HOST_CPU_X86=yes
-      AC_DEFINE([HOST_CPU_x86], [1], [HOST CPU: x86 (32-bit)])
-    else
-      HOST_CPU_X86_64=yes
-      AC_DEFINE([HOST_CPU_x86_64], [1], [HOST CPU: x86-64])
-    fi
-    HOST_CPU_X86_FAMILY=yes
-    UNWINDER=x86-family
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
+    AC_DEFINE([HOST_CPU_x86_64], [], []) # bogus to include 386
+    AC_DEFINE([HOST_OS_LINUX], [], [])
     ;;
 
   ia64*-*-linux*)
     # __ia64 && __linux
     HOST_OS="Linux"
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
+    AC_DEFINE([HOST_OS_LINUX], [], [])
     ;;
 
   mips64*-*-linux*)
     # __mips64 && __linux / _MIPS_SIM == _ABIN32 / _MIPS_SIM == _ABI64
     HOST_OS="Linux"
     HOST_CPU_MIPS=yes
-    UNWINDER=mips
-    AC_DEFINE([HOST_PLATFORM_MIPS64LE_LINUX], [1], [HOST platform: MIPS64LE_LINUX])
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
+    AC_DEFINE([HOST_PLATFORM_MIPS64LE_LINUX], [], [])
+    AC_DEFINE([HOST_OS_LINUX], [], [])
     ;;
 
-  powerpc64*-*-linux* | powerpc-*-linux*)
+  powerpc64*-*-linux*)
     # []
     HOST_OS="Linux"
     HOST_CPU_PPC=yes
-    UNWINDER=ppc64
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
+    AC_DEFINE([HOST_OS_LINUX], [], [])
     ;;
 
   # MacOS
@@ -428,30 +327,14 @@ case "${host}" in
     # __ppc__ / __MACH__
     HOST_OS="MacOS"
     HOST_CPU_PPC=yes
-    UNWINDER=ppc64
-    AC_DEFINE([HOST_OS_MACOS], [1], [HOST OS: MacOS])
+    AC_DEFINE([HOST_OS_MACOS], [], [])
     ;;
 
   i386*-*-darwin* | i686*-*-darwin*)
     HOST_OS="MacOS"
     HOST_CPU_X86=yes
-    UNWINDER=x86-family
-    AC_DEFINE([HOST_CPU_x86], [1], [HOST CPU: x86 (32-bit)])
-    AC_DEFINE([HOST_OS_MACOS], [1], [HOST OS: MacOS])
-    ;;
-
-  x86_64*-*-darwin*)
-    HOST_OS="MacOS"
-    if test "${host_sizeof_voidp}" = "4"; then
-      HOST_CPU_X86=yes
-      AC_DEFINE([HOST_CPU_x86], [1], [HOST CPU: x86 (32-bit)])
-    else
-      HOST_CPU_X86_64=yes
-      AC_DEFINE([HOST_CPU_x86_64], [1], [HOST CPU: x86-64])
-    fi
-    HOST_CPU_X86_FAMILY=yes
-    UNWINDER=x86-family
-    AC_DEFINE([HOST_OS_MACOS], [1], [HOST OS: MacOS])
+    AC_DEFINE([HOST_CPU_x86_64], [], []) # bogus to include 386
+    AC_DEFINE([HOST_OS_MACOS], [], [])
     ;;
 
   # IRIX
@@ -461,22 +344,21 @@ case "${host}" in
     # _MIPS_ISA == _MIPS_ISA_MIPS3 | _MIPS_ISA == _MIPS_ISA_MIPS4
     HOST_OS="IRIX"
     HOST_CPU_MIPS=yes
-    UNWINDER=mips
-    AC_DEFINE([HOST_OS_IRIX], [1], [HOST OS: IRIX])
+    AC_DEFINE([HOST_OS_IRIX], [], [])
     ;;
 
   # Solaris
   sparc*-*-solaris*)
     # __sparc && __sun && __unix
     HOST_OS="Solaris"
-    AC_DEFINE([HOST_OS_SOLARIS], [1], [HOST OS: Solaris])
+    AC_DEFINE([HOST_OS_SOLARIS], [], [])
     ;;
 
   # Tru64/OSF
   alpha*-*-osf*)
     # __alpha / __digital__ && __unix__
     HOST_OS="Tru64"
-    AC_DEFINE([HOST_OS_TRU64], [1], [HOST OS: Tru64])
+    AC_DEFINE([HOST_OS_TRU64], [], [])
     ;;
 
   *)
@@ -485,20 +367,11 @@ case "${host}" in
 esac
 
 
-AM_CONDITIONAL([HOST_OS_LINUX],   [test "${HOST_OS}" = Linux])
-AM_CONDITIONAL([HOST_CPU_MIPS],   [test "${HOST_CPU_MIPS}" = yes])
-AM_CONDITIONAL([HOST_CPU_PPC],    [test "${HOST_CPU_PPC}" = yes])
-AM_CONDITIONAL([HOST_CPU_X86],    [test "${HOST_CPU_X86}" = yes])
-AM_CONDITIONAL([HOST_CPU_X86_64], [test "${HOST_CPU_X86_64}" = yes])
-AM_CONDITIONAL([HOST_CPU_X86_FAMILY], [test "${HOST_CPU_X86_FAMILY}" = yes])
+AM_CONDITIONAL([HOST_OS_LINUX], [test "$HOST_OS" = Linux])
+AM_CONDITIONAL([HOST_CPU_MIPS], [test "$HOST_CPU_MIPS" = yes])
+AM_CONDITIONAL([HOST_CPU_PPC],  [test "$HOST_CPU_PPC" = yes])
+AM_CONDITIONAL([HOST_CPU_X86],  [test "$HOST_CPU_X86" = yes])
 
-#
-# set up automake choice of unwinder
-#
-
-AM_CONDITIONAL([UNW_X86], [test "$UNWINDER" = x86-family])
-AM_CONDITIONAL([UNW_PPC64], [test "$UNWINDER" = ppc64])
-AM_CONDITIONAL([UNW_MIPS], [test "$UNWINDER" = mips])
 
 #-------------------------------------------------
 # Host-specific compiler settings
@@ -516,10 +389,10 @@ HOST_LINK_NO_START_FILES="-nostartfiles"
 
 # Specific settings for programs
 HOST_HPCRUN_LDFLAGS=""
-HOST_HPCSTRUCT_LDFLAGS="-lm"
-HOST_HPCPROF_LDFLAGS="-lm"
-HOST_HPCPROF_FLAT_LDFLAGS="-lm"
-HOST_HPCPROFTT_LDFLAGS="-lm"
+HOST_HPCSTRUCT_LDFLAGS=""
+HOST_HPCPROF_LDFLAGS=""
+HOST_HPCPROF_FLAT_LDFLAGS=""
+HOST_HPCPROFTT_LDFLAGS=""
 HOST_XPROF_LDFLAGS=""
 my_demangle_ldflags=""
 
@@ -534,29 +407,13 @@ else
 fi
 
 
-case "${host}" in
+case ${host} in
 
-  # Linux x86
-  i386*-*-linux* | i686*-*-linux* | x86_64*-*-linux*)
-    # GCC
-    if HPCcxxcmp([g++ c++]) ; then
-      if test "${host_sizeof_voidp}" = "4"; then
-        HOST_CXXFLAGS="-march=i486"
-      fi
-    fi
-    if HPCcccmp([gcc cc]) ; then
-      if test "${host_sizeof_voidp}" = "4"; then
-        HOST_CFLAGS="-march=i486"
-      fi
-    fi
-
+  # Linux
+  i386*-*-linux* | i686*-*-linux* | x86_64*-*-linux* | ia64*-*-linux* | mips64*-*-linux*)
     # Intel compiler
     if HPCcxxcmp([icpc ecpc]) ; then
-      # Silence the following warnings:
-      #   remark #383: value copied to temporary, reference to temporary used
-      #   remark #981: operands are evaluated in unspecified order
-      #   remark #1572: FP equality and inequality comparisons are unreliable
-      HOST_CXXFLAGS="-wd383 -wd981 -wd1572"
+      :
     fi
     if HPCcccmp([icc ecc]) ; then
       :
@@ -587,15 +444,6 @@ case "${host}" in
     fi
     ;;
 
-  # Linux ia64
-  ia64*-*-linux*)
-    ;;
-
-  # Linux mips
-  mips64*-*-linux*)
-    ;;
-
-  # Linux power
   powerpc64*-*-linux*)
     # IBM compiler
     ;;
@@ -690,70 +538,8 @@ HOST_XPROF_LDFLAGS="${HOST_XPROF_LDFLAGS} ${my_demangle_ldflags}"
 
 
 #-------------------------------------------------
-# Test if CXX and MPICXX are compatible
-#-------------------------------------------------
-
-# Test CXX and MPICXX compatibility by compiling a short program with
-# CXX and linking it with MPICXX.  Basically, we require that CXX is
-# the underlying compiler for MPICXX and this is how we test for that.
-# Note: the Autoconf macros would delete the object files, so we need
-# to run the compile and link steps ourself.
-
-base="hpc-conftest-$$"
-hello_src="$base".cpp
-hello_o="$base".o
-hello_bin="$base".bin
-hello_out="$base".out
-ACTUAL_CXXFLAGS="$CXXFLAGS $HOST_CXXFLAGS"
-
-if test -n "$MPICXX" ; then
-  AC_MSG_CHECKING([whether CXX and MPICXX are compatible])
-
-  rm -f "$hello_src" "$hello_o" "$hello_bin" "$hello_out"
-  cat <<EOF >"$hello_src"
-#include <iostream>
-#include <string>
-int main()
-{
-  std::cout << "hello, world\n";
-  return 0;
-}
-EOF
-  $CXX -c $ACTUAL_CXXFLAGS -o "$hello_o" "$hello_src" >/dev/null 2>&1
-  $MPICXX -o "$hello_bin" "$hello_o" >"$hello_out" 2>&1
-
-  if test $? -eq 0 && test -f "$hello_bin" ; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_RESULT([no])
-    AC_MSG_WARN([MPICXX does not link with CXX (see config.log for details)])
-    AC_MSG_WARN([probably MPICXX does match CXX for compiler family or version])
-    cat <<EOF >&AS_MESSAGE_LOG_FD
-------------------------------------------------------------
-CXX:     $CXX $ACTUAL_CXXFLAGS
-MPICXX:  $MPICXX
-
-EOF
-    cat "$hello_src" >&AS_MESSAGE_LOG_FD
-    echo >&AS_MESSAGE_LOG_FD
-    cat "$hello_out" >&AS_MESSAGE_LOG_FD
-    cat <<EOF >&AS_MESSAGE_LOG_FD
-------------------------------------------------------------
-EOF
-  MPICXX=
-  fi
-
-  rm -f "$hello_src" "$hello_o" "$hello_bin" "$hello_out"
-
-else
-  AC_MSG_NOTICE([skipping MPICXX compatibility check (MPICXX not set)])
-fi
-
-
-#-------------------------------------------------
 # Distribute these settings into makefiles
 #-------------------------------------------------
-
 AC_SUBST([HOST_CFLAGS])
 AC_SUBST([HOST_CXXFLAGS])
 AC_SUBST([HOST_AR])
@@ -768,11 +554,8 @@ AC_SUBST([HOST_HPCPROF_FLAT_LDFLAGS])
 AC_SUBST([HOST_HPCPROFTT_LDFLAGS])
 AC_SUBST([HOST_XPROF_LDFLAGS])
 
-AC_MSG_NOTICE([*** INFO: post hpc tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}' HOST_CXXFLAGS='${HOST_CXXFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: CC='${CC}' CFLAGS='${CFLAGS}' HOST_CFLAGS='${HOST_CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPIF77='${MPIF77}' ***])
+AC_MSG_NOTICE([INFO: final: CXX=${CXX} CXXFLAGS=${CXXFLAGS} HOST_CXXFLAGS=${HOST_CXXFLAGS}])
+AC_MSG_NOTICE([INFO: final: CC=${CC} CFLAGS=${CFLAGS} HOST_CFLAGS=${HOST_CFLAGS}])
 
 #----------------------------------------------------------------------------
 # Prerequisites: external libraries
@@ -799,7 +582,7 @@ AC_SUBST([hpc_ext_libs_dir])
 #-------------------------------------------------
 
 # External's minimum svn rev number, or else a fatal error.
-EXTERNALS_MIN_REV=2880
+EXTERNALS_MIN_REV=2469
 
 AC_ARG_WITH([dummy-blank-line], [AS_HELP_STRING([], [])])
 AC_ARG_WITH([externals],
@@ -808,7 +591,8 @@ AC_ARG_WITH([externals],
   [],
   [with_externals=no])
 
-if test "${with_externals}" != "no"; then
+if test "x$with_externals" != xno
+then
   ext_file="${with_externals}/externs.conf"
   if test ! -f "$ext_file" ; then
     AC_MSG_ERROR([missing externals file: $ext_file])
@@ -816,15 +600,12 @@ if test "${with_externals}" != "no"; then
   AC_MSG_NOTICE([using externals tree: $with_externals])
   externals_root=`( cd "$with_externals" && pwd )`
   . "$ext_file"
-  AC_MSG_NOTICE([externals svn revision: $ext_version])
-  if test "$ext_version" -eq 0 ; then
-    AC_MSG_WARN([missing externals svn revision number])
-    ext_warning=' (warning: missing externals svn revision)'
-  elif test "$ext_version" -lt "$EXTERNALS_MIN_REV" ; then
+  if test "$ext_version" -ge "$EXTERNALS_MIN_REV" ; then :
+  else
     AC_MSG_ERROR([externals tree too old, update to revision $EXTERNALS_MIN_REV or later])
   fi
   use_externals=yes
-  externals_mesg="${ext_version}${ext_warning}"
+  externals_mesg="$ext_version"
 else
   AC_MSG_WARN([not using --with-externals])
   use_externals=no
@@ -852,31 +633,22 @@ AC_ARG_WITH([binutils],
    fi],
   [])
 
-# Note: With binutils 2.20.1, libiberty may be installed in a
-# different lib than libbfd and libopcodes (e.g., lib64 vs. lib).
-#
-# Note: With prior versions of binutils and libtool, we had to supply
-# an absolute path for libiberty.  Will this suffice?
+# The binutils installer (2.16.1, 2.17) creates libbfd.la and
+# libopcodes.la but only libiberty.a.  Apparently, not having
+# libiberty.la can cause libtool (1.5.20, 1.5.22) to prefer a system
+# library (without a .la!) -- thus ignoring the -L directive.  So we
+# provide an absolute reference.
 GNUBINUTILS_IFLAGS="-I${GNUBINUTILS}/include"
-
-GNUBINUTILS_LDFLAGS="-L${GNUBINUTILS}/lib"
-if test "${host_sizeof_voidp}" = "8"; then
-  # -lbfd -lopcodes are in lib; -liberty is in lib64
-  GNUBINUTILS_LDFLAGS="${GNUBINUTILS_LDFLAGS} -L${GNUBINUTILS}/lib64"
-fi
-
-GNUBINUTILS_LDLIBS="-lbfd -lopcodes -liberty"
+GNUBINUTILS_LDFLAGS="-L${GNUBINUTILS}/lib -lbfd -lopcodes ${GNUBINUTILS}/lib/libiberty.a"
 
 # on non-Linux systems we build libintl
 if test "${HOST_OS}" != "Linux"; then
-  GNUBINUTILS_LDLIBS="${GNUBINUTILS_LDLIBS} ${GNUBINUTILS}/lib/libintl.a"
+   GNUBINUTILS_LDFLAGS="${GNUBINUTILS_LDFLAGS} ${GNUBINUTILS}/lib/libintl.a"
 fi
-
 
 AC_MSG_RESULT([${GNUBINUTILS}])
 AC_SUBST([GNUBINUTILS_IFLAGS])
 AC_SUBST([GNUBINUTILS_LDFLAGS])
-AC_SUBST([GNUBINUTILS_LDLIBS])
 
 
 #-------------------------------------------------
@@ -889,27 +661,27 @@ if test "$use_externals" = yes ; then
 fi
 
 AC_ARG_WITH([libdwarf],
-  [AS_HELP_STRING([--with-libdwarf=PATH],
-  	    [path to libdwarf install directory])],
-  [LIBDWARF="$withval"],
-  [])
+    [AS_HELP_STRING([--with-libdwarf=PATH],
+	    [path to libdwarf install directory])],
+    [LIBDWARF="$withval"],
+    [])
 
 AC_MSG_CHECKING([for libdwarf])
 
-case "${LIBDWARF}" in
-  /* )
-    if test -f "${LIBDWARF}/include/libdwarf.h" ; then :
-    else
-        AC_MSG_ERROR([invalid libdwarf directory: $LIBDWARF])
-    fi
-    LIBDWARF_COPY=yes
-    ;;
-  no )
-    LIBDWARF_COPY=no
-    ;;
-  * )
-    AC_MSG_ERROR([libdwarf directory must be absolute path: $LIBDWARF])
-    ;;
+case "$LIBDWARF" in
+    /* )
+	if test -f "${LIBDWARF}/include/libdwarf.h" ; then :
+	else
+	    AC_MSG_ERROR([invalid libdwarf directory: $LIBDWARF])
+	fi
+	LIBDWARF_COPY=yes
+	;;
+    no )
+	LIBDWARF_COPY=no
+	;;
+    * )
+	AC_MSG_ERROR([libdwarf directory must be absolute path: $LIBDWARF])
+	;;
 esac
 
 LIBDWARF_LIB="${LIBDWARF}/lib"
@@ -926,14 +698,14 @@ AC_SUBST([LIBDWARF_COPY])
 
 LIBELF=no
 if test "$use_externals" = yes ; then
-  LIBELF="$ext_libelf_prefix"
+    LIBELF="$ext_libelf_prefix"
 fi
 
 AC_ARG_WITH([libelf],
-  [AS_HELP_STRING([--with-libelf=PATH],
-  	    [path to libelf install directory])],
-  [LIBELF="$withval"],
-  [])
+    [AS_HELP_STRING([--with-libelf=PATH],
+	    [path to libelf install directory])],
+    [LIBELF="$withval"],
+    [])
 
 AC_MSG_CHECKING([for libelf])
 
@@ -942,20 +714,20 @@ valid_libelf_dir()
     test -f "$1/include/libelf.h" || test -f "$1/include/libelf/libelf.h"
 }
 
-case "${LIBELF}" in
-  /* )
-    if valid_libelf_dir "$LIBELF" ; then :
-    else
-        AC_MSG_ERROR([invalid libelf directory: $LIBELF])
-    fi
-    LIBELF_COPY=yes
-    ;;
-  no )
-    LIBELF_COPY=no
-    ;;
-  * )
-    AC_MSG_ERROR([libelf directory must be absolute path: $LIBELF])
-    ;;
+case "$LIBELF" in
+    /* )
+	if valid_libelf_dir "$LIBELF" ; then :
+	else
+	    AC_MSG_ERROR([invalid libelf directory: $LIBELF])
+	fi
+	LIBELF_COPY=yes
+	;;
+    no )
+	LIBELF_COPY=no
+	;;
+    * )
+	AC_MSG_ERROR([libelf directory must be absolute path: $LIBELF])
+	;;
 esac
 
 LIBELF_LIB="${LIBELF}/lib"
@@ -974,75 +746,41 @@ LIBMONITOR=no
 OPT_LIBMONITOR_DYNAMIC=no
 OPT_LIBMONITOR_STATIC=no
 if test "$use_externals" = yes ; then
-  LIBMONITOR="$ext_libmonitor_prefix"
+    LIBMONITOR="$ext_libmonitor_prefix"
 fi
 
 AC_ARG_WITH([libmonitor],
-  [AS_HELP_STRING([--with-libmonitor=PATH],
-  	    [path to libmonitor install directory])],
-  [LIBMONITOR="$withval"],
-  [])
+    [AS_HELP_STRING([--with-libmonitor=PATH],
+	    [path to libmonitor install directory])],
+    [LIBMONITOR="$withval"],
+    [])
 
 AC_MSG_CHECKING([for libmonitor])
 
-case "${LIBMONITOR}" in
-  /* )
-    LIBMONITOR_INC="${LIBMONITOR}/include"
-    LIBMONITOR_BIN=${LIBMONITOR}/bin
-    LIBMONITOR_LIB=${LIBMONITOR}/lib
-    if test -f "${LIBMONITOR_INC}/monitor.h" ; then :
-    else
-        AC_MSG_ERROR([invalid libmonitor directory: $LIBMONITOR])
-    fi
-    LIBMONITOR_LIB="${LIBMONITOR}/lib"
-    if test -f "${LIBMONITOR_LIB}/libmonitor.so" ; then
-        OPT_LIBMONITOR_DYNAMIC=yes
-    fi
-    if test -f "${LIBMONITOR_LIB}/libmonitor_wrap.a" ; then
-        OPT_LIBMONITOR_STATIC=yes
-dnl
-dnl  ** The following lines (commented out) of configure script implement
-dnl  ** a fragile solution to the problem of inconsistent configuration
-dnl  ** between libmonitor and hpclink.
-dnl
-dnl  ** The current configure presumes all possible monitor override features
-dnl  ** are enabled. Consequently, all possible wrap names are listed
-dnl
-dnl  ** To achieve congruence with the actual overrides configured in libmonitor,
-dnl  ** the libmonitor configuration information would need to be available to
-dnl  ** the hpctoolkit configure mechanism.
-dnl
-dnl  ** *AT THE PRESENT TIME*, the exact right information is present in the
-dnl  ** monitor-link script. The commented out lines below take advantage of
-dnl  ** the monitor-link script to accomplish configuration congruence.
-dnl
-dnl  ** To use the fragile congruence solution: uncomment the next 2 lines
-dnl
-dnl	MONLINK=$LIBMONITOR_BIN/monitor-link
-dnl	LIBMONITOR_WRAP_NAMES=`sed -n -e '/^monitor_wrap_names=/{s/^monitor_wrap_names=//;p}' $MONLINK`
-dnl
-dnl
-dnl  *** And comment out the following lines
-dnl
-        LIBMONITOR_WRAP_NAMES="main exit _exit dlopen dlclose fork vfork system \
-           execl execlp execle execv execvp execve pthread_exit                \
-	   pthread_create signal sigaction sigprocmask pthread_sigmask         \
-	   MPI_Init mpi_init mpi_init_ mpi_init__                              \
-	   MPI_Init_thread mpi_init_thread mpi_init_thread_ mpi_init_thread__  \
-	   MPI_Finalize mpi_finalize mpi_finalize_ mpi_finalize__              \ 
-	   MPI_Comm_rank mpi_comm_rank mpi_comm_rank_ mpi_comm_rank__          \
-	   _mp_init"
-    fi
-    LIBMONITOR_COPY=yes
-    LIBMONITOR_RUN_DIR="$hpc_ext_libs_dir"
-    ;;
-  no )
-    LIBMONITOR_COPY=no
-    LIBMONITOR_RUN_DIR=no
-    ;;
-  * )
-    AC_MSG_ERROR([libmonitor directory must be absolute path: $LIBMONITOR])
-    ;;
+case "$LIBMONITOR" in
+    /* )
+	LIBMONITOR_INC="${LIBMONITOR}/include"
+	if test -f "${LIBMONITOR_INC}/monitor.h" ; then :
+	else
+	    AC_MSG_ERROR([invalid libmonitor directory: $LIBMONITOR])
+	fi
+	LIBMONITOR_LIB="${LIBMONITOR}/lib"
+	if test -f "${LIBMONITOR_LIB}/libmonitor.so" ; then
+	    OPT_LIBMONITOR_DYNAMIC=yes
+	fi
+	if test -f "${LIBMONITOR_LIB}/libmonitor_wrap.a" ; then
+	    OPT_LIBMONITOR_STATIC=yes
+	fi
+	LIBMONITOR_COPY=yes
+	LIBMONITOR_RUN_DIR="$hpc_ext_libs_dir"
+	;;
+    no )
+	LIBMONITOR_COPY=no
+	LIBMONITOR_RUN_DIR=no
+	;;
+    * )
+	AC_MSG_ERROR([libmonitor directory must be absolute path: $LIBMONITOR])
+	;;
 esac
 
 AC_MSG_RESULT([$LIBMONITOR])
@@ -1051,7 +789,6 @@ AC_SUBST([LIBMONITOR_INC])
 AC_SUBST([LIBMONITOR_LIB])
 AC_SUBST([LIBMONITOR_COPY])
 AC_SUBST([LIBMONITOR_RUN_DIR])
-AC_SUBST([LIBMONITOR_WRAP_NAMES])
 
 
 #-------------------------------------------------
@@ -1151,7 +888,7 @@ else
 fi
 
 if test "${OPT_WITH_MONITOR}" = "yes" ; then
-  AC_DEFINE([HAVE_MONITOR], [1], [Monitor library])
+  AC_DEFINE([HAVE_MONITOR], [], [Monitor library])
   AC_MSG_RESULT([yes (${MONITOR_LIBS})])
 else
   AC_MSG_RESULT([no (not needed)])
@@ -1195,7 +932,7 @@ AC_SUBST([OA_LDFLAGS])
 
 AC_MSG_CHECKING([whether configured with PAPI])
 
-#HPC_DEF_CHECK_CXX_PAPI_LINK
+HPC_DEF_CHECK_CXX_PAPI_LINK
 
 OPT_HAVE_PAPI=no
 OPT_PAPI_DYNAMIC=no
@@ -1258,7 +995,7 @@ if test "$OPT_HAVE_PAPI" = "yes" ; then
       break
     fi
   done
-  if test -z "${OPT_PAPI_LIBPATH}" ; then
+  if test "x$OPT_PAPI_LIBPATH" = x ; then
     AC_MSG_ERROR([no libpapi.so or libpapi.a in $LIB_SEARCH_PATH])
   fi
 fi
@@ -1306,33 +1043,33 @@ AC_SUBST([papi_extra_libs])
 
 SYMTABAPI=no
 if test "$use_externals" = yes ; then
-  SYMTABAPI="$ext_symtabAPI_prefix"
+    SYMTABAPI="$ext_symtabAPI_prefix"
 fi
 
 AC_ARG_WITH([symtabAPI],
-  [AS_HELP_STRING([--with-symtabAPI=PATH],
-  	    [path to symtabAPI install directory])],
-  [SYMTABAPI="$withval"],
-  [])
+    [AS_HELP_STRING([--with-symtabAPI=PATH],
+	    [path to symtabAPI install directory])],
+    [SYMTABAPI="$withval"],
+    [])
 
 AC_MSG_CHECKING([for symtabAPI])
 
-case "${SYMTABAPI}" in
-  /* )
-    if test -f "${SYMTABAPI}/include/Symtab.h" ; then :
-    else
-        AC_MSG_ERROR([invalid symtabAPI directory: $SYMTABAPI])
-    fi
-    SYMTABAPI_COPY=yes
-    SYMTABAPI_RUN_DIR="$hpc_ext_libs_dir"
-    ;;
-  no )
-    SYMTABAPI_COPY=no
-    SYMTABAPI_RUN_DIR=no
-    ;;
-  * )
-    AC_MSG_ERROR([symtabAPI directory must be absolute path: $SYMTABAPI])
-    ;;
+case "$SYMTABAPI" in
+    /* )
+	if test -f "${SYMTABAPI}/include/Symtab.h" ; then :
+	else
+	    AC_MSG_ERROR([invalid symtabAPI directory: $SYMTABAPI])
+	fi
+	SYMTABAPI_COPY=yes
+	SYMTABAPI_RUN_DIR="$hpc_ext_libs_dir"
+	;;
+    no )
+	SYMTABAPI_COPY=no
+	SYMTABAPI_RUN_DIR=no
+	;;
+    * )
+	AC_MSG_ERROR([symtabAPI directory must be absolute path: $SYMTABAPI])
+	;;
 esac
 
 SYMTABAPI_INC="${SYMTABAPI}/include"
@@ -1352,33 +1089,33 @@ AC_SUBST([SYMTABAPI_RUN_DIR])
 
 XED2=no
 if test "$use_externals" = yes ; then
-  XED2="$ext_xed2_prefix"
+    XED2="$ext_xed2_prefix"
 fi
 
 AC_ARG_WITH([xed2],
-  [AS_HELP_STRING([--with-xed2=PATH],
-  	    [path to xed2 install directory])],
-  [XED2="$withval"],
-  [])
+    [AS_HELP_STRING([--with-xed2=PATH],
+	    [path to xed2 install directory])],
+    [XED2="$withval"],
+    [])
 
 AC_MSG_CHECKING([for xed2])
 
-case "${XED2}" in
-  /* )
-    if test -f "${XED2}/include/xed-interface.h" ; then :
-    else
-        AC_MSG_ERROR([invalid xed2 directory: $XED2])
-    fi
-    XED2_COPY=yes
-    XED2_RUN_DIR="$hpc_ext_libs_dir"
-    ;;
-  no )
-    XED2_COPY=no
-    XED2_RUN_DIR=no
-    ;;
-  * )
-    AC_MSG_ERROR([xed2 directory must be absolute path: $XED2])
-    ;;
+case "$XED2" in
+    /* )
+	if test -f "${XED2}/include/xed-interface.h" ; then :
+	else
+	    AC_MSG_ERROR([invalid xed2 directory: $XED2])
+	fi
+	XED2_COPY=yes
+	XED2_RUN_DIR="$hpc_ext_libs_dir"
+	;;
+    no )
+	XED2_COPY=no
+	XED2_RUN_DIR=no
+	;;
+    * )
+	AC_MSG_ERROR([xed2 directory must be absolute path: $XED2])
+	;;
 esac
 
 XED2_INC="${XED2}/include"
@@ -1416,17 +1153,7 @@ AC_ARG_WITH([xerces],
   [])
 
 XERCES_IFLAGS="-I${XERCES}/include"
-XERCES_LDFLAGS="-L${XERCES}/lib"
-XERCES_LDLIBS="-lxerces-c"
-
-# tallent: should not need -- libtool should handle this
-# xerces (on Linux) uses pthreads
-#case "${host}" in
-#  *-*-linux*)
-#    XERCES_LDFLAGS="${XERCES_LDFLAGS} -lpthread"
-#    ;;
-#esac
-
+XERCES_LDFLAGS="-L${XERCES}/lib -lxerces-c"
 
 if test "$XERCES" = no ; then
   XERCES_COPY=no
@@ -1439,7 +1166,6 @@ AC_MSG_RESULT([${XERCES}])
 AC_SUBST([XERCES])
 AC_SUBST([XERCES_IFLAGS])
 AC_SUBST([XERCES_LDFLAGS])
-AC_SUBST([XERCES_LDLIBS])
 AC_SUBST([XERCES_COPY])
 AC_SUBST([XERCES_LIB])
 
@@ -1452,26 +1178,16 @@ AC_SUBST([XERCES_LIB])
 # enable-hpcrun-flat: Only build hpcrun if on Linux and PAPI is present
 #-------------------------------------------------
 
-AC_ARG_ENABLE([hpcrun-flat],
-  [AS_HELP_STRING([--enable-hpcrun-flat],
-	  [build hpcrun-flat (default yes)])],
-  [],
-  [enable_hpcrun_flat=yes])
-
 AC_MSG_CHECKING([whether to build hpcrun-flat])
 
 OPT_ENABLE_HPCRUN_FLAT="no"
-enable_hpcrun_flat_msg="${enable_hpcrun_flat}"
-
-if test "${enable_hpcrun_flat}" = yes \
-   && test "${OPT_PAPI_DYNAMIC}" = yes && test "${OPT_WITH_MONITOR}" = yes \
+if test "$OPT_PAPI_DYNAMIC" = yes && test "$OPT_WITH_MONITOR" = yes \
    && test "${HOST_OS}" = "Linux"
 then
   OPT_ENABLE_HPCRUN_FLAT="yes"
-  enable_hpcrun_flat_msg="no (missing prerequisites)"
 fi
 
-AC_MSG_RESULT([${enable_hpcrun_flat_msg}])
+AC_MSG_RESULT([${OPT_ENABLE_HPCRUN_FLAT}])
 AM_CONDITIONAL(OPT_ENABLE_HPCRUN_FLAT, test "${OPT_ENABLE_HPCRUN_FLAT}" = "yes")
 
 
@@ -1506,7 +1222,7 @@ fi
 #fi
 
 AC_MSG_RESULT([$enable_hpcrun_mesg])
-AM_CONDITIONAL([OPT_ENABLE_HPCRUN], [test "${OPT_ENABLE_HPCRUN}" = yes])
+AM_CONDITIONAL([OPT_ENABLE_HPCRUN], [test "$OPT_ENABLE_HPCRUN" = yes])
 
 
 
@@ -1615,8 +1331,11 @@ AC_ARG_ENABLE([mpi],
      OPT_REQ_ENABLE_MPI=yes
    fi])
 
+# tallent: FIXME: for now require an explicit request to enable MPI.
+# Once hpcprof-mpi is ready, the second test should be replaced with:
+#   "${OPT_REQ_ENABLE_MPI}" != "no"
 OPT_ENABLE_MPI=no
-if test -n "${MPICXX}" -a "${OPT_REQ_ENABLE_MPI}" != "no" ; then
+if test -n "${MPICXX}" -a "${OPT_REQ_ENABLE_MPI}" = "yes" ; then
   OPT_ENABLE_MPI=yes
 fi
 
@@ -1631,122 +1350,24 @@ AM_CONDITIONAL(OPT_ENABLE_MPI, test "${OPT_ENABLE_MPI}" = "yes")
 
 
 #-------------------------------------------------
-# enable-mpi-wrapper: check MPI compiler
-#-------------------------------------------------
-
-AC_MSG_CHECKING([whether to build MPI versions (MPI wrapper)])
-
-OPT_REQ_ENABLE_MPIP="no" # yes, no, auto
-
-AC_ARG_ENABLE([mpi-wrapper],
-  AS_HELP_STRING([--enable-mpi-wrapper],
-                 [Enable MPI wrapper support (uses MPIF77 variable)]),
-  [case "${enableval}" in
-     yes) OPT_REQ_ENABLE_MPIP="yes" ;;
-     no)  OPT_REQ_ENABLE_MPIP="no" ;;
-     *)   AC_MSG_ERROR([bad value ${enableval} for --enable-mpi-wrapper]) ;;
-   esac])
-
-OPT_ENABLE_MPIP=no
-if test "${OPT_REQ_ENABLE_MPIP}" != "no" ; then
-  AC_MSG_CHECKING([whether can compile MPI code with CFLAGS='$CFLAGS'])
-
-  AC_LANG_PUSH([C])
-  CFLAGS="$CFLAGS"
-  AC_COMPILE_IFELSE([#include <mpi.h>],
-        [ans=yes],
-        [ans=no])
-
-  OPT_ENABLE_MPIP=$ans
-  AC_LANG_POP
-fi
-
-AC_MSG_RESULT([${OPT_ENABLE_MPIP} (request: ${OPT_REQ_ENABLE_MPIP})])
-
-
-if test "${OPT_REQ_ENABLE_MPIP}" = "yes" -a "${OPT_ENABLE_MPIP}" = no ; then
-  AC_MSG_ERROR([MPI wrapper support requested but MPI compiler is invalid!])
-fi
-
-AM_CONDITIONAL(OPT_ENABLE_MPIP, test "${OPT_ENABLE_MPIP}" = "yes")
-
-#-------------------------------------------------
-# enable-mpi-wrapper: check F77 symbols
-#-------------------------------------------------
-
-if test "${OPT_ENABLE_MPIP}" = "yes" ; then
-
-  if test -z "${MPIF77}" ; then
-    AC_CHECK_PROGS(MPIF77, mpif77 mpxlf_r mpixlf77 mpxlf cmpifc xlf f77 g77 pgf77 fort ifc, mpif77)
-  fi
-
-  if test -n "$MPIF77" -a "$MPIF77" != no ; then
-
-    AC_MSG_CHECKING(Whether fortran symbols have underscores)
-    /bin/rm -f ffunc.f flink.c
-    echo "      subroutine f_fun()" > ffunc.f
-    echo "      return" >> ffunc.f
-    echo "      end" >> ffunc.f
-    $MPIF77 $FFLAGS -c ffunc.f 1>/dev/null 2>/dev/null
-    echo "main(){ FF(); return 0; }" > flink.c
-    if $CC -o flink -DFF=f_fun flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(same as C)
-      F77_SYMBOLS=symbol
-    elif $CC -o flink -DFF=f_fun_ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(lowercase with underscore)
-      F77_SYMBOLS=symbol_
-    elif $CC -o flink -DFF=f_fun__ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(lowercase with 2 underscores)
-      F77_SYMBOLS=symbol__
-    elif $CC -o flink -DFF=F_FUN flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase)
-      F77_SYMBOLS=SYMBOL
-    elif $CC -o flink -DFF=F_FUN_ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase with underscore)
-      F77_SYMBOLS=SYMBOL_
-    elif $CC -o flink -DFF=F_FUN__ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase with 2 underscores)
-      F77_SYMBOLS=SYMBOL__
-    else
-      AC_MSG_RESULT(giving up)
-      AC_MSG_ERROR(could not determine F77 symbol names)
-    fi
-    /bin/rm -f ffunc.f ffunc.o flink flink.c flink.o ffunc
-  else
-    F77_SYMBOLS=symbol_
-    AC_MSG_RESULT(Fortran compiler not found. Guessing lowercase with underscore)
-
-  fi
-fi
-
-AC_SUBST(F77_SYMBOLS,$F77_SYMBOLS)
-
-
-#-------------------------------------------------
 # enable-lush, enable-lush-pthreads, with-cilk
 #-------------------------------------------------
-
-opt_enable_lush=no
 
 AC_ARG_ENABLE([lush],
   [AS_HELP_STRING([--enable-lush],
                   [use lush backtrace in hpcrun])],
-  [case "${enableval}" in
-     yes) opt_enable_lush="yes" ;;
-     no)  opt_enable_lush="no" ;;
-     *) AC_MSG_ERROR([bad value ${enableval} for --enable-lush]) ;;
-   esac],
-  [opt_enable_lush=no])
+  [],
+  [enable_lush=no])
 
 AC_MSG_CHECKING([whether to use lush])
 
-if test "$opt_enable_lush" != yes ; then
-  opt_enable_lush=no
+if test "$enable_lush" != yes ; then
+  enable_lush=no
 fi
 
-AC_MSG_RESULT([$opt_enable_lush])
+AC_MSG_RESULT([$enable_lush])
 
-AM_CONDITIONAL([OPT_ENABLE_LUSH], [test "$opt_enable_lush" = yes])
+AM_CONDITIONAL([OPT_ENABLE_LUSH], [test "$enable_lush" = yes])
 
 
 
@@ -1780,7 +1401,7 @@ AC_ARG_ENABLE([lush-pthreads],
   [],
   [enable_lush_pthreads=no])
 
-if test "$enable_lush_pthreads" = yes && test "$opt_enable_lush" = no ; then
+if test "$enable_lush_pthreads" = yes && test "$enable_lush" = no ; then
   AC_MSG_ERROR([enable-lush-pthreads requires enable-lush])
 fi
 
@@ -1804,13 +1425,13 @@ AC_SUBST([hpclink_extra_wrap_names])
 # enable-bluegene: BG/* support
 #-------------------------------------------------
 
-AC_MSG_CHECKING([whether to enable IBM BlueGene/P support])
+AC_MSG_CHECKING([whether to enable IBM BlueGene/* support])
 
 OPT_ENABLE_IBM_BLUEGENE="no"
 
 AC_ARG_ENABLE([bluegene],
   AS_HELP_STRING([--enable-bluegene],
-                 [Enable BlueGene/P support]),
+                 [Enable BlueGene/* support]),
   [case "${enableval}" in
      yes) OPT_ENABLE_IBM_BLUEGENE="yes" ;;
      no)  OPT_ENABLE_IBM_BLUEGENE="no" ;;
@@ -1823,7 +1444,7 @@ AC_ARG_ENABLE([bluegene],
 AC_MSG_RESULT([${OPT_ENABLE_IBM_BLUEGENE}])
 
 if test "${OPT_ENABLE_IBM_BLUEGENE}" = "yes" ; then
-  AC_DEFINE([HOST_SYSTEM_IBM_BLUEGENE], [1], [IBM BlueGene/P support])
+  AC_DEFINE([HOST_SYSTEM_IBM_BLUEGENE], [], [IBM BlueGene/* support])
 fi
 
 
@@ -1864,7 +1485,7 @@ OPT_UPC_IFLAGS=
 OPT_UPC_LDFLAGS=
 opt_upc_mesg=no
 
-case "${with_upc}" in
+case "$with_upc" in
   /* )
     if test -f "${with_upc}/arch/include/spi/UPC.h"
     then
@@ -1948,7 +1569,7 @@ AC_ARG_ENABLE([hpc-binutils],
 AC_MSG_RESULT([${OPT_ENABLE_HPC_GNUBINUTILS}])
 
 if test "${OPT_ENABLE_HPC_GNUBINUTILS}" = "yes" ; then
-  AC_DEFINE([HAVE_HPC_GNUBINUTILS], [1], [HPCToolkit binutils])
+  AC_DEFINE([HAVE_HPC_GNUBINUTILS], [], [HPCToolkit binutils])
 fi
 
 
@@ -1975,35 +1596,8 @@ AM_CONDITIONAL(OPT_ENABLE_DEVTOOLS, test "${OPT_ENABLE_DEVTOOLS}" = "yes")
 
 
 #----------------------------------------------------------------------------
-# Should we expect statically linked binaries
-#----------------------------------------------------------------------------
-
-
-#HPC_DEF_IS_COMPILER_MAKING_STATIC_BINARIES()
-
-#CXX_MAKES_STATIC_BINARIES="no"
-#if HPC_isCompilerMakingStaticBinaries(${CXX} ${CXXFLAGS} ${HOST_CXXFLAGS}) ; then
-#  CXX_MAKES_STATIC_BINARIES="yes"
-#fi
-
-#AM_CONDITIONAL(CXX_MAKES_STATIC_BINARIES,
-#               test "${CXX_MAKES_STATIC_BINARIES}" = "yes")
-
-
-#MPICXX_MAKES_STATIC_BINARIES="no"
-#if test "${OPT_ENABLE_MPI}" = "yes" && HPC_isCompilerMakingStaticBinaries(${MPICXX} ${CXXFLAGS} ${HOST_CXXFLAGS}) ; then
-#  MPICXX_MAKES_STATIC_BINARIES="yes"
-#fi
-
-#AM_CONDITIONAL(MPICXX_MAKES_STATIC_BINARIES,
-#               test "${MPICXX_MAKES_STATIC_BINARIES}" = "yes")
-
-
-#----------------------------------------------------------------------------
 # Makefiles to create
 #----------------------------------------------------------------------------
-
-AC_CONFIG_HEADERS([src/include/hpctoolkit-config.h])
 
 AC_CONFIG_FILES([ \
   Makefile \
@@ -2011,7 +1605,7 @@ AC_CONFIG_FILES([ \
   doc/Makefile \
   doc/man/Makefile \
   doc/man/HPCToolkitVersionInfo.tex \
-  doc/manual/Makefile \
+  doc/guides/Makefile \
   doc/www/Makefile \
   \
   lib/Makefile \
@@ -2034,28 +1628,22 @@ AC_CONFIG_FILES([ \
   src/lib/banal/Makefile \
   src/lib/binutils/Makefile \
   src/lib/isa/Makefile \
-  src/lib/prof/Makefile \
-  src/lib/profxml/Makefile \
+  src/lib/perl/Makefile \
+  src/lib/prof-juicy/Makefile \
+  src/lib/prof-juicy-x/Makefile \
   src/lib/prof-lean/Makefile \
-  src/lib/stubs-gcc_s/Makefile \
   src/lib/support/Makefile \
-  src/lib/support-lean/Makefile \
   src/lib/xml/Makefile \
 ])
-
 
 AC_CONFIG_FILES([src/tool/hpcrun/scripts/hpcrun],
   [chmod +x src/tool/hpcrun/scripts/hpcrun])
 AC_CONFIG_FILES([src/tool/hpcrun/scripts/hpclink],
   [chmod +x src/tool/hpcrun/scripts/hpclink])
-AC_CONFIG_FILES([src/tool/hpcrun/scripts/hpcsummary],
-  [chmod +x src/tool/hpcrun/scripts/hpcsummary])
 AC_CONFIG_FILES([src/tool/hpcfnbounds/hpcfnbounds],
   [chmod +x src/tool/hpcfnbounds/hpcfnbounds])
 AC_CONFIG_FILES([src/tool/hpcprof/hpcprof],
   [chmod +x src/tool/hpcprof/hpcprof])
-AC_CONFIG_FILES([src/tool/hpcprof-mpi/hpcprof-mpi],
-  [chmod +x src/tool/hpcprof-mpi/hpcprof-mpi])
 AC_CONFIG_FILES([src/tool/hpcprof-flat/hpcprof-flat],
   [chmod +x src/tool/hpcprof-flat/hpcprof-flat])
 AC_CONFIG_FILES([src/tool/hpcproftt/hpcproftt],
@@ -2083,24 +1671,17 @@ AC_MSG_NOTICE([  prefix: $prefix])
 AC_MSG_NOTICE([  build:  $build])
 AC_MSG_NOTICE([  host:   $host])
 AC_MSG_NOTICE([])
-AC_MSG_NOTICE([  hpcrun?:      ${enable_hpcrun_mesg}])
-AC_MSG_NOTICE([  hpcrun-flat?: ${OPT_ENABLE_HPCRUN_FLAT}])
-AC_MSG_NOTICE([  mpi support?: ${OPT_ENABLE_MPI}])
-AC_MSG_NOTICE([  mpi wrapper support?: ${OPT_ENABLE_MPIP}])
-AC_MSG_NOTICE([  hpcrun/lush?: ${opt_enable_lush}])
+AC_MSG_NOTICE([  build hpcrun:      ${enable_hpcrun_mesg}])
+AC_MSG_NOTICE([  build hpcrun-flat: ${OPT_ENABLE_HPCRUN_FLAT}])
+AC_MSG_NOTICE([  mpi support:       ${OPT_ENABLE_MPI}])
+AC_MSG_NOTICE([  hpcrun/lush:       ${enable_lush}])
 AC_MSG_NOTICE([])
-AC_MSG_NOTICE([  CC:        '${CC}'])
-AC_MSG_NOTICE([  CFLAGS:    '${CFLAGS} ${HOST_CFLAGS}'])
-AC_MSG_NOTICE([  CXX:       '${CXX}'])
-AC_MSG_NOTICE([  CXXFLAGS:  '${CXXFLAGS} ${HOST_CXXFLAGS}'])
-AC_MSG_NOTICE([  CCAS:      '${CCAS}'])
-AC_MSG_NOTICE([  CCASFLAGS: '${CCASFLAGS}'])
-AC_MSG_NOTICE([  LDFLAGS:   '${LDFLAGS}'])
-AC_MSG_NOTICE([  MPICC:     '${MPICC}'])
-AC_MSG_NOTICE([  MPICXX:    '${MPICXX}'])
-AC_MSG_NOTICE([  MPIF77:    '${MPIF77}'])
-AC_MSG_NOTICE([  HPC_LT_LDFLAGS:        '${HPC_LT_LDFLAGS}'])
-AC_MSG_NOTICE([  HPCPROFMPI_LT_LDFLAGS: '${HPCPROFMPI_LT_LDFLAGS}'])
+AC_MSG_NOTICE([  CC:       ${CC}])
+AC_MSG_NOTICE([  CFLAGS:   ${CFLAGS} ${HOST_CFLAGS}])
+AC_MSG_NOTICE([  CXX:      ${CXX}])
+AC_MSG_NOTICE([  CXXFLAGS: ${CXXFLAGS} ${HOST_CXXFLAGS}])
+AC_MSG_NOTICE([  LDFLAGS:  ${LDFLAGS}])
+AC_MSG_NOTICE([  MPICXX:   ${MPICXX}])
 AC_MSG_NOTICE([])
 AC_MSG_NOTICE([  binutils:     ${GNUBINUTILS}])
 AC_MSG_NOTICE([  libdwarf:     ${LIBDWARF}])

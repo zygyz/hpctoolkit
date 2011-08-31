@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -75,8 +72,6 @@ using std::endl;
 
 //*************************** User Include Files ****************************
 
-#include <include/hpctoolkit-config.h>
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "LM.hpp"
@@ -84,7 +79,7 @@ using std::endl;
 #include "Insn.hpp"
 #include "Proc.hpp"
 
-#include "Dbg-LM.hpp"
+#include "dbg_LM.hpp"
 
 #include <lib/isa/AlphaISA.hpp>
 #include <lib/isa/IA64ISA.hpp>
@@ -118,8 +113,7 @@ BinUtil::LM::LM()
   : m_type(TypeNULL), m_readFlags(ReadFlg_NULL),
     m_txtBeg(0), m_txtEnd(0), m_begVMA(0),
     m_textBegReloc(0), m_unrelocDelta(0),
-    m_bfd(NULL), m_bfdSymTab(NULL), m_bfdSynthTab(NULL),
-    m_bfdSymTabSort(NULL), m_bfdSymTabSz(0), m_bfdSynthTabSz(0),
+    m_bfd(NULL), m_bfdSymTab(NULL), m_bfdSymTabSort(NULL), m_bfdSymTabSz(0),
     m_realpathMgr(RealPathMgr::singleton())
 {
 }
@@ -146,14 +140,8 @@ BinUtil::LM::~LM()
   delete[] m_bfdSymTab;
   m_bfdSymTab = NULL;
 
-  free(m_bfdSynthTab);
-  m_bfdSynthTab = NULL;
-
   delete[] m_bfdSymTabSort;
   m_bfdSymTabSort = NULL; 
-
-  m_bfdSymTabSz = 0;
-  m_bfdSynthTabSz = 0;
   
   // reset isa
   delete isa;
@@ -266,9 +254,8 @@ BinUtil::LM::open(const char* filenm)
 void
 BinUtil::LM::read(LM::ReadFlg readflg)
 {
-  // Internal sanity check.
+  // If the file has not been opened...
   DIAG_Assert(!m_name.empty(), "Must call LM::Open first");
-
   m_readFlags = (ReadFlg)(readflg | LM::ReadFlg_fSeg); // enforce ReadFlg rules
 
   readSymbolTables();
@@ -310,9 +297,9 @@ BinUtil::LM::findMachInsn(VMA vma, ushort &size) const
 
 
 bool
-BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
-			     string& func,
-			     string& file, SrcFile::ln& line) /*const*/
+BinUtil::LM::GetSourceFileInfo(VMA vma, ushort opIndex,
+			       string& func, 
+			       string& file, SrcFile::ln& line) /*const*/
 {
   bool STATUS = false;
   func = file = "";
@@ -323,7 +310,7 @@ BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
   }
   
   VMA unrelocVMA = unrelocate(vma);
-  VMA opVMA = isa->convertVMAToOpVMA(unrelocVMA, opIndex);
+  VMA opVMA = isa->ConvertVMAToOpVMA(unrelocVMA, opIndex);
   
   // Find the Seg where this vma lives.
   asection* bfdSeg = NULL;
@@ -363,19 +350,19 @@ BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
 
 
 bool
-BinUtil::LM::findSrcCodeInfo(VMA begVMA, ushort bOpIndex,
-			     VMA endVMA, ushort eOpIndex,
-			     string& func, string& file,
-			     SrcFile::ln& begLine, SrcFile::ln& endLine,
-			     unsigned flags) /*const*/
+BinUtil::LM::GetSourceFileInfo(VMA begVMA, ushort bOpIndex,
+			       VMA endVMA, ushort eOpIndex,
+			       string& func, string& file,
+			       SrcFile::ln& begLine, SrcFile::ln& endLine,
+			       unsigned flags) /*const*/
 {
   bool STATUS = false;
   func = file = "";
   begLine = endLine = 0;
 
   // Enforce condition that 'begVMA' <= 'endVMA'. (No need to unrelocate!)
-  VMA begOpVMA = isa->convertVMAToOpVMA(begVMA, bOpIndex);
-  VMA endOpVMA = isa->convertVMAToOpVMA(endVMA, eOpIndex);
+  VMA begOpVMA = isa->ConvertVMAToOpVMA(begVMA, bOpIndex);
+  VMA endOpVMA = isa->ConvertVMAToOpVMA(endVMA, eOpIndex);
   if (! (begOpVMA <= endOpVMA) ) {
     VMA tmpVMA = begVMA;       // swap 'begVMA' with 'endVMA'
     begVMA = endVMA; 
@@ -387,8 +374,8 @@ BinUtil::LM::findSrcCodeInfo(VMA begVMA, ushort bOpIndex,
 
   // Attempt to find source file info
   string func1, func2, file1, file2;
-  bool call1 = findSrcCodeInfo(begVMA, bOpIndex, func1, file1, begLine);
-  bool call2 = findSrcCodeInfo(endVMA, eOpIndex, func2, file2, endLine);
+  bool call1 = GetSourceFileInfo(begVMA, bOpIndex, func1, file1, begLine);
+  bool call2 = GetSourceFileInfo(endVMA, eOpIndex, func2, file2, endLine);
   STATUS = (call1 && call2);
 
   // Error checking and processing: 'func'
@@ -439,14 +426,14 @@ BinUtil::LM::findSrcCodeInfo(VMA begVMA, ushort bOpIndex,
 
 
 bool 
-BinUtil::LM::findProcSrcCodeInfo(VMA vma, ushort opIndex, 
-				 SrcFile::ln &line) const
+BinUtil::LM::GetProcFirstLineInfo(VMA vma, ushort opIndex, 
+				  SrcFile::ln &line) const
 {
   bool isfound = false;
   line = 0;
 
   VMA vma_ur = unrelocate(vma);
-  VMA opVMA = isa->convertVMAToOpVMA(vma_ur, opIndex);
+  VMA opVMA = isa->ConvertVMAToOpVMA(vma_ur, opIndex);
 
   VMAInterval ival(opVMA, opVMA + 1); // [opVMA, opVMA + 1)
 
@@ -456,7 +443,7 @@ BinUtil::LM::findProcSrcCodeInfo(VMA vma, ushort opIndex,
     line = proc->begLine();
     isfound = true;
   }
-  DIAG_MsgIf(DBG_BLD_PROC_MAP, "LM::findProcSrcCodeInfo " 
+  DIAG_MsgIf(DBG_BLD_PROC_MAP, "LM::GetProcFirstLineInfo " 
 	     << ival.toString() << " = " << line);
 
   return isfound;
@@ -546,16 +533,14 @@ BinUtil::LM::ddump() const
 
 
 void
-BinUtil::LM::dumpme(std::ostream& GCC_ATTR_UNUSED o,
-		    const char* GCC_ATTR_UNUSED pre) const
+BinUtil::LM::dumpme(std::ostream& o, const char* pre) const
 {
 }
 
 
-
 void
 BinUtil::LM::dumpProcMap(std::ostream& os, unsigned flag, 
-			  const char* GCC_ATTR_UNUSED pre) const
+			  const char* pre) const
 {
   for (ProcMap::const_iterator it = m_procMap.begin(); 
        it != m_procMap.end(); ++it) {
@@ -577,7 +562,7 @@ BinUtil::LM::ddumpProcMap(unsigned flag) const
 //***************************************************************************
 
 int
-BinUtil::LM::cmpBFDSymByVMA(const void* s1, const void* s2)
+BinUtil::LM::SymCmpByVMAFunc(const void* s1, const void* s2)
 {
   asymbol *a = (asymbol *)s1;
   asymbol *b = (asymbol *)s2;
@@ -585,10 +570,10 @@ BinUtil::LM::cmpBFDSymByVMA(const void* s1, const void* s2)
   // Primary sort key: Symbol's VMA (ascending).
   if (bfd_asymbol_value(a) < bfd_asymbol_value(b)) {
     return -1;
-  }
+  } 
   else if (bfd_asymbol_value(a) > bfd_asymbol_value(b)) {
     return 1; 
-  }
+  } 
   else {
     return 0;
   }
@@ -598,70 +583,52 @@ BinUtil::LM::cmpBFDSymByVMA(const void* s1, const void* s2)
 void
 BinUtil::LM::readSymbolTables()
 {
-  // -------------------------------------------------------
-  // Look for normal symbol table.
-  // -------------------------------------------------------
+  // First, attempt to get the normal symbol table.  If that fails,
+  // attempt to read the dynamic symbol table.
   long bytesNeeded = bfd_get_symtab_upper_bound(m_bfd);
   
+  // If we found a populated symbol table...
   if (bytesNeeded > 0) {
-    m_bfdSymTab = new asymbol*[bytesNeeded / sizeof(asymbol*)];
+    m_bfdSymTab = new asymbol*[bytesNeeded];
     m_bfdSymTabSz = bfd_canonicalize_symtab(m_bfd, m_bfdSymTab);
-
     if (m_bfdSymTabSz == 0) {
       delete[] m_bfdSymTab;
       m_bfdSymTab = NULL;
-      DIAG_Msg(2, "'" << name() << "': No regular symbols found.");
     }
   }
 
-  // -------------------------------------------------------
-  // Look for dynamic symbol table if there is no normal symbol table
-  // -------------------------------------------------------
-  if (!m_bfdSymTab) {
+  // If we found no symbols, or if there was an error reading symbolic info...
+  if (bytesNeeded <= 0 || m_bfdSymTabSz == 0) {
+
+    // Either there are no symbols or there is no normal symbol table.
+    // So try obtaining dynamic symbol table.  Unless this is a mips
+    // binary, we emit a user warning.  (For some reason, it seems
+    // that that standard mips symbol table is the dynamic one; and
+    // don't want this warning emitted for every single mips binary.)
+
+    if (bfd_get_arch(m_bfd) != bfd_arch_mips) {
+      DIAG_Msg(2, "'" << name() << "': No regular symbols found; consulting dynamic symbols.");
+    }
+
     bytesNeeded = bfd_get_dynamic_symtab_upper_bound(m_bfd);
-
-    if (bytesNeeded > 0) {
-      m_bfdSymTab = new asymbol*[bytesNeeded / sizeof(asymbol*)];
-      m_bfdSymTabSz = bfd_canonicalize_dynamic_symtab(m_bfd, m_bfdSymTab);
+    if (bytesNeeded <= 0) {
+      // We can't find any symbols. 
+      DIAG_Msg(1, "Warning: '" << name() << "': No dynamic symbols found.");
+      return;
     }
-
-    if (m_bfdSymTabSz == 0) {
-      DIAG_Msg(2, "'" << name() << "': No dynamic symbols found.");
-    }
+    
+    m_bfdSymTab = new asymbol*[bytesNeeded];
+    m_bfdSymTabSz = bfd_canonicalize_dynamic_symtab(m_bfd, m_bfdSymTab);
   }
+  DIAG_Assert(m_bfdSymTab && m_bfdSymTabSz >= 1, "");
 
-  // -------------------------------------------------------
-  // Append the synthetic symbol table to our copy for sorting.
-  // On many platforms this is empty, but it helps on powerpc.
-  //
-  // Note: the synthetic table is an array of asymbol structs,
-  // not an array of pointers, and not null-terminated.
-  // Note: the sorted table may be larger than the original table,
-  // and size is the size of the sorted table (regular + synthetic).
-  // -------------------------------------------------------
-  m_bfdSynthTabSz = bfd_get_synthetic_symtab(m_bfd, m_bfdSymTabSz, m_bfdSymTab,
-					     0, NULL, &m_bfdSynthTab);
-  if (m_bfdSynthTabSz < 0) {
-    m_bfdSynthTabSz = 0;
-  }
+  // Make a scratch copy of the symbol table.
+  m_bfdSymTabSort = new asymbol*[bytesNeeded];
+  memcpy(m_bfdSymTabSort, m_bfdSymTab, bytesNeeded);
 
-  if (m_bfdSynthTabSz == 0) {
-    DIAG_Msg(2, "'" << name() << "': No synthetic symbols found.");
-  }
-
-  m_bfdSymTabSort = new asymbol*[m_bfdSymTabSz + m_bfdSynthTabSz + 1];
-  memcpy(m_bfdSymTabSort, m_bfdSymTab, m_bfdSymTabSz * sizeof(asymbol *));
-  for (int i = 0; i < m_bfdSynthTabSz; i++) {
-    m_bfdSymTabSort[m_bfdSymTabSz + i] = &m_bfdSynthTab[i];
-  }
-  m_bfdSymTabSz += m_bfdSynthTabSz;
-  m_bfdSymTabSort[m_bfdSymTabSz] = NULL;
-
-  // -------------------------------------------------------
-  // Sort symbol table by VMA.
-  // -------------------------------------------------------
+  // Sort scratch symbol table by VMA.
   QuickSort QSort;
-  QSort.Create((void **)(m_bfdSymTabSort), LM::cmpBFDSymByVMA);
+  QSort.Create((void **)(m_bfdSymTabSort), LM::SymCmpByVMAFunc);
   QSort.Sort(0, m_bfdSymTabSz - 1);
 }
 
@@ -672,6 +639,8 @@ BinUtil::LM::readSegs()
   // Create sections.
   // Pass symbol table and debug summary information for each section
   // into that section as it is created.
+  DIAG_Assert(m_bfdSymTab, "");
+
   m_dbgInfo.read(m_bfd, m_bfdSymTab);
 
   // Process each section in the object file.
@@ -810,37 +779,6 @@ BinUtil::LM::dumpModuleInfo(std::ostream& o, const char* pre) const
 }
 
 
-static void
-dumpASymbol(std::ostream& o, asymbol* sym, string p1)
-{
-  // value, name, section name
-  o << p1 << std::hex << std::setw(16)
-    << (bfd_vma)bfd_asymbol_value(sym) << ": " << std::setw(0) << std::dec
-    << bfd_asymbol_name(sym)
-    << " [sec: " << sym->section->name << "] ";
-
-  // flags
-  o << "[flg: " << std::hex << sym->flags << std::dec << " ";
-  bool hasPrintedFlag = false;
-  dumpSymFlag(o, sym, BSF_LOCAL,        "LCL",     hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_GLOBAL,       "GBL",     hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_FUNCTION,     "FUNC",    hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_WEAK,         "WEAK",    hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_SECTION_SYM,  "SEC",     hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_FILE,         "FILE",    hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_DYNAMIC,      "DYN",     hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_OBJECT,       "OBJ",     hasPrintedFlag);
-  dumpSymFlag(o, sym, BSF_THREAD_LOCAL, "THR_LCL", hasPrintedFlag);
-  o << "]";
-
-  if (BinUtil::Proc::isProcBFDSym(sym)) {
-    o << " *proc*";
-  }
-
-  o << endl;
-}
-
-
 void
 BinUtil::LM::dumpSymTab(std::ostream& o, const char* pre) const
 {
@@ -849,18 +787,34 @@ BinUtil::LM::dumpSymTab(std::ostream& o, const char* pre) const
 
   o << p << "--------------- Symbol Table Dump (Unsorted) --------------\n";
 
-  if (m_bfdSymTab) {
-    for (uint i = 0; m_bfdSymTab[i] != NULL; i++) {
-      dumpASymbol(o, m_bfdSymTab[i], p1);
-    }
-  }
+  for (uint i = 0; i < m_bfdSymTabSz; i++) {
+    asymbol* sym = m_bfdSymTab[i];
 
-  o << p << "--------------- Symbol Table Dump (Synthetic) -------------\n";
+    // value, name, section name
+    o << p1 << std::hex << std::setw(16) 
+      << (bfd_vma)bfd_asymbol_value(sym) << ": " << std::setw(0) << std::dec
+      << bfd_asymbol_name(sym)
+      << " [sec: " << sym->section->name << "] ";
+    
+    // flags
+    o << "[flg: " << std::hex << sym->flags << std::dec << " ";
+    bool hasPrintedFlag = false;
+    dumpSymFlag(o, sym, BSF_LOCAL,        "LCL",     hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_GLOBAL,       "GBL",     hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_FUNCTION,     "FUNC",    hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_WEAK,         "WEAK",    hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_SECTION_SYM,  "SEC",     hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_FILE,         "FILE",    hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_DYNAMIC,      "DYN",     hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_OBJECT,       "OBJ",     hasPrintedFlag);
+    dumpSymFlag(o, sym, BSF_THREAD_LOCAL, "THR_LCL", hasPrintedFlag);
+    o << "]";
 
-  if (m_bfdSynthTabSz) {
-    for (int i = 0; i < m_bfdSynthTabSz; i++) {
-      dumpASymbol(o, &m_bfdSynthTab[i], p1);
+    if (BinUtil::Proc::isProcBFDSym(sym)) {
+      o << " *proc*";
     }
+
+    o << endl;
   }
 
   o << p << "-----------------------------------------------------------\n";
@@ -918,7 +872,7 @@ BinUtil::Exe::dump(std::ostream& o, int flags, const char* pre) const
 void
 BinUtil::Exe::dumpme(std::ostream& o, const char* pre) const
 {
-  o << pre << "Program start address: " << std::hex << getStartVMA()
+  o << pre << "Program start address: " << std::hex << GetStartVMA()
     << std::dec << endl;
 }
 

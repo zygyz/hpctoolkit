@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -71,19 +68,11 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/uint.h>
-
 //*************************** Forward Declarations **************************
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
-
-//***************************************************************************
-
-// Note: use #defines to (portably) avoid warnings about unused
-// "static const char*" variables.
-#define HPCIO_RWBufferSz (4 * 1024 * 1024)
 
 //***************************************************************************
 
@@ -100,76 +89,35 @@ extern "C" {
 //
 // hpcio_close: Close the file stream.  Returns 0 upon success; 
 // non-zero on error.
-FILE*
-hpcio_fopen_w(const char* fnm, int overwrite);
-
-FILE*
-hpcio_fopen_r(const char* fnm);
-
-FILE*
-hpcio_fopen_rw(const char* fnm);
-
-int
-hpcio_fclose(FILE* fs);
+FILE* hpcio_fopen_w(const char* fnm, int overwrite);
+FILE* hpcio_fopen_r(const char* fnm);
+int   hpcio_fclose(FILE* fs);
 
 
 //***************************************************************************
 
-// hpcio_leX_fread: Reads 'X' number of little-endian bytes from the file
+// hpcio_fread_leX: Reads 'X' number of little-endian bytes from the file
 // stream 'fs', correctly orders them for the current architecture,
 // and stores the result in 'val'. Returns the number of bytes read.
 
-size_t
-hpcio_le2_fread(uint16_t* val, FILE* fs);
-
-size_t
-hpcio_le4_fread(uint32_t* val, FILE* fs);
-
-size_t
-hpcio_le8_fread(uint64_t* val, FILE* fs);
+size_t hpcio_fread_le2(uint16_t* val, FILE* fs);
+size_t hpcio_fread_le4(uint32_t* val, FILE* fs);
+size_t hpcio_fread_le8(uint64_t* val, FILE* fs);
+size_t hpcio_fwrite_le2(uint16_t* val, FILE* fs);
+size_t hpcio_fwrite_le4(uint32_t* val, FILE* fs);
+size_t hpcio_fwrite_le8(uint64_t* val, FILE* fs);
 
 
-size_t
-hpcio_le2_fwrite(uint16_t* val, FILE* fs);
-
-size_t
-hpcio_le4_fwrite(uint32_t* val, FILE* fs);
-
-size_t
-hpcio_le8_fwrite(uint64_t* val, FILE* fs);
-
-
-//***************************************************************************
-
-// hpcio_beX_fwrite: Write 'X' number of bytes from 'val' to the
+// hpcio_fwrite_beX: Write 'X' number of bytes from 'val' to the
 // big-endian file stream 'fs', correctly ordering the bytes before
 // writing.  Returns the number of bytes written.
 
-size_t
-hpcio_be2_fread(uint16_t* val, FILE* fs);
-
-size_t
-hpcio_be4_fread(uint32_t* val, FILE* fs);
-
-size_t
-hpcio_be8_fread(uint64_t* val, FILE* fs);
-
-size_t
-hpcio_beX_fread(uint8_t* val, size_t size, FILE* fs);
-
-
-size_t
-hpcio_be2_fwrite(uint16_t* val, FILE* fs);
-
-size_t
-hpcio_be4_fwrite(uint32_t* val, FILE* fs);
-
-size_t
-hpcio_be8_fwrite(uint64_t* val, FILE* fs);
-
-size_t
-hpcio_beX_fwrite(uint8_t* val, size_t size, FILE* fs);
-
+size_t hpcio_fread_be2(uint16_t* val, FILE* fs);
+size_t hpcio_fread_be4(uint32_t* val, FILE* fs);
+size_t hpcio_fread_be8(uint64_t* val, FILE* fs);
+size_t hpcio_fwrite_be2(uint16_t* val, FILE* fs);
+size_t hpcio_fwrite_be4(uint32_t* val, FILE* fs);
+size_t hpcio_fwrite_be8(uint64_t* val, FILE* fs);
 
 //***************************************************************************
 

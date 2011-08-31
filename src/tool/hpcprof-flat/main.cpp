@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //************************ System Include Files ******************************
@@ -65,8 +62,8 @@ using std::string;
 
 #include <lib/analysis/Flat-SrcCorrelation.hpp>
 
-#include <lib/profxml/XercesUtil.hpp>
-#include <lib/profxml/XercesErrorHandler.hpp>
+#include <lib/prof-juicy-x/XercesUtil.hpp>
+#include <lib/prof-juicy-x/XercesErrorHandler.hpp>
 
 #include <lib/support/diagnostics.h>
 #include <lib/support/NaN.h>
@@ -79,11 +76,10 @@ readConfFile(Args& args, Prof::Metric::Mgr& metricMgr);
 
 //****************************************************************************
 
-static int
-realmain(int argc, char* const* argv);
+int realmain(int argc, char* const* argv);
 
-int
-main(int argc, char* const* argv)
+int 
+main(int argc, char* const* argv) 
 {
   int ret;
 
@@ -93,7 +89,7 @@ main(int argc, char* const* argv)
   catch (const Diagnostics::Exception& x) {
     DIAG_EMsg(x.message());
     exit(1);
-  }
+  } 
   catch (const std::bad_alloc& x) {
     DIAG_EMsg("[std::bad_alloc] " << x.what());
     exit(1);
@@ -111,8 +107,8 @@ main(int argc, char* const* argv)
 }
 
 
-static int
-realmain(int argc, char* const* argv)
+int 
+realmain(int argc, char* const* argv) 
 {
   Args args(argc, argv);  // exits if error on command line
 
@@ -139,9 +135,9 @@ realmain(int argc, char* const* argv)
 
   Analysis::Flat::Driver driver(args, metricMgr, structure);
   int ret = driver.run();
-
+  
   return ret;
-}
+} 
 
 
 //****************************************************************************
@@ -150,16 +146,16 @@ realmain(int argc, char* const* argv)
 
 #define NUM_PREFIX_LINES 2
 
-static string
+static string 
 buildConfFile(const string& hpcHome, const string& confFile);
 
-static void
+static void 
 appendContents(std::ofstream &dest, const char *srcFile);
 
 static void
 readConfFile(Args& args, Prof::Metric::Mgr& metricMgr)
 {
-  InitXerces(); // exits iff failure
+  InitXerces(); // exits iff failure 
 
   const string& cfgFile = args.configurationFile;
   DIAG_Msg(2, "Initializing from: " << cfgFile);
@@ -171,14 +167,14 @@ readConfFile(Args& args, Prof::Metric::Mgr& metricMgr)
     ConfigParser parser(tmpFile, errHndlr);
     parser.parse(args, metricMgr);
   }
-  catch (const SAXParseException& /*ex*/) {
+  catch (const SAXParseException& x) {
     unlink(tmpFile.c_str());
-    //DIAG_EMsg(XMLString::transcode(ex.getMessage()));
+    //DIAG_EMsg(XMLString::transcode(x.getMessage()));
     exit(1);
   }
-  catch (const ConfigParserException& ex) {
+  catch (const ConfigParserException& x) {
     unlink(tmpFile.c_str());
-    DIAG_EMsg(ex.message());
+    DIAG_EMsg(x.message());
     exit(1);
   }
   catch (...) {
@@ -194,9 +190,9 @@ readConfFile(Args& args, Prof::Metric::Mgr& metricMgr)
 
 
 static string
-buildConfFile(const string& hpcHome, const string& confFile)
+buildConfFile(const string& hpcHome, const string& confFile) 
 {
-  string tmpFile = FileUtil::tmpname();
+  string tmpFile = FileUtil::tmpname(); 
   string hpcloc = hpcHome;
   if (hpcloc[hpcloc.length()-1] != '/') {
     hpcloc += "/";
@@ -208,7 +204,7 @@ buildConfFile(const string& hpcHome, const string& confFile)
   }
   
   // the number of lines added below must equal NUM_PREFIX_LINES
-  os << "<?xml version=\"1.0\"?>" << std::endl
+  os << "<?xml version=\"1.0\"?>" << std::endl 
      << "<!DOCTYPE HPCPROF SYSTEM \"" << hpcloc // has trailing '/'
      << "share/hpctoolkit/dtd/hpcprof-config.dtd\">" << std::endl;
 
@@ -217,11 +213,11 @@ buildConfFile(const string& hpcHome, const string& confFile)
 
   appendContents(os, confFile.c_str());
   os.close();
-  return tmpFile;
+  return tmpFile; 
 }
 
 
-static void
+static void 
 appendContents(std::ofstream &dest, const char *srcFile)
 {
 #define MAX_IO_SIZE (64 * 1024)
@@ -231,17 +227,17 @@ appendContents(std::ofstream &dest, const char *srcFile)
     DIAG_Throw("Unable to read file: " << srcFile);
   }
 
-  char buf[MAX_IO_SIZE];
+  char buf[MAX_IO_SIZE]; 
   for(; !src.eof(); ) {
     src.read(buf, MAX_IO_SIZE);
 
     ssize_t nRead = src.gcount();
     if (nRead == 0) break;
-    dest.write(buf, nRead);
+    dest.write(buf, nRead); 
     if (dest.fail()) {
       DIAG_Throw("appendContents: failed!");
     }
-  }
+  } 
   src.close();
 }
 

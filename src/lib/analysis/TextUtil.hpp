@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -57,7 +54,7 @@
 //
 //***************************************************************************
 
-#ifndef Analysis_TextUtil_hpp
+#ifndef Analysis_TextUtil_hpp 
 #define Analysis_TextUtil_hpp
 
 //************************* System Include Files ****************************
@@ -72,7 +69,7 @@
 
 #include <include/uint.h>
 
-#include <lib/prof/Metric-Mgr.hpp>
+#include <lib/prof-juicy/Metric-Mgr.hpp>
 
 //*************************** Forward Declarations ***************************
 
@@ -88,22 +85,20 @@ namespace TextUtil {
 //****************************************************************************
 
 class ColumnFormatter {
-public:
+public:  
   // NOTE: Since computed metrics may be of any unit, forcing is only
   // allowed for raw metrics.
-  enum Flag {
+  enum Flag { 
     Flag_NULL  = 0,
     Flag_ForcePct, // force percent column formatting
     Flag_ForceVal  // force value column formatting
   };
 
 public:
-  ColumnFormatter(const Prof::Metric::Mgr& metricMgr,
-		  std::ostream& os,
+  ColumnFormatter(const Prof::Metric::Mgr& metricMgr, 
+		  std::ostream& os, 
 		  int numDecPct, int numDecVal);
-
-  ~ColumnFormatter()
-  { }
+  ~ColumnFormatter() { }
 
   // generates a summary of the formatted column for all metrics
   void
@@ -112,10 +107,10 @@ public:
   // generates a formatted column for metric id 'mid' (if displayed).
   // The flag can force the column to be displayed as a value
   // (non-percentage) even if it was formatted as a percent and vice versa
-  void
+  void 
   genCol(uint mid, double metricVal, double metricTot, Flag flg = Flag_NULL);
 
-  void
+  void 
   genCol(uint mid, double metricVal, Flag flg = Flag_ForceVal)
   {
     genCol(mid, metricVal, 0, flg);
@@ -123,24 +118,23 @@ public:
 
 
   // generate a blank column for metric 'mid'
-  void
+  void 
   genBlankCol(uint mid);
 
   // generates 'formatted blanks' for all 'displayed' metrics
   void
-  genBlankCols()
-  {
+  genBlankCols() {
     m_os << std::setw(m_annotWidthTot) << std::setfill(' ') << " ";
   }
 
 private:
   bool
-  isDisplayed(uint mId)
+  isDisplayed(uint mId) 
   {
     // m_mMgr.metric(mId)->Display()
     return (m_annotWidth[mId] != 0);
   }
-
+  
 
 private:
   const Prof::Metric::Mgr& m_mMgr;

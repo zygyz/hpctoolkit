@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 /*
@@ -150,37 +147,20 @@ hpcrun_ui_malloc(size_t ui_size)
 
 
 /*
- * Lookup the instruction pointer 'addr' in the interval tree and
- * return a pointer to the interval containing that address (the new
- * root).  Grow the tree lazily and memo-ize the answers.
- *
- * Extension to support fast normalization of IPs: Given an (dynamic)
- * IP 'ip', return the normalized (static) IP through the argument
- * 'ip_norm'.  Both 'ip' and 'ip_norm' are optional and may be NULL.
- * NOTE: typically 'addr' equals 'ip', but there are subtle use cases
- * where they are different.  (In all cases, 'addr' and 'ip' should be
- * in the same load module.)
- *
- * N.B.: tallent: The above extension is not as clean as I would like.
- * An alternative is to write a separate function, but then the
- * typical usage would require two back-to-back lock-protected
- * lookups.  Thus for the time being, in this limited circumstance, I
- * have chosen performance over a cleaner design.
+ * Lookup the PC address in the interval tree and return a pointer to
+ * the interval containing that address (the new root).  Grow the tree
+ * lazily and memo-ize the answers.
  *
  * Returns: pointer to unwind_interval struct if found, else NULL.
  */
 splay_interval_t *
-hpcrun_addr_to_interval(void *addr, void *ip, ip_normalized_t* ip_norm)
+hpcrun_addr_to_interval(void *addr)
 {
   UI_TREE_LOCK;
-  splay_interval_t *intvl = hpcrun_addr_to_interval_locked(addr);
+  splay_interval_t *retval = hpcrun_addr_to_interval_locked(addr);
   UI_TREE_UNLOCK;
-  
-  if (ip && ip_norm && intvl) {
-    *ip_norm = hpcrun_normalize_ip(ip, intvl->lm);
-  }
-  
-  return intvl;
+
+  return retval;
 }
 
 
@@ -196,10 +176,10 @@ splay_interval_t *
 hpcrun_addr_to_interval_locked(void *addr)
 {
   void *fcn_start, *fcn_end;
-  load_module_t *lm;
   interval_status istat;
   interval_tree_node *p, *q;
   splay_interval_t *ans;
+  int ret;
 
   /* See if addr is already in the tree. */
   p = interval_tree_lookup(&ui_tree_root, addr);
@@ -217,9 +197,9 @@ hpcrun_addr_to_interval_locked(void *addr)
    * the insert first, but in that case, it's not really a failure.
    */
   UI_TREE_UNLOCK;
-  bool ret = fnbounds_enclosing_addr(addr, &fcn_start, &fcn_end, &lm);
+  ret = fnbounds_enclosing_addr(addr, &fcn_start, &fcn_end);
   UI_TREE_LOCK;
-  if (! ret) {
+  if (ret != SUCCESS) {
     TMSG(UITREE, "BAD fnbounds_enclosing_addr failed: addr %p", addr);
     return (NULL);
   }
@@ -266,11 +246,6 @@ hpcrun_addr_to_interval_locked(void *addr)
     if (START(p) <= addr && addr < END(p)) {
       ans = p;
     }
-  }
-
-  /* Memoize associated load module to benefit hpcrun_normalize_ip() */
-  if (ans) {
-    ans->lm = lm;
   }
 
   if (ENABLED(UITREE_VERIFY)) {

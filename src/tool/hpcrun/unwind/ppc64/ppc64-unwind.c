@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -66,8 +63,8 @@
 
 //*************************** User Include Files ****************************
 
-#include <unwind/common/unwind.h>
-#include <unwind/common/unw-datatypes.h>
+#include "unwind.h"
+#include "unwind_cursor.h"
 
 #include "ppc64-unwind-interval.h"
 
@@ -78,10 +75,8 @@
 
 #include <messages/messages.h>
 
-#include <utilities/ip-normalized.h>
-#include <utilities/arch/mcontext.h>
-
-#include <lib/isa-lean/power/instruction-set.h>
+// FIXME: see note in mips-unwind.c
+#include <lib/isa/instructionSets/ppc.h>
 
 
 //***************************************************************************
@@ -97,8 +92,69 @@ typedef enum {
 
 
 //***************************************************************************
+// private operations
+//***************************************************************************
+
+#if __WORDSIZE == 32
+#  define UCONTEXT_REG(uc, reg) ((uc)->uc_mcontext.uc_regs->gregs[reg])
+#else
+#  define UCONTEXT_REG(uc, reg) ((uc)->uc_mcontext.gp_regs[reg])
+#endif
+
+static inline void *
+ucontext_pc(ucontext_t *context)
+{
+  return (void **)UCONTEXT_REG(context, PPC_REG_PC);
+}
+
+
+static inline void **
+ucontext_fp(ucontext_t *context)
+{
+  return (void **)UCONTEXT_REG(context, PPC_REG_FP);
+}
+
+
+static inline void **
+ucontext_sp(ucontext_t *context)
+{
+  return (void **)UCONTEXT_REG(context, PPC_REG_SP);
+}
+
+
+//***************************************************************************
+
+static inline void*
+getNxtPCFromSP(void** sp)
+{
+#ifdef __PPC64__
+  static const int RA_OFFSET_FROM_SP = 2;
+#else
+  static const int RA_OFFSET_FROM_SP = 1;
+#endif
+  return *(sp + RA_OFFSET_FROM_SP);
+}
+
+
+static inline bool
+isPossibleParentSP(void** sp, void** parent_sp)
+{
+  // Stacks grow down, so outer frames are at higher addresses
+  return (parent_sp > sp); // assume frame size is not 0
+}
+
+
+//***************************************************************************
 // interface functions
 //***************************************************************************
+
+void *
+context_pc(void *context)
+{
+  ucontext_t* ctxt = (ucontext_t*)context;
+  return ucontext_pc(ctxt);
+}
+
 
 void
 hpcrun_unw_init(void)
@@ -106,47 +162,13 @@ hpcrun_unw_init(void)
   hpcrun_interval_tree_init();
 }
 
-//
-// register codes (only 1 at the moment)
-//
-typedef enum {
-  UNW_REG_IP
-} unw_reg_code_t;
 
-
-static int 
-hpcrun_unw_get_unnorm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id,
-			  void** reg_value)
+int 
+hpcrun_unw_get_reg(unw_cursor_t *cursor, unw_reg_code_t reg_id, void **reg_value)
 {
   assert(reg_id == UNW_REG_IP);
-  *reg_value = cursor->pc_unnorm;
-  
+  *reg_value = cursor->pc;
   return 0;
-}
-
-
-static int 
-hpcrun_unw_get_norm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id,
-			ip_normalized_t* reg_value)
-{
-  assert(reg_id == UNW_REG_IP);
-  *reg_value = cursor->pc_norm;
-  
-  return 0;
-}
-
-
-int
-hpcrun_unw_get_ip_norm_reg(hpcrun_unw_cursor_t* c, ip_normalized_t* reg_value)
-{
-  return hpcrun_unw_get_norm_reg(c, UNW_REG_IP, reg_value);
-}
-
-
-int
-hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value)
-{
-  return hpcrun_unw_get_unnorm_reg(c, UNW_REG_IP, reg_value);
 }
 
 
@@ -155,34 +177,24 @@ hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value)
 //  fix when trampoline support is added
 //
 void*
-hpcrun_unw_get_ra_loc(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_get_ra_loc(unw_cursor_t* cursor)
 {
   return NULL;
 }
 
 
 void 
-hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
+hpcrun_unw_init_cursor(unw_cursor_t *cursor, void *context)
 {
   ucontext_t* ctxt = (ucontext_t*)context;
 
-  cursor->pc_unnorm = ucontext_pc(ctxt);
-  cursor->pc_norm   = (ip_normalized_t) ip_normalized_NULL;
-  cursor->ra        = NULL;
-  cursor->sp        = ucontext_sp(ctxt);
-  cursor->bp        = NULL;
-  cursor->flags     = UnwFlg_StackTop;
+  cursor->pc = ucontext_pc(ctxt);
+  cursor->ra = NULL;
+  cursor->sp = ucontext_sp(ctxt);
+  cursor->bp = NULL;
+  cursor->flags = UnwFlg_StackTop;
 
-  // Capture unnormalized ip here b/c hpcrun_addr_to_interval() will
-  // not call hpcrun_normalize_ip() in exceptional cases.
-  cursor->pc_norm = ((ip_normalized_t)
-                     { .lm_id = HPCRUN_FMT_LMId_NULL,
-		       .lm_ip = (uintptr_t) cursor->pc_unnorm });
-
-  unw_interval_t* intvl = (unw_interval_t*)
-    hpcrun_addr_to_interval(cursor->pc_unnorm,
-			    cursor->pc_unnorm, &cursor->pc_norm);
-
+  unw_interval_t* intvl = (unw_interval_t*)hpcrun_addr_to_interval(cursor->pc);
   cursor->intvl = (splay_interval_t*)intvl;
   
   if (intvl && intvl->ra_ty == RATy_Reg) {
@@ -195,16 +207,16 @@ hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
   }
   
   TMSG(UNW, "init: pc=%p, ra=%p, sp=%p, fp=%p", 
-       cursor->pc_unnorm, cursor->ra, cursor->sp, cursor->bp);
+       cursor->pc, cursor->ra, cursor->sp, cursor->bp);
   if (MYDBG) { ui_dump(intvl); }
 }
 
 
 int 
-hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_step(unw_cursor_t *cursor)
 {
   // current frame
-  void*  pc = cursor->pc_unnorm;
+  void*  pc = cursor->pc;
   void** sp = cursor->sp;
   void** fp = cursor->bp; // unused
   unw_interval_t* intvl = (unw_interval_t*)(cursor->intvl);
@@ -212,8 +224,7 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
   bool isInteriorFrm = (cursor->flags != UnwFlg_StackTop);
   
   // next (parent) frame
-  void*           nxt_pc = NULL;
-  ip_normalized_t nxt_pc_norm = ip_normalized_NULL;
+  void*  nxt_pc = NULL;
   void** nxt_sp = NULL;
   void** nxt_fp = NULL; // unused
   void*  nxt_ra = NULL; // always NULL unless we go through a signal handler
@@ -287,9 +298,8 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
   //-----------------------------------------------------------
   // compute unwind information for the caller's pc
   //-----------------------------------------------------------
-  nxt_intvl = (unw_interval_t*)hpcrun_addr_to_interval(nxt_pc,
-						       nxt_pc, &nxt_pc_norm);
- 
+  nxt_intvl = (unw_interval_t*)hpcrun_addr_to_interval(nxt_pc);
+
   // if nxt_pc is invalid for some reason...
   if (!nxt_intvl) {
     TMSG(UNW, "warning: bad nxt pc=%p; sp=%p, fp=%p...", nxt_pc, sp, fp);
@@ -305,8 +315,7 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
       // Sanity check SP: Once in a while SP is clobbered.
       if (isPossibleParentSP(nxt_sp, try_sp)) {
 	nxt_pc = getNxtPCFromSP(try_sp);
-	nxt_intvl = (unw_interval_t*)hpcrun_addr_to_interval(nxt_pc, nxt_pc,
-							     &nxt_pc_norm);
+	nxt_intvl = (unw_interval_t*)hpcrun_addr_to_interval(nxt_pc);
       }
     }
      
@@ -336,13 +345,19 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
   TMSG(UNW, "next: pc=%p, sp=%p, fp=%p", nxt_pc, nxt_sp, nxt_fp);
   if (MYDBG) { ui_dump(nxt_intvl); }
 
-  cursor->pc_unnorm = nxt_pc;
-  cursor->pc_norm   = nxt_pc_norm;
-  cursor->ra        = nxt_ra;
-  cursor->sp        = nxt_sp;
-  cursor->bp        = nxt_fp;
-  cursor->intvl     = (splay_interval_t*)nxt_intvl;
-  cursor->flags     = UnwFlg_NULL;
+  cursor->pc = nxt_pc;
+  cursor->ra = nxt_ra;
+  cursor->sp = nxt_sp;
+  cursor->bp = nxt_fp;
+  cursor->intvl = (splay_interval_t*)nxt_intvl;
+  cursor->flags = UnwFlg_NULL;
 
   return STEP_OK;
+}
+
+
+void
+hpcrun_unw_throw()
+{
+  hpcrun_drop_sample();
 }

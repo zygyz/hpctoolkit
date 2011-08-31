@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -78,7 +75,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/gnu_bfd.h>
 
 #include "LM.hpp"
@@ -86,8 +82,8 @@ using std::string;
 #include "Proc.hpp"
 #include "Insn.hpp"
 
-#include "Dbg-LM.hpp"
-#include "Dbg-Proc.hpp"
+#include "dbg_LM.hpp"
+#include "dbg_Proc.hpp"
 
 #include "BinUtils.hpp"
 
@@ -127,8 +123,7 @@ BinUtil::Seg::toString(int flags, const char* pre) const
 
 
 void
-BinUtil::Seg::dump(std::ostream& o, GCC_ATTR_UNUSED int flags,
-		   const char* pre) const
+BinUtil::Seg::dump(std::ostream& o, int flags, const char* pre) const
 {
   string p(pre);
   o << std::showbase;
@@ -189,15 +184,15 @@ BinUtil::TextSeg::~TextSeg()
 void
 BinUtil::TextSeg::dump(std::ostream& o, int flags, const char* pre) const
 {
-  string pfx(pre);
-  string pfx1 = pfx + "  ";
+  string p(pre);
+  string p1 = p + "  ";
 
   Seg::dump(o, flags, pre);
-  o << pfx << "  Procedures (" << numProcs() << ")\n";
+  o << p << "  Procedures (" << numProcs() << ")\n";
   for (ProcVec::const_iterator it = m_procs.begin(); 
        it != m_procs.end(); ++it) {
-    Proc* x = *it;
-    x->dump(o, flags, pfx1.c_str());
+    Proc* p = *it;
+    p->dump(o, flags, p1.c_str());
   }
 }
 
@@ -208,7 +203,7 @@ BinUtil::TextSeg::dump(std::ostream& o, int flags, const char* pre) const
 void
 BinUtil::TextSeg::ctor_initProcs()
 {
-  Dbg::LM* dbgInfo = m_lm->getDebugInfo();
+  dbg::LM* dbgInfo = m_lm->GetDebugInfo();
 
   // Any procedure with a parent has a <Proc*, parentVMA> entry
   std::map<Proc*, VMA> parentMap;
@@ -267,18 +262,18 @@ BinUtil::TextSeg::ctor_initProcs()
       string procNm;
       string symNm = bfd_asymbol_name(sym);
 
-      Dbg::LM::iterator it = dbgInfo->find(begVMA);
-      Dbg::Proc* dbg = (it != dbgInfo->end()) ? it->second : NULL;
+      dbg::LM::iterator it = dbgInfo->find(begVMA);
+      dbg::Proc* dbg = (it != dbgInfo->end()) ? it->second : NULL;
 
       if (!dbg) {
 	procNm = findProcName(abfd, sym);
 	string pnm = BinUtil::canonicalizeProcName(procNm);
 	
-	Dbg::LM::iterator1 it1 = dbgInfo->find1(pnm);
+	dbg::LM::iterator1 it1 = dbgInfo->find1(pnm);
 	dbg = (it1 != dbgInfo->end1()) ? it1->second : NULL;
       }
       if (!dbg) {
-	Dbg::LM::iterator1 it1 = dbgInfo->find1(symNm);
+	dbg::LM::iterator1 it1 = dbgInfo->find1(symNm);
 	dbg = (it1 != dbgInfo->end1()) ? it1->second : NULL;
       }
       
@@ -413,14 +408,14 @@ BinUtil::TextSeg::ctor_disassembleProcs()
     // Iterate over each vma at which an instruction might begin
     for (VMA vma = procBeg; vma < procEnd; ) {
       MachInsn *mi = &(m_contents[vma - sectionBase]);
-      insnSz = LM::isa->getInsnSize(mi);
+      insnSz = LM::isa->GetInsnSize(mi);
       if (insnSz == 0) {
 	// This is not a recognized instruction (cf. data on CISC ISAs).
 	++vma; // Increment the VMA, and try to decode again.
 	continue;
       }
 
-      int num_ops = LM::isa->getInsnNumOps(mi);
+      int num_ops = LM::isa->GetInsnNumOps(mi);
       if (num_ops == 0) {
 	// This instruction contains data.  No need to decode.
 	vma += insnSz;
@@ -455,7 +450,7 @@ BinUtil::TextSeg::findProcName(bfd* abfd, asymbol* procSym) const
 {
   string procName;
 
-  // cf. LM::findSrcCodeInfo()
+  // cf. LM::GetSourceFileInfo()
   asection* bfdSeg = bfd_get_section_by_name(abfd, name().c_str());
 
   bfd_boolean bfd_fnd = false;

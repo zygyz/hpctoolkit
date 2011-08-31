@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -72,8 +69,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/uint.h>
-
 #include "hpcio.h"
 #include "hpcfmt.h"
 
@@ -85,22 +80,8 @@
 extern "C" {
 #endif
 
-//***************************************************************************
 
-// hpcrun profile filename suffix
-static const char HPCRUN_ProfileFnmSfx[] = "hpcrun";
-
-// hpcrun trace filename suffix
-static const char HPCRUN_TraceFnmSfx[] = "hpctrace";
-
-// hpcrun log filename suffix
-static const char HPCRUN_LogFnmSfx[] = "log";
-
-// hpcprof metric db filename suffix
-static const char HPCPROF_MetricDBSfx[] = "metric-db";
-
-static const char HPCPROF_TmpFnmSfx[] = "tmp";
-
+//*************************** Macros **************************
 
 //***************************************************************************
 // hdr
@@ -109,7 +90,7 @@ static const char HPCPROF_TmpFnmSfx[] = "tmp";
 // N.B.: The header string is 24 bytes of character data
 
 static const char HPCRUN_FMT_Magic[]   = "HPCRUN-profile____"; // 18 bytes
-static const char HPCRUN_FMT_Version[] = "02.00";              // 5 bytes
+static const char HPCRUN_FMT_Version[] = "01.9A";              // 5 bytes
 static const char HPCRUN_FMT_Endian[]  = "b";                  // 1 byte
 
 static const int HPCRUN_FMT_MagicLen   = (sizeof(HPCRUN_FMT_Magic) - 1);
@@ -117,15 +98,9 @@ static const int HPCRUN_FMT_VersionLen = (sizeof(HPCRUN_FMT_Version) - 1);
 static const int HPCRUN_FMT_EndianLen  = (sizeof(HPCRUN_FMT_Endian) - 1);
 
 
-// currently supported versions
-static const double HPCRUN_FMT_Version_20 = 2.0;
-
-
 typedef struct hpcrun_fmt_hdr_t {
 
-  char versionStr[sizeof(HPCRUN_FMT_Version)];
-  double version;
-
+  char version[sizeof(HPCRUN_FMT_Version)];
   char endian;
 
   HPCFMT_List(hpcfmt_nvpair_t) nvps;
@@ -146,93 +121,15 @@ extern void
 hpcrun_fmt_hdr_free(hpcrun_fmt_hdr_t* hdr, hpcfmt_free_fn dealloc);
 
 
-// Note: use #defines to (portably) avoid warnings about unused
-// "static const char*" variables.
-#define HPCRUN_FMT_NV_prog     "program-name"
-#define HPCRUN_FMT_NV_progPath "program-path"
-#define HPCRUN_FMT_NV_envPath  "env-path"
-#define HPCRUN_FMT_NV_jobId    "job-id"
-#define HPCRUN_FMT_NV_mpiRank  "mpi-rank"
-#define HPCRUN_FMT_NV_tid      "thread-id"
-#define HPCRUN_FMT_NV_hostid   "host-id"
-#define HPCRUN_FMT_NV_pid      "process-id"
-
-#define HPCRUN_FMT_NV_traceMinTime "trace-min-time"
-#define HPCRUN_FMT_NV_traceMaxTime "trace-max-time"
-
-
-//***************************************************************************
-// hdr (trace, located here for now)
-//***************************************************************************
-
-static const char HPCTRACE_FMT_Magic[]   = "HPCRUN-trace______"; // 18 bytes
-static const char HPCTRACE_FMT_Version[] = "01.00";              // 5 bytes
-static const char HPCTRACE_FMT_Endian[]  = "b";                  // 1 byte
-
-#define HPCTRACE_FMT_MagicLenX   (sizeof(HPCTRACE_FMT_Magic) - 1)
-#define HPCTRACE_FMT_VersionLenX (sizeof(HPCTRACE_FMT_Version) - 1)
-#define HPCTRACE_FMT_EndianLenX  (sizeof(HPCTRACE_FMT_Endian) - 1)
-
-static const int HPCTRACE_FMT_MagicLen   = HPCTRACE_FMT_MagicLenX;
-static const int HPCTRACE_FMT_VersionLen = HPCTRACE_FMT_VersionLenX;
-static const int HPCTRACE_FMT_EndianLen  = HPCTRACE_FMT_EndianLenX;
-
-static const int HPCTRACE_FMT_HeaderLen = 
-  (HPCTRACE_FMT_MagicLenX + HPCTRACE_FMT_VersionLenX + HPCTRACE_FMT_EndianLenX);
-
-
-int
-hpctrace_fmt_hdr_fread(FILE* infs);
-
-int
-hpctrace_fmt_hdr_fwrite(FILE* fs);
-
-int
-hpctrace_fmt_hdr_fprint(FILE* fs);
-
-
-//***************************************************************************
-// hdr (hpcprof-metricdb, located here for now)
-//***************************************************************************
-
-static const char HPCMETRICDB_FMT_Magic[]   = "HPCPROF-metricdb__"; // 18 bytes
-static const char HPCMETRICDB_FMT_Version[] = "00.10";              // 5 bytes
-static const char HPCMETRICDB_FMT_Endian[]  = "b";                  // 1 byte
-
-#define HPCMETRICDB_FMT_MagicLenX   (sizeof(HPCMETRICDB_FMT_Magic) - 1)
-#define HPCMETRICDB_FMT_VersionLenX (sizeof(HPCMETRICDB_FMT_Version) - 1)
-#define HPCMETRICDB_FMT_EndianLenX  (sizeof(HPCMETRICDB_FMT_Endian) - 1)
-
-static const int HPCMETRICDB_FMT_MagicLen   = HPCMETRICDB_FMT_MagicLenX;
-static const int HPCMETRICDB_FMT_VersionLen = HPCMETRICDB_FMT_VersionLenX;
-static const int HPCMETRICDB_FMT_EndianLen  = HPCMETRICDB_FMT_EndianLenX;
-
-static const int HPCMETRICDB_FMT_HeaderLen = 
-  (HPCMETRICDB_FMT_MagicLenX + HPCMETRICDB_FMT_VersionLenX
-   + HPCMETRICDB_FMT_EndianLenX);
-
-
-
-typedef struct hpcmetricDB_fmt_hdr_t {
-
-  char versionStr[sizeof(HPCMETRICDB_FMT_Version)];
-  double version;
-  char endian;
-
-  uint32_t numNodes;
-  uint32_t numMetrics;
-
-} hpcmetricDB_fmt_hdr_t;
-
-
-int
-hpcmetricDB_fmt_hdr_fread(hpcmetricDB_fmt_hdr_t* hdr, FILE* infs);
-
-int
-hpcmetricDB_fmt_hdr_fwrite(hpcmetricDB_fmt_hdr_t* hdr, FILE* outfs);
-
-int
-hpcmetricDB_fmt_hdr_fprint(hpcmetricDB_fmt_hdr_t* hdr, FILE* outfs);
+// Note: use #defines to avoid warnings about unused "static const
+// char*" variable in a cross-compiler way.
+#define HPCRUN_FMT_NV_prog    "program-name"
+#define HPCRUN_FMT_NV_path    "path-name"
+#define HPCRUN_FMT_NV_jobId   "job-id"
+#define HPCRUN_FMT_NV_mpiRank "mpi-rank"
+#define HPCRUN_FMT_NV_tid     "thread-id"
+#define HPCRUN_FMT_NV_hostid  "host-id"
+#define HPCRUN_FMT_NV_pid     "process-id"
 
 
 //***************************************************************************
@@ -245,40 +142,40 @@ static const int  HPCRUN_FMT_EpochTagLen = (sizeof(HPCRUN_FMT_EpochTag) - 1);
 
 typedef struct epoch_flags_bitfield {
   bool isLogicalUnwind : 1;
-  uint64_t unused      : 63;
+  bool isUseReuse      : 1; //add by Xu Liu 63->62
+  uint64_t unused      : 62;
 } epoch_flags_bitfield;
 
-
 typedef union epoch_flags_t {
-  epoch_flags_bitfield fields;
-  uint64_t             bits; // for reading/writing
+  epoch_flags_bitfield flags;
+  uint64_t             bits;
 } epoch_flags_t;
 
 
-typedef struct hpcrun_fmt_epochHdr_t {
+typedef struct hpcrun_fmt_epoch_hdr_t {
 
   epoch_flags_t flags;
   uint64_t measurementGranularity;
   uint32_t raToCallsiteOfst;
   HPCFMT_List(hpcfmt_nvpair_t) nvps;
 
-} hpcrun_fmt_epochHdr_t;
+} hpcrun_fmt_epoch_hdr_t;
 
 
 extern int 
-hpcrun_fmt_epochHdr_fread(hpcrun_fmt_epochHdr_t* ehdr, FILE* fs,
-			  hpcfmt_alloc_fn alloc);
+hpcrun_fmt_epoch_hdr_fread(hpcrun_fmt_epoch_hdr_t* ehdr, FILE* fs,
+			   hpcfmt_alloc_fn alloc);
 
 extern int 
-hpcrun_fmt_epochHdr_fwrite(FILE* out, epoch_flags_t flags, 
-			   uint64_t measurementGranularity, 
-			   uint32_t raToCallsiteOfst, ...);
+hpcrun_fmt_epoch_hdr_fwrite(FILE* out, epoch_flags_t flags, 
+			    uint64_t measurementGranularity, 
+			    uint32_t raToCallsiteOfst, ...);
 
 extern int 
-hpcrun_fmt_epochHdr_fprint(hpcrun_fmt_epochHdr_t* ehdr, FILE* out);
-
+hpcrun_fmt_epoch_hdr_fprint(hpcrun_fmt_epoch_hdr_t* ehdr, FILE* out);
+  
 extern void 
-hpcrun_fmt_epochHdr_free(hpcrun_fmt_epochHdr_t* ehdr, hpcfmt_free_fn dealloc);
+hpcrun_fmt_epoch_hdr_free(hpcrun_fmt_epoch_hdr_t* ehdr, hpcfmt_free_fn dealloc);
 
 
 //***************************************************************************
@@ -289,90 +186,13 @@ hpcrun_fmt_epochHdr_free(hpcrun_fmt_epochHdr_t* ehdr, hpcfmt_free_fn dealloc);
 // hpcrun_metricFlags_t
 // --------------------------------------------------------------------------
 
+typedef uint64_t hpcrun_metricFlags_t;
 
-typedef enum {
-
-  MetricFlags_Ty_NULL = 0,
-  MetricFlags_Ty_Raw,
-  MetricFlags_Ty_Final,
-  MetricFlags_Ty_Derived
-
-} MetricFlags_Ty_t;
+#define HPCRUN_MetricFlag_NULL  0x0
+#define HPCRUN_MetricFlag_Async (1 << 1)
+#define HPCRUN_MetricFlag_Real  (1 << 2)
 
 
-typedef enum {
-
-  MetricFlags_ValTy_NULL = 0,
-  MetricFlags_ValTy_Incl,
-  MetricFlags_ValTy_Excl
-
-} MetricFlags_ValTy_t;
-
-
-typedef enum {
-
-  MetricFlags_ValFmt_NULL = 0,
-  MetricFlags_ValFmt_Int,
-  MetricFlags_ValFmt_Real,
-
-} MetricFlags_ValFmt_t;
-
-
-// N.B. do *not* use sub-byte bit fields since compilers are free to
-// reorder them within the byte.
-typedef struct hpcrun_metricFlags_fields {
-  MetricFlags_Ty_t     ty     : 8;
-  MetricFlags_ValTy_t  valTy  : 8;
-  MetricFlags_ValFmt_t valFmt : 8;
-  uint8_t              unused0;
-
-  uint16_t             partner;
-  uint8_t /*bool*/     show;
-  uint8_t /*bool*/     showPercent;
-
-  uint64_t unused1;
-} hpcrun_metricFlags_fields;
-
-
-typedef union hpcrun_metricFlags_t {
-
-  hpcrun_metricFlags_fields fields;
-
-  uint8_t bits[2 * 8]; // for reading/writing
-
-  uint64_t bits_big[2]; // for easy initialization
-
-} hpcrun_metricFlags_t;
-
-
-// FIXME: tallent: temporarily support old non-portable convention
-typedef struct hpcrun_metricFlags_bitfield_XXX {
-  MetricFlags_Ty_t     ty     : 4;
-  MetricFlags_ValTy_t  valTy  : 4;
-  MetricFlags_ValFmt_t valFmt : 4;
-  uint partner      : 16;
-  bool show         : 1;
-  bool showPercent  : 1;
-
-  uint64_t unused0 : 34;
-  uint64_t unused1;
-} hpcrun_metricFlags_bitfield_XXX;
-
-
-// FIXME: tallent: temporarily support old non-portable convention
-typedef union hpcrun_metricFlags_XXX_t {
-
-  hpcrun_metricFlags_bitfield_XXX fields;
-
-  uint64_t bits[2]; // for reading/writing
-
-} hpcrun_metricFlags_XXX_t;
-
-
-extern hpcrun_metricFlags_t hpcrun_metricFlags_NULL;
-
-
-#if 0
 static inline bool
 hpcrun_metricFlags_isFlag(hpcrun_metricFlags_t flagbits, 
 			  hpcrun_metricFlags_t f)
@@ -395,7 +215,6 @@ hpcrun_metricFlags_unsetFlag(hpcrun_metricFlags_t* flagbits,
 {
   *flagbits = (*flagbits & ~f);
 }
-#endif
 
 
 // --------------------------------------------------------------------------
@@ -404,18 +223,18 @@ hpcrun_metricFlags_unsetFlag(hpcrun_metricFlags_t* flagbits,
 
 typedef union hpcrun_metricVal_u {
 
+  uint64_t bits; // for reading/writing
+
   uint64_t i; // integral data
   double   r; // real
   void*    p; // address data
-
-  uint64_t bits; // for reading/writing
   
 } hpcrun_metricVal_t;
 
 extern hpcrun_metricVal_t hpcrun_metricVal_ZERO;
 
-static inline bool
-hpcrun_metricVal_isZero(hpcrun_metricVal_t x)
+static inline bool 
+hpcrun_metricVal_isZero(hpcrun_metricVal_t x) 
 {
   return (x.bits == hpcrun_metricVal_ZERO.bits);
 }
@@ -429,17 +248,12 @@ typedef struct metric_desc_t {
 
   char* name;
   char* description;
-
   hpcrun_metricFlags_t flags;
-
   uint64_t period;
 
-  char* formula;
-  char* format;
+  uint32_t fmt_flag; //add by Xu Liu
 
 } metric_desc_t;
-
-extern metric_desc_t metricDesc_NULL;
 
 
 typedef struct metric_list_t {
@@ -459,7 +273,7 @@ typedef HPCFMT_List(metric_desc_p_t) metric_desc_p_tbl_t; // HPCFMT_List of metr
 
 extern int
 hpcrun_fmt_metricTbl_fread(metric_tbl_t* metric_tbl, FILE* in, 
-			   double fmtVersion, hpcfmt_alloc_fn alloc);
+			   hpcfmt_alloc_fn alloc);
 
 extern int
 hpcrun_fmt_metricTbl_fwrite(metric_desc_p_tbl_t* metric_tbl, FILE* out);
@@ -473,7 +287,7 @@ hpcrun_fmt_metricTbl_free(metric_tbl_t* metric_tbl, hpcfmt_free_fn dealloc);
 
 extern int
 hpcrun_fmt_metricDesc_fread(metric_desc_t* x, FILE* infs, 
-			    double fmtVersion, hpcfmt_alloc_fn alloc);
+			    hpcfmt_alloc_fn alloc);
 
 extern int
 hpcrun_fmt_metricDesc_fwrite(metric_desc_t* x, FILE* outfs);
@@ -491,8 +305,10 @@ hpcrun_fmt_metricDesc_free(metric_desc_t* x, hpcfmt_free_fn dealloc);
 
 typedef struct loadmap_entry_t {
 
-  uint16_t id; // HPCRUN_FMT_LMId_NULL is the NULL value
+  uint16_t id;      // 0 is reserved as a NULL value
   char* name;
+  uint64_t vaddr;   // FIXME: obsolete
+  uint64_t mapaddr; // FIXME: obsolete
   uint64_t flags;
 
 } loadmap_entry_t;
@@ -549,15 +365,6 @@ hpcrun_fmt_doRetainId(uint32_t id)
 // hpcrun_fmt_cct_node_t
 // --------------------------------------------------------------------------
 
-#define HPCRUN_FMT_LMId_NULL (0)
-
-#define HPCRUN_FMT_LMIp_NULL  (0)
-#define HPCRUN_FMT_LMIp_Flag1 (1)
-
-// Primary syntethic root:   <lm-id: NULL, lm-ip: NULL>
-// Secondary synthetic root: <lm-id: NULL, lm-ip: Flag1>
-
-
 typedef struct hpcrun_fmt_cct_node_t {
 
   // id and parent id.  0 is reserved as a NULL value
@@ -566,17 +373,22 @@ typedef struct hpcrun_fmt_cct_node_t {
 
   lush_assoc_info_t as_info;
 
-  // load module id. Use HPCRUN_FMT_LMId_NULL as a NULL value.
+  // load module id.  0 is reserved as a NULL value
   uint16_t lm_id;
 
-  // static instruction pointer: more accurately, this is a static
-  // 'operation pointer'.  The operation in the instruction packet is
-  // represented by adding 0, 1, or 2 to the instruction pointer for
-  // the first, second and third operation, respectively.
-  hpcfmt_vma_t lm_ip;
+  // instruction pointer: more accurately, this is an 'operation
+  // pointer'.  The operation in the instruction packet is represented
+  // by adding 0, 1, or 2 to the instruction pointer for the first,
+  // second and third operation, respectively.
+  hpcfmt_vma_t ip;
 
-  // static logical instruction pointer
+  // logical instruction pointer
   lush_lip_t lip;
+
+  //use-reuse list
+  hpcfmt_uint_t num_malloc_id; //add by Xu Liu
+  hpcfmt_uint_t* malloc_id_list; //correlate node to malloc node. Add by Xu Liu
+  int64_t ass_set; //associatice sets. Add by Xu Liu
 
   hpcfmt_uint_t num_metrics;
   hpcrun_metricVal_t* metrics;
@@ -592,18 +404,17 @@ hpcrun_fmt_cct_node_init(hpcrun_fmt_cct_node_t* x)
 
 
 // N.B.: assumes space for metrics has been allocated
-extern int
-hpcrun_fmt_cct_node_fread(hpcrun_fmt_cct_node_t* x,
+extern int 
+hpcrun_fmt_cct_node_fread(hpcrun_fmt_cct_node_t* x, 
 			  epoch_flags_t flags, FILE* fs);
 
-extern int
-hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
+extern int 
+hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x, 
 			   epoch_flags_t flags, FILE* fs);
 
-extern int
-hpcrun_fmt_cct_node_fprint(hpcrun_fmt_cct_node_t* x, FILE* fs,
-			   epoch_flags_t flags, const metric_tbl_t* metricTbl,
-			   const char* pre);
+extern int 
+hpcrun_fmt_cct_node_fprint(hpcrun_fmt_cct_node_t* x, FILE* fs, 
+			   epoch_flags_t flags, const char* pre);
 
 
 // --------------------------------------------------------------------------

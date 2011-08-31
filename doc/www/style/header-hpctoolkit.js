@@ -1,25 +1,40 @@
-// 1. HPCToolkit Image (height = 71 pixels)
-document.write('\
-  <img style="position: absolute; top: 0px; left: 0px" \
-       src="style/header.gif" /> \
-');
+// We use JavaScript as a way to easily include this header
+// information in several HTML pages.
 
-// 2. Menu and horizontal rule
-document.write('\
-  <div style="position: relative; margin-top: 60px; width: 100%; text-align: right;"> \
-  <p style="margin: 0px; font-size: small;"> \
-    [ <a href="index.html">Home</a> \
-    | <a href="overview.html">Overview</a> \
-    | <a href="publications.html">Publications</a> ] \
-    &bull; \
-    [ <a href="software.html">Software/Downloads</a> \
-    | <a href="documentation.html">Documentation/Questions</a> ] \
-    &bull; \
-    [ <a href="info-people.html">People</a> | \
-      <a href="info-acks.html">Acks</a> ] \
-  </p> \
-  </div> \
-  <div style="width: 100%;"> \
-    <hr /> \
-  </div> \
-');
+// The 'top' anchor (used by footer_hpctools.js)
+document.write('<a name="top"></a>');
+
+// Locate the 'HPCToolkit' Image (height = 71 pixels)
+document.write('<img style="position:absolute; top:0px; left:0px" src="style/header.gif">');
+
+// Row 1 of the menu items (over the image)
+document.write('<div style="position:absolute; top:60px; right:15px;">');
+document.write('[ <a href="index.html">HPCToolkit Home</a> |');
+document.write('  <a href="overview.html">Overview</a> |');
+//document.write('  <a href="examples.html">Examples</a> |');
+document.write('  <a href="papers.html">Papers</a> |');
+document.write('  <a href="software.html">Software</a> |');
+document.write('  <a href="documentation.html">Documentation</a> ]');
+document.write('</div>');
+document.write('<br>');
+document.write('<br>');
+document.write('<br>');
+document.write('<br>');
+
+// ***************************************************************************
+
+// Old version for Netscape 4.  
+
+//document.write('<table width="100%" border="0" cellspacing="0" cellpadding="0">');
+//document.write('<tr>');
+//document.write('<td align="right">');
+//document.write('[ <a href="index.html">HPCToolkit Home</a> |');
+//document.write('  <a href="overview.html">Overview</a> |');
+//document.write('  <a href="examples.html">Examples</a> |');
+//document.write('  <a href="papers.html">Papers</a> |');
+//document.write('  <a href="downloads.html">Downloads</a> |');
+//document.write('  <a href="documentation.html">Documentation</a> ]');
+//document.write('</td>');
+//document.write('</tr>');
+//document.write('</table>');
+//document.write('<hr>');

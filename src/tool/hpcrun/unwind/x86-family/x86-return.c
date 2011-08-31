@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,16 +37,14 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #include "x86-canonical.h"
 #include "x86-decoder.h"
 #include "x86-interval-highwatermark.h"
 #include "x86-interval-arg.h"
-
-#include <lib/isa-lean/x86/instruction-set.h>
 
 /******************************************************************************
  * forward declarations 
@@ -67,6 +62,7 @@ process_return(xed_decoded_inst_t *xptr, bool irdebug, interval_arg_t *iarg)
 {
   unwind_interval *next = iarg->current;
 
+#ifdef FIX_INTERVALS_AT_RETURN
   if (iarg->current->ra_status == RA_SP_RELATIVE) {
     int offset = iarg->current->sp_ra_pos;
     if (offset != 0) {
@@ -76,18 +72,53 @@ process_return(xed_decoded_inst_t *xptr, bool irdebug, interval_arg_t *iarg)
 	u->sp_ra_pos -= offset;
 	u->sp_bp_pos -= offset;
 
-	if (u->restored_canonical == 1) {
-	  break;
-	}
+	if (u->restored_canonical == 1) break;
 	u = (unwind_interval *) u->common.prev;
-	if (! u) {
-	  break;
-	}
+	if (u == 0) break;
       }
     }
   }
+#endif
   if (iarg->current->bp_status == BP_SAVED) {
      suspicious_interval(iarg->ins);
+#if 0
+     highwatermark_t *hw_tmp              = &(iarg->highwatermark);
+  
+     unwind_interval *c = NULL;
+     unwind_interval *ui = iarg->current;
+     while (ui && ui->restored_canonical == 0) ui = ui->prev;
+     if (ui && ui->restored_canonical) {
+        ui->next = NULL;
+	iarg->bp_frames_found = 0;
+        hw_tmp->uwi = NULL;
+	iarg->current = ui->prev;
+
+        iarg->canonical_interval = ui->prev_canonical;
+
+        if (iarg->canonical_interval){
+          c = iarg->canonical_interval;
+        }
+        else  { 
+          c = iarg->first; /* this may help. */
+          ui->restored_canonical = 0; /* don't back up again */
+        }
+        ui->prev_canonical = c->prev_canonical; 
+
+        ui->ra_status = c->ra_status;
+        ui->bp_status = c->bp_status;
+
+        ui->sp_ra_pos = c->sp_ra_pos;
+        ui->sp_bp_pos = c->sp_bp_pos;
+
+        ui->bp_ra_pos = c->bp_ra_pos;
+        ui->bp_bp_pos = c->bp_bp_pos;
+
+        // restart at the end of the first interval that we just patched
+        iarg->ins = ((char *) ui->prev->endaddr) - xed_decoded_inst_get_length(xptr); 
+        return ui;
+        // FIXME
+     }
+#endif
   }
   if (iarg->ins + xed_decoded_inst_get_length(xptr) < iarg->end) {
     //-------------------------------------------------------------------------
@@ -117,8 +148,7 @@ process_return(xed_decoded_inst_t *xptr, bool irdebug, interval_arg_t *iarg)
  * private operations
  *****************************************************************************/
 
-static bool
-plt_is_next(char *ins)
+static bool plt_is_next(char *ins)
 {
   
   // Assumes: 'ins' is pointing at the instruction from which
@@ -151,7 +181,7 @@ plt_is_next(char *ins)
       const xed_inst_t* xi = xed_decoded_inst_inst(xptr);
       const xed_operand_t* op0 = xed_inst_operand(xi, 0);
       if ((xed_operand_name(op0) == XED_OPERAND_MEM0) && 
-	    x86_isReg_IP(xed_decoded_inst_get_base_reg(xptr, 0))) {
+	    (xed_decoded_inst_get_base_reg(xptr, 0) == XED_REG_RIP)) {
 	int64_t offset = xed_decoded_inst_get_memory_displacement(xptr, 0);
 	push_succ_addr = ins + xed_decoded_inst_get_length(xptr);
 	val_pushed = push_succ_addr + offset;
@@ -180,7 +210,7 @@ plt_is_next(char *ins)
       const xed_inst_t *xi = xed_decoded_inst_inst(xptr);
       const xed_operand_t *op0 =  xed_inst_operand(xi,0);
       if ((xed_operand_name(op0) == XED_OPERAND_MEM0) && 
-	  x86_isReg_IP(xed_decoded_inst_get_base_reg(xptr, 0))) {
+	    (xed_decoded_inst_get_base_reg(xptr, 0) == XED_REG_RIP)) {
 	long long offset = xed_decoded_inst_get_memory_displacement(xptr,0);
 	jmp_target = push_succ_addr + xed_decoded_inst_get_length(xptr) + offset;
       }
@@ -192,12 +222,7 @@ plt_is_next(char *ins)
     return false;
   }
 
-  //
-  // FIXME: Does the 8 need to be sizeof(void*) ?????
-  //
-  if ((jmp_target - val_pushed) == 8){
-    return true;
-  }
+  if ((jmp_target - val_pushed) == 8) return true;
 
   return false;
 }

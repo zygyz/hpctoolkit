@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -81,7 +78,10 @@
 #include "stack_troll.h"
 #include "sample_event.h"
 
-#include <lib/isa-lean/mips/instruction-set.h>
+// FIXME: Abuse the isa library by cherry-picking this special header.
+// One possibility is to simply use the ISA lib -- doesn't xed
+// internally use C++ stuff?
+#include <lib/isa/instructionSets/mips.h>
 
 
 //*************************** Forward Declarations **************************
@@ -298,10 +298,9 @@ validateTroll(void* addr, void* arg)
   dylib_find_proc(addr, &proc_beg, &mod_beg);
   isInCode = (mod_beg || proc_beg);
 #else
-  void* proc_beg = NULL;
-  void* proc_end = NULL;
-  bool ret = fnbounds_enclosing_addr(addr, &proc_beg, &proc_end, NULL);
-  isInCode = ret && proc_beg;
+  void *proc_beg = NULL, *proc_end = NULL;
+  int ret = fnbounds_enclosing_addr(addr, &proc_beg, &proc_end);
+  isInCode = (ret == 0) && proc_beg;
 #endif
   
   if (isInCode && isAfterCall(addr)) {
@@ -332,64 +331,38 @@ hpcrun_unw_init(void)
 }
 
 
-typedef enum {
-  UNW_REG_IP
-} unw_reg_code_t;
-
-static int 
-hpcrun_unw_get_unnorm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id, 
-			  void** reg_value)
+int 
+hpcrun_unw_get_reg(unw_cursor_t* cursor,
+		   unw_reg_code_t reg_id, void **reg_value)
 {
   assert(reg_id == UNW_REG_IP);
-  *reg_value = cursor->pc_unnorm;
+  *reg_value = cursor->pc;
   return 0;
 }
 
-
-static int 
-hpcrun_unw_get_norm_reg(hpcrun_unw_cursor_t* cursor, unw_reg_code_t reg_id, 
-		    ip_normalized_t* reg_value)
-{
-  assert(reg_id == UNW_REG_IP);
-  *reg_value = cursor->pc_norm;
-  return 0;
-}
-
-int
-hpcrun_unw_get_ip_norm_reg(hpcrun_unw_cursor_t* c, ip_normalized_t* reg_value)
-{
-  return hpcrun_unw_get_norm_reg(c, UNW_REG_IP, reg_value);
-}
-
-int
-hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value)
-{
-  return hpcrun_unw_get_unnorm_reg(c, UNW_REG_IP, reg_value);
-}
 
 // unimplemented for now
 //  fix when trampoline support is added
 void*
-hpcrun_unw_get_ra_loc(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_get_ra_loc(unw_cursor_t* cursor)
 {
   return NULL;
 }
 
 
 void 
-hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
+hpcrun_unw_init_cursor(unw_cursor_t* cursor, void* context)
 {
   ucontext_t* ctxt = (ucontext_t*)context;
 
-  cursor->pc_unnorm = ucontext_pc(ctxt);
+  cursor->pc = ucontext_pc(ctxt);
   cursor->ra = ucontext_ra(ctxt);
   cursor->sp = ucontext_sp(ctxt);
   cursor->bp = ucontext_fp(ctxt);
 
-  UNW_INTERVAL_t intvl = demand_interval(cursor->pc_unnorm, true/*isTopFrame*/);
+  UNW_INTERVAL_t intvl = demand_interval(cursor->pc, true/*isTopFrame*/);
   cursor->intvl = CASTTO_UNW_CURSOR_INTERVAL_t(intvl);
-  cursor->pc_norm = hpcrun_normalize_ip(cursor->pc_unnorm, UI_FLD(intvl,lm));
-  
+
   if (!UI_IS_NULL(intvl)) {
     if (frameflg_isset(UI_FLD(intvl,flgs), FrmFlg_RAReg)) {
       cursor->ra = 
@@ -400,25 +373,23 @@ hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
     }
   }
 
-  TMSG(UNW, "init: pc=%p, pc_norm: id= %d offset=%p ra=%p, sp=%p, fp=%p", 
-       cursor->pc_unnorm, cursor->pc_norm->id, cursor->pc_norm->offset,
-       idcursor->ra, cursor->sp, cursor->bp);
+  TMSG(UNW, "init: pc=%p, ra=%p, sp=%p, fp=%p", 
+       cursor->pc, cursor->ra, cursor->sp, cursor->bp);
   if (MYDBG) { ui_dump(UI_ARG(intvl)); }
 }
 
 
 int 
-hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
+hpcrun_unw_step(unw_cursor_t* cursor)
 {
   // current frame:
-  void*  pc = cursor->pc_unnorm;
+  void*  pc = cursor->pc;
   void** sp = cursor->sp;
   void** fp = cursor->bp;
   UNW_INTERVAL_t intvl = CASTTO_UNW_INTERVAL_t(cursor->intvl);
 
   // next (parent) frame
-  void*           nxt_pc = pc_NULL;
-  ip_normalized_t nxt_pc_norm = ip_normalized_NULL;
+  void*  nxt_pc = pc_NULL;
   void** nxt_sp = NULL;
   void** nxt_fp = NULL;
   void*  nxt_ra = NULL; // always NULL unless we go through a signal handler
@@ -511,7 +482,6 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
   // try to obtain interval
   if (nxt_pc != pc_NULL) {
     nxt_intvl = demand_interval(getNxtPCFromRA(nxt_pc), isTopFrame);
-    nxt_pc_norm = hpcrun_normalize_ip(nxt_pc, UI_FLD(nxt_intvl,lm));
   }
 
   // if nxt_pc is invalid for some reason, try trolling
@@ -531,9 +501,6 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
     if (UI_IS_NULL(nxt_intvl)) {
       TMSG(UNW, "error: troll_pc=%p failed", *troll_sp);
       return STEP_ERROR;
-    }
-    else {
-      nxt_pc_norm = hpcrun_normalize_ip(nxt_pc, UI_FLD(nxt_intvl,lm));
     }
     didTroll = true;
 
@@ -576,12 +543,18 @@ hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
   TMSG(UNW, "next: pc=%p, sp=%p, fp=%p", nxt_pc, nxt_sp, nxt_fp);
   if (MYDBG) { ui_dump(UI_ARG(nxt_intvl)); }
 
-  cursor->pc_unnorm = nxt_pc;
-  cursor->pc_norm   = nxt_pc_norm;
-  cursor->ra        = nxt_ra;
-  cursor->sp        = nxt_sp;
-  cursor->bp        = nxt_fp;
-  cursor->intvl     = CASTTO_UNW_CURSOR_INTERVAL_t(nxt_intvl);
+  cursor->pc = nxt_pc;
+  cursor->ra = nxt_ra;
+  cursor->sp = nxt_sp;
+  cursor->bp = nxt_fp;
+  cursor->intvl = CASTTO_UNW_CURSOR_INTERVAL_t(nxt_intvl);
 
   return (didTroll) ? STEP_TROLL : STEP_OK;
+}
+
+
+void
+hpcrun_unw_throw()
+{
+  hpcrun_drop_sample();
 }

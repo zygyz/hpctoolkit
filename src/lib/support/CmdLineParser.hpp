@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -69,11 +66,9 @@
 #include <vector>
 #include <string>
 
-#include <stdint.h>
+#include <inttypes.h>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "diagnostics.h"
 
@@ -180,16 +175,12 @@ public:
 
   struct OptArgDesc {
     
-    bool operator==(const OptArgDesc& x) const
-    { 
-      return (swShort == x.swShort && swLong == x.swLong
+    bool operator==(const OptArgDesc& x) const { 
+      return (swShort == x.swShort && swLong == x.swLong 
 	      && kind == x.kind && dupKind == x.dupKind
 	      && dupArgSep == x.dupArgSep);
     }
-
-    bool
-    operator!=(const OptArgDesc& x) const
-    { return !(*this == x); }
+    bool operator!=(const OptArgDesc& x) const { return !(*this == x); }
     
     // Data
     char swShort;       // 0 if n/a
@@ -280,7 +271,7 @@ public:
   // command line arguments, parses the argv/argc into switches,
   // optional and required arguments.
   void
-  parse(const OptArgDesc* optArgDescs,
+  parse(const OptArgDesc* optArgDescs, 
 	int argc, const char* const argv[]);
   
   // -------------------------------------------------------
@@ -288,8 +279,7 @@ public:
   // -------------------------------------------------------
 
   // GetCmd: The command (will be valid even after a parse error)
-  const std::string&
-  getCmd() const;
+  const std::string& getCmd() const;
   
   // -------------------------------------------------------
   // Parsed Data: Optional arguments
@@ -297,90 +287,58 @@ public:
   
   // isOpt: (isOption) Given a short or long switch, returns whether
   // the switch has been seen.
-  bool
-  isOpt(const char swShort) const;
-  
-  bool
-  isOpt(const char* swLong) const;
-
-  bool
-  isOpt(const std::string& sw) const;
+  bool isOpt(const char swShort) const;
+  bool isOpt(const char* swLong) const;
+  bool isOpt(const std::string& sw) const;
 
   // isOptArg: (isOptionArgument) Given a short or long switch,
   // returns whether an argument is associated with it.  Designed for
   // switches that optionally take arguments.
-  bool
-  isOptArg(const char swShort) const;
-
-  bool
-  isOptArg(const char* swLong) const;
-
-  bool
-  isOptArg(const std::string& sw) const;
+  bool isOptArg(const char swShort) const;
+  bool isOptArg(const char* swLong) const;
+  bool isOptArg(const std::string& sw) const;  
   
   // getOptArg: (GetOptionArgument) Given a short or long switch, get
   // the argument associated with it.  Assumes user has verified that
   // an argument *exists*.
-  const std::string&
-  getOptArg(const char swShort) const;
-  
-  const std::string&
-  getOptArg(const char* swLong) const;
-  
-  const std::string&
-  getOptArg(const std::string& sw) const;
+  const std::string& getOptArg(const char swShort) const;
+  const std::string& getOptArg(const char* swLong) const;
+  const std::string& getOptArg(const std::string& sw) const;
 
   // -------------------------------------------------------
   // Parsed Data: Arguments
   // -------------------------------------------------------
-  unsigned int
-  getNumArgs() const;
-  
-  const std::string&
-  getArg(unsigned int i) const;
+  unsigned int getNumArgs() const;
+  const std::string& getArg(unsigned int i) const;
 
   // -------------------------------------------------------
   // Convert strings into other formats
   // -------------------------------------------------------
   // The input should be non-empty
-  static long
-  toLong(const std::string& str);
-  
-  static uint64_t
-  toUInt64(const std::string& str);
-  
-  static double
-  toDbl(const std::string& str);
+  static long     toLong(const std::string& str);
+  static uint64_t toUInt64(const std::string& str);
+  static double   toDbl(const std::string& str);
 
   // ---------------------------------------------------------
   // Disambiguate optional arguments to a switch
   // ---------------------------------------------------------
-  static bool
-  isOptArg_long(const char* option);
+  static bool isOptArg_long(const char* option);
 
   // ---------------------------------------------------------
   // Convenience routines for interpreting the value of an option  
   // ---------------------------------------------------------
-  static bool
-  parseArg_bool(const std::string& value, const char* errTag);
+  static bool parseArg_bool(const std::string& value, const char* err_note);
 
   // -------------------------------------------------------
   // Misc
   // -------------------------------------------------------
-  void
-  dump(std::ostream& os = std::cerr) const;
-  
-  void
-  ddump() const;
+  void dump(std::ostream& os = std::cerr) const;
+  void ddump() const;
   
 private:
   // Should not be used 
-  CmdLineParser(const CmdLineParser& GCC_ATTR_UNUSED x)
-  { }
-  
-  CmdLineParser&
-  operator=(const CmdLineParser& GCC_ATTR_UNUSED x)
-  { return *this; }
+  CmdLineParser(const CmdLineParser& p) { }
+  CmdLineParser& operator=(const CmdLineParser& x) { return *this; }
   
   typedef std::map<std::string, std::string*> SwitchToArgMap;
   typedef std::vector<std::string> ArgVec;
@@ -411,34 +369,30 @@ private:
   };
 
 private:
-  void
-  Ctor();
-  
-  void
-  reset();
+  void Ctor();
+  void Reset();
+  void CheckForErrors(const OptArgDesc* optArgDescs);
 
-  void
-  checkForErrors(const OptArgDesc* optArgDescs);
-
-  const OptArgDesc*
-  createSortedCopy(const OptArgDesc* optArgDescs);
+  const OptArgDesc* 
+  CreateSortedCopy(const OptArgDesc* optArgDescs);
 
   // Parsing helpers
   SwDesc
-  makeSwitchDesc(const char* str);
+  MakeSwitchDesc(const char* str);
   
   const OptArgDesc*
-  findOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
+  FindOptDesc(const OptArgDesc* optArgDescs, const SwDesc& swdesc,
 	      bool errOnMultipleMatches = true);
   
   void
-  addOption(const OptArgDesc& odesc, const SwDesc& swdesc);
+  AddOption(const OptArgDesc& odesc, const SwDesc& swdesc);
   
   void
-  addOption(const OptArgDesc& odesc,
+  AddOption(const OptArgDesc& odesc, 
 	    const std::string& sw, const std::string& arg);
   
 private:
+  
   std::string command;           // comand name
   SwitchToArgMap switchToArgMap; // optional arguments
   ArgVec arguments;              // regular arguments

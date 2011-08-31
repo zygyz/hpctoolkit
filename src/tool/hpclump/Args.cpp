@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 //***************************************************************************
@@ -77,8 +74,6 @@ using std::strtol; // For compatibility with non-std C headers
 
 //*************************** User Include Files ****************************
 
-#include <include/hpctoolkit-config.h>
-
 #include "Args.hpp"
 
 #include <lib/support/diagnostics.h>
@@ -95,7 +90,8 @@ using std::strtol; // For compatibility with non-std C headers
 
 //***************************************************************************
 
-static const char* version_info = HPCTOOLKIT_VERSION_STRING;
+static const char* version_info =
+#include <include/HPCToolkitVersionInfo.h>
 
 static const char* usage_summary =
 "[options] <loadmodule>\n";
@@ -175,29 +171,29 @@ Args::~Args()
 }
 
 
-void
+void 
 Args::printVersion(std::ostream& os) const
 {
   os << getCmd() << ": " << version_info << endl;
 }
 
 
-void
+void 
 Args::printUsage(std::ostream& os) const
 {
   os << "Usage: " << getCmd() << " " << usage_summary << endl
      << usage_details << endl;
-}
+} 
 
 
-void
+void 
 Args::printError(std::ostream& os, const char* msg) const
 {
   os << getCmd() << ": " << msg << endl
      << "Try '" << getCmd() << " --help' for more information." << endl;
 }
 
-void
+void 
 Args::printError(std::ostream& os, const std::string& msg) const
 {
   printError(os, msg.c_str());
@@ -221,18 +217,18 @@ Args::parse(int argc, const char* const argv[])
     // Special options that should be checked first
     trace = debugLevel = 0;
     
-    if (parser.isOpt("debug")) {
-      trace = debugLevel = 1;
+    if (parser.isOpt("debug")) { 
+      trace = debugLevel = 1; 
       if (parser.isOptArg("debug")) {
 	const string& arg = parser.getOptArg("debug");
 	trace = debugLevel = (int)CmdLineParser::toLong(arg);
       }
     }
-    if (parser.isOpt("help")) {
-      printUsage(std::cerr);
+    if (parser.isOpt("help")) { 
+      printUsage(std::cerr); 
       exit(1);
     }
-    if (parser.isOpt("version")) {
+    if (parser.isOpt("version")) { 
       printVersion(std::cerr);
       exit(1);
     }
@@ -242,26 +238,26 @@ Args::parse(int argc, const char* const argv[])
     if (parser.isOpt("long")) {
       dumpLong = true;
       numDumpOptions++;
-    }
-    if (parser.isOpt("short")) {
+    } 
+    if (parser.isOpt("short")) { 
       dumpShort = true;
       numDumpOptions++;
-    }
+    } 
     if (parser.isOpt("decode")) {
       dumpDecode = true;
       if (dumpShort) {
 	ARG_ERROR("--decode not valid with --short!");
       }
-    }
-    if (parser.isOpt("old")) {
+    } 
+    if (parser.isOpt("old")) { 
       dumpOld = true;
       numDumpOptions++;
-    }
+    } 
     if (numDumpOptions > 1) {
       ARG_ERROR("At most one dump option may be given!");
     }
 
-    if (parser.isOpt("load-addr")) {
+    if (parser.isOpt("load-addr")) { 
       const string& arg = parser.getOptArg("load-addr");
       loadVMA = CmdLineParser::toLong(arg);
 
@@ -275,7 +271,7 @@ Args::parse(int argc, const char* const argv[])
       loadVMA = (VMA)l;
 #endif
     }
-
+    
     // Check for required arguments
     if (parser.getNumArgs() != 1) {
       ARG_ERROR("Incorrect number of arguments!");
@@ -292,16 +288,16 @@ Args::parse(int argc, const char* const argv[])
 }
 
 
-void
+void 
 Args::dump(std::ostream& os) const
 {
-  os << "Args.cmd= " << getCmd() << endl;
+  os << "Args.cmd= " << getCmd() << endl; 
   os << "Args.debugLevel= " << debugLevel << endl;
   os << "Args.inputFile= " << inputFile << endl;
-  os << "::trace " << ::trace << endl;
+  os << "::trace " << ::trace << endl; 
 }
 
-void
+void 
 Args::ddump() const
 {
   dump(std::cerr);

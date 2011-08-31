@@ -1,15 +1,25 @@
-// Footer
-document.write('\
-  <div style="width: 100%; font-size: small;"> \
-    <hr /> \
-    <p style="margin: 0px; font-size: small;"> \
-      &copy;2000-2011 <a href="http://www.rice.edu">Rice University</a> \
-      &bull; \
-      <a href="http://www.cs.rice.edu">Rice Computer Science</a> \
-    </p> \
-    <a href="http://validator.w3.org/check/referer"> \
-      <img src="http://www.w3.org/Icons/valid-xhtml10-blue" alt="" height="15" /></a> \
-    <a href="http://jigsaw.w3.org/css-validator/check/referer"> \
-      <img src="http://www.w3.org/Icons/valid-css-blue" alt="" height="15" /></a> \
-  </div> \
-');
+// We use JavaScript as a way to easily include this footer
+// information in several HTML pages.
+
+//   note: uses the 'top' anchor from header_hpctools.js
+document.write('<table width="100%" border="0" cellspacing="0" cellpadding="0">');
+
+// horizontal rule
+document.write('<tr>');
+document.write('<hr>');
+document.write('</tr>');
+
+// General links and copyright 
+
+document.write('<tr>');
+document.write('<td align="left">');
+document.write('  &copy;2000-2010 <a title="Rice University" href="http://www.rice.edu">Rice University</a>');
+document.write('</td>');
+document.write('<td align="right">');
+document.write('  [<a href="info-contact.html">Contact Us</a> |');
+document.write('  <a href="info-people.html">People</a> |');
+document.write('  <a href="info-acks.html">Acknowledgments</a> |');
+document.write('  <a title="RiceCS" href="http://www.cs.rice.edu">Rice Computer Science</a> ]');
+document.write('</td>');
+document.write('</tr>');
+document.write('</table>');

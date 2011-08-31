@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #ifndef pathfind_h
@@ -64,6 +61,19 @@
  * The returned pointer points to an area that will be reused on subsequent
  * calls to this function, and must not be freed by the caller.
  *
+ * pathfind_r - (recursively) search for named file in given
+ * ----------   colon-separated (recursive) pathlist
+ *
+ * Same as above, except that for any 'recursive-path', pathfind_r
+ * additionally recursively searches all of that path's descendents.
+ * A 'recursive-path' is specified by appending a single '*' at
+ * the end of the directory.  
+ *   /home/.../dir/\*
+ * A pathlist can contain a mix of regular and 'recursive-paths':
+ *  /home/dir1:/home/dir2/\*:/home/dir3:/home/dir4/\*
+ *
+ * ** Note: the '*' is escaped with '\' so it does not look like a C-style 
+ *    comment; in reality it should not be escaped! **
  */
 
 
@@ -75,6 +85,18 @@ extern char*
 pathfind(const char* pathList,
 	 const char* name,
 	 const char* mode);
+  
+extern char*
+pathfind_r(const char* pathList,
+	   const char* name,
+	   const char* mode);
+ 
+#define RECURSIVE_PATH_SUFFIX_LN 2 /* length of the recursive suffix */
+
+/* Is this a valid recursive path of the form '.../path/\*' ? */
+
+int 
+is_recursive_path(const char* path);
 
 #ifdef __cplusplus
 }

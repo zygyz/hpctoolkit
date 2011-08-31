@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 /****************************************************************************
@@ -88,11 +85,10 @@
 
 /**************************** User Include Files ****************************/
 
-#include <include/hpctoolkit-config.h>
+#include "monitor.h"
+
 #include <include/uint.h>
 #include <include/min-max.h>
-
-#include "monitor.h"
 
 #ifdef HAVE_MONITOR  
 // FIXME: use libmonitor completely and include it
@@ -1715,7 +1711,7 @@ write_all_profiles(hpcrun_profiles_desc_t* profdesc, rtloadmap_t* rtmap)
   if (opt_debug >= 1) { MSGx(stderr, "rtmap count: %d", rtmap->count); }
 
   /* <loadmodule_list> */
-  hpcio_le4_fwrite(&(rtmap->count), fs);
+  hpcio_fwrite_le4(&(rtmap->count), fs);
   for (i = 0; i < rtmap->count; ++i) {
     write_module_profile(fs, &(rtmap->module[i]), profdesc, i);
   }
@@ -1741,7 +1737,7 @@ write_module_profile(FILE* fs, rtloadmod_desc_t* mod,
 
   /* <loadmodule_name>, <loadmodule_loadoffset> */
   write_string(fs, mod->name);
-  hpcio_le8_fwrite(&(mod->offset), fs);
+  hpcio_fwrite_le8(&(mod->offset), fs);
 
   /* <loadmodule_eventcount> */
   if (HPC_GET_SYSPROFS(profdesc)) { 
@@ -1752,7 +1748,7 @@ write_module_profile(FILE* fs, rtloadmod_desc_t* mod,
     numPapiEv = HPC_GET_PAPIPROFS(profdesc)->size;
     numEv += numPapiEv; 
   }
-  hpcio_le4_fwrite(&numEv, fs);
+  hpcio_fwrite_le4(&numEv, fs);
   
   /* Event data */
   /*   <event_x_name> <event_x_description> <event_x_period> */
@@ -1777,7 +1773,7 @@ write_event_hdr(FILE *fs, char* name, char* desc, uint64_t period)
   /* <event_x_name> <event_x_description> <event_x_period> */
   write_string(fs, name);
   write_string(fs, desc);
-  hpcio_le8_fwrite(&period, fs);
+  hpcio_fwrite_le8(&period, fs);
 }
 
 
@@ -1821,7 +1817,7 @@ write_event_data(FILE *fs, char* ename, hpc_hist_bucket* histo,
   for (i = 0; i < ncounters; ++i) {
     if (histo[i] != 0) { count++; inz = i; }
   }
-  hpcio_le8_fwrite(&count, fs);
+  hpcio_fwrite_le8(&count, fs);
   
   if (opt_debug >= 3) {
     MSGx(stderr, "  buffer (%p) for %s has %"PRIu64" of %"PRIu64" non-zero counters (last non-zero counter: %"PRIu64")", 
@@ -1833,10 +1829,10 @@ write_event_data(FILE *fs, char* ename, hpc_hist_bucket* histo,
   for (i = 0; i < ncounters; ++i) {
     if (histo[i] != 0) {
       uint32_t cnt = histo[i];
-      hpcio_le4_fwrite(&cnt, fs);   /* count */
+      hpcio_fwrite_le4(&cnt, fs);   /* count */
 
       offset = i * bytesPerCodeBlk;
-      hpcio_le8_fwrite(&offset, fs); /* offset (in bytes) from load addr */
+      hpcio_fwrite_le8(&offset, fs); /* offset (in bytes) from load addr */
 
       if (opt_debug >= 3) {
         MSGx(stderr, "  (cnt,offset)=(%d,%"PRIx64")", cnt, offset);
@@ -1851,7 +1847,7 @@ write_string(FILE *fs, char *str)
 {
   /* <string_length> <string_without_terminator> */
   uint len = strlen(str);
-  hpcio_le4_fwrite(&len, fs);
+  hpcio_fwrite_le4(&len, fs);
   fwrite(str, 1, len, fs);
 }
 

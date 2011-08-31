@@ -30,7 +30,7 @@
 \rcsInfo $Id$
 \setDate{\rcsInfoLongDate}
 }{
-\setDate{ 2011/02/22}
+\setDate{ 2009/02/09}
 \message{package rcsinfo not present, discard it}
 }
 
@@ -130,51 +130,34 @@ Default values for an option's optional arguments are shown in \{\}.
 \begin{Description}
 \item[\OptoArg{--source}{=all,sum,pgm,lm,f,p,l,s,src}]
 \item[\OptoArg{--src}{=all,sum,pgm,lm,f,p,l,s,src}] 
-Correlate metrics to source code structure.
-Use the following flags to control which source code structures appear in the output:
+Correlate metrics to source code structure. Without \Opt{--source}, default is \{pgm,lm\}; with, it is \{sum\}.
   \begin{itemize}
-  \item[all] all summaries plus annotated source files
-  \item[sum] all summaries
-  \item[pgm] program summary
-  \item[lm]  load module summary
-  \item[f]   files summary
-  \item[p]   procedure summary
-  \item[l]   loop summary
-  \item[s]   statement summary
-  \item[src] annotate source files with metrics; equivalent to \Opt{--srcannot '*'}
+  \item all: all summaries plus annotated source files
+  \item sum: all summaries
+  \item pgm: program summary
+  \item lm:  load module summary
+  \item f:   files summary
+  \item p:   procedure summary
+  \item l:   loop summary
+  \item s:   statement summary
+  \item src: annotate source files with metrics; equivalent to \Opt{--srcannot '*'}
   \end{itemize}
-Without \Opt{--source}, the default set of flags is \{pgm,lm\}; with \Opt{--source}, the default set is \{sum\}.
 
 \item[\OptArg{--srcannot}{glob}] 
-Annotate source files with path names that match file glob \Arg{glob}.
-(Protect glob characters from shell with single quotes or backslash.)
-May pass multiple times to logically OR additional globs.
+Annotate source files with path names that match file glob \Arg{glob}. (Protect glob characters from shell with single quotes or backslash.) May pass multiple times to logically OR additional globs.
 
 \item[\OptoArg{-M}{metric}, \OptoArg{--metric}{metric}] 
-Specify the set of metrics to compute.
-\Arg{metric} is one of the following:
+Show a supplemental or different metric set. \Arg{metric} is one of the following:
   \begin{itemize}
-  \item[sum]    Show (only) summary metrics: Sum, Mean, StdDev (standard deviation), CoefVar (coefficient of variation), Min, Max
-  \item[sum+]   Show thread and summary metrics
+  \item sum:      Show also Mean, CoefVar (coefficient of variation), Min, Max, Sum
+  \item sum-only: Show only Mean, CoefVar (coefficient of variation), Min, Max, Sum
   \end{itemize}
 
-\item[\OptArg{-I}{dir}, \OptArg{--include}{dir}]
-Use \Arg{dir} as a search directory to find source files.
-For a recursive search, append a '*' after the last slash, e.g., \verb+'/mypath/*'+ (quote or escape to protect from the shell).
-May pass multiple times.
+\item[\OptArg{-I}{path}, \OptArg{--include}{path}] 
+Use \Arg{path} when searching for source files. For a recursive search, append a '*' after the last slash, e.g., \verb+'/mypath/*'+ (quote or escape to protect from the shell). May pass multiple times.
 
-Note: With multiple search-directory arguments, it may be the case that file \Arg{f} exists within more than one search directory.
-In this case, the ambiguity is resolved in favor of the search directory that appears first on the command line.
-
-\item[\OptArg{-S}{file}, \OptArg{--structure}{file}]
-Use \HTMLhref{hpcstruct.html}{\Cmd{hpcstruct}{1}} structure file \Arg{file} for correlation.
-May pass multiple times (e.g., for shared libraries).
-
-\item[\OptArg{-R}{'old-path=new-path'}, \OptArg{--replace-path}{'old-path=new-path'}]
-Substitute instances of \Arg{old-path} with \Arg{new-path}; apply to all paths (e.g., a profile's load map and source code) for which \Arg{old-path} is a prefix.
-Use '\Bs'\ to escape instances of '=' within a path. May pass multiple times.
-
-Use this option when a profile or binary contains references to files that have been relocated, such as might occur with a file system change.
+\item[\OptArg{-S}{file}, \OptArg{--structure}{file}] 
+Use \HTMLhref{hpcstruct.html}{\Cmd{hpcstruct}{1}} structure file \Arg{file} for correlation.  May pass multiple times (e.g., for shared libraries).
 \end{Description}
 
 \subsection{Options: Object Correlation}
@@ -189,9 +172,7 @@ Correlate metrics with object code by annotating object code procedures and inst
   \end{itemize}
 
 \item[\OptArg{--objannot}{glob}] 
-Annotate object procedures with (unmangled) names that match glob \Arg{glob}.
-(Protect glob characters from shell with single quotes or backslash.)
-May pass multiple times to logically OR additional globs.
+Annotate object procedures with (unmangled) names that match glob \Arg{glob}. (Protect glob characters from shell with single quotes or backslash.) May pass multiple times to logically OR additional globs.
 
 \item[\OptArg{--obj-threshold}{n}] 
 Prune procedures with an event count < \Arg{n} \{1\}
@@ -218,7 +199,7 @@ Let the executable and profile be named \File{poissonSolve} and \File{poissonSol
 Assume further that we wish to correlate derived summary metrics (Mean, RStdDev, Min, Max) with source code and generate summary tables.
 To do this, execute:
 \begin{verbatim}
-    hpcproftt --src --metric=sum poissonSolve.hpcrun*
+    hpcproftt --src --metric=sum-only poissonSolve.hpcrun*
 \end{verbatim}
 
 \item Using the same example as above, assume we wish to correlate the profile with object code.  Execute the following command:
@@ -245,7 +226,7 @@ Version: \Version\ of \Date.
 \section{License and Copyright}
 
 \begin{description}
-\item[Copyright] \copyright\ 2002-2011, Rice University.
+\item[Copyright] \copyright\ 2002-2009, Rice University.
 \item[License] See \File{README.License}.
 \end{description}
 
@@ -254,8 +235,9 @@ Version: \Version\ of \Date.
 
 \noindent
 Nathan Tallent \\
-Rice HPCToolkit Research Group \\
-Email: \Email{hpctoolkit-forum =at= rice.edu} \\
+John Mellor-Crummey \\
+Rob Fowler \\
+Email: \Email{hpc =at= cs.rice.edu} \\
 WWW: \URL{http://hpctoolkit.org}.
 
 \LatexManEnd

@@ -5,31 +5,28 @@
 // $HeadURL$
 // $Id$
 //
-// --------------------------------------------------------------------------
+// -----------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
-//
-// Information about sources of support for research and development of
-// HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
-// --------------------------------------------------------------------------
-//
-// Copyright ((c)) 2002-2011, Rice University
+// -----------------------------------
+// 
+// Copyright ((c)) 2002-2010, Rice University 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-//
+// 
 // * Redistributions of source code must retain the above copyright
 //   notice, this list of conditions and the following disclaimer.
-//
+// 
 // * Redistributions in binary form must reproduce the above copyright
 //   notice, this list of conditions and the following disclaimer in the
 //   documentation and/or other materials provided with the distribution.
-//
+// 
 // * Neither the name of Rice University (RICE) nor the names of its
 //   contributors may be used to endorse or promote products derived from
 //   this software without specific prior written permission.
-//
+// 
 // This software is provided by RICE and contributors "as is" and any
 // express or implied warranties, including, but not limited to, the
 // implied warranties of merchantability and fitness for a particular
@@ -40,8 +37,8 @@
 // business interruption) however caused and on any theory of liability,
 // whether in contract, strict liability, or tort (including negligence
 // or otherwise) arising in any way out of the use of this software, even
-// if advised of the possibility of such damage.
-//
+// if advised of the possibility of such damage. 
+// 
 // ******************************************************* EndRiceCopyright *
 
 #ifndef hpcrun_backtrace_h
@@ -69,10 +66,8 @@
 // local include files 
 //***************************************************************************
 
-#include <hpcrun/utilities/ip-normalized.h>
-#include <unwind/common/unw-datatypes.h>
-#include <unwind/common/backtrace_info.h>
-#include <hpcrun/frame.h>
+#include "unwind_cursor.h"
+#include <cct/frame.h>
 
 //
 // backtrace_t type is a struct holding begin, end, current ptrs
@@ -127,18 +122,10 @@ bool     hpcrun_bt_empty(backtrace_t* bt);
 
 bool     hpcrun_backtrace_std(backtrace_t* bt, ucontext_t* context);
 
-void hpcrun_bt_modify_leaf_addr(backtrace_t* bt, ip_normalized_t ip_norm);
+void hpcrun_bt_modify_leaf_addr(backtrace_t* bt, void* addr);
 
-void hpcrun_bt_add_leaf_child(backtrace_t* bt, ip_normalized_t ip_norm);
+void hpcrun_bt_add_leaf_child(backtrace_t* bt, void* addr);
 
 void hpcrun_dump_bt(backtrace_t* bt);
-
-bool hpcrun_generate_backtrace(backtrace_info_t* bt,
-			       ucontext_t* context, int skipInner);
-
-bool hpcrun_dbg_generate_backtrace(backtrace_info_t* bt,
-			       ucontext_t* context, int skipInner);
-
-bool hpcrun_gen_bt(ucontext_t* context, bool* has_tramp, bt_mut_fn bt_fn, bt_fn_arg bt_arg);
 
 #endif // hpcrun_backtrace_h
