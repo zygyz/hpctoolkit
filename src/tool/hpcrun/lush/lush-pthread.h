@@ -78,7 +78,6 @@
 #include "lush-pthread.i"
 #include "lush-backtrace.h" // for 'lush_agents'
 
-#include <safe-sampling.h>
 #include <sample_event.h>
 #include <cct/cct.h>
 
@@ -158,14 +157,14 @@ lushPthr_endSmplIdleness(lushPthr_t* x)
 static inline cct_node_t*
 lushPthr_attribToCallPath(uint64_t idlenessIncr)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   ucontext_t context;
   getcontext(&context); // FIXME: check for errors
   cct_node_t* n = 
     hpcrun_sample_callpath(&context, lush_agents->metric_time,
 			   0/*metricIncr*/, 1/*skipInner*/, 1/*isSync*/);
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 
   return n;
 }
@@ -735,7 +734,7 @@ lushPthr_demandCachedSyncObjData_spin(lushPthr_t* restrict pthr,
 static inline lushPtr_SyncObjData_t*
 lushPthr_demandSyncObjData_ps(lushPthr_t* restrict x, void* restrict syncObj)
 {
-  //hpcrun_safe_enter(); // inherited
+  //hpcrun_async_block(); // inherited
 
   BalancedTreeNode_t* fnd = 
     BalancedTree_find(x->ps_syncObjToData, syncObj, &x->locklcl);
@@ -747,7 +746,7 @@ lushPthr_demandSyncObjData_ps(lushPthr_t* restrict x, void* restrict syncObj)
 #endif
   }
 
-  //hpcrun_safe_exit(); // inherited
+  //hpcrun_async_unblock(); // inherited
 
   return fnd->data;
 }
@@ -756,7 +755,7 @@ lushPthr_demandSyncObjData_ps(lushPthr_t* restrict x, void* restrict syncObj)
 static inline lushPtr_SyncObjData_t*
 lushPthr_demandSyncObjData(lushPthr_t* restrict x, void* restrict syncObj)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   BalancedTreeNode_t* fnd = 
     BalancedTree_find(&x->syncObjToData, syncObj, NULL/*lock*/);
@@ -765,7 +764,7 @@ lushPthr_demandSyncObjData(lushPthr_t* restrict x, void* restrict syncObj)
     fnd->data = lushPthr_demandSyncObjData_ps(x, syncObj);
   }
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 
   return fnd->data;
 }

@@ -44,14 +44,7 @@
 //
 // ******************************************************* EndRiceCopyright *
 
-// MEMLEAK overrides the malloc family of functions and provides two
-// metrics: number of bytes allocated and number of bytes freed per
-// dynamic context.  Subtracting these two values is a way to find
-// memory leaks.
-//
-// Override functions:
-// posix_memalign, memalign, valloc
-// malloc, calloc, free, realloc
+
 
 /******************************************************************************
  * standard include files
@@ -89,7 +82,6 @@
 
 #include <sample-sources/memleak.h>
 #include <messages/messages.h>
-#include <safe-sampling.h>
 #include <sample_event.h>
 #include <monitor-exts/monitor_ext.h>
 #include <lib/prof-lean/spinlock.h>
@@ -122,10 +114,12 @@ typedef struct leakinfo_s {
 
 leakinfo_t leakinfo_NULL = { .magic = 0, .context = NULL, .bytes = 0 };
 
+typedef int posix_memalign_fcn(void **, size_t, size_t);
 typedef void *memalign_fcn(size_t, size_t);
 typedef void *valloc_fcn(size_t);
-typedef void *malloc_fcn(size_t);
+typedef void *calloc_fcn(size_t, size_t);
 typedef void  free_fcn(void *);
+typedef void *malloc_fcn(size_t);
 typedef void *realloc_fcn(void *, size_t);
 
 
@@ -143,23 +137,29 @@ typedef void *realloc_fcn(void *, size_t);
 #define DEFAULT_PROB  0.1
 
 #ifdef HPCRUN_STATIC_LINK
+#define real_posix_memalign   __real_posix_memalign
 #define real_memalign   __real_memalign
 #define real_valloc   __real_valloc
-#define real_malloc   __real_malloc
+#define real_calloc   __real_calloc
 #define real_free     __real_free
+#define real_malloc   __real_malloc
 #define real_realloc  __real_realloc
 #else
+#define real_posix_memalign   __libc_posix_memalign
 #define real_memalign   __libc_memalign
 #define real_valloc   __libc_valloc
-#define real_malloc   __libc_malloc
+#define real_calloc   __libc_calloc
 #define real_free     __libc_free
+#define real_malloc   __libc_malloc
 #define real_realloc  __libc_realloc
 #endif
 
+extern posix_memalign_fcn real_posix_memalign;
 extern memalign_fcn       real_memalign;
 extern valloc_fcn         real_valloc;
-extern malloc_fcn         real_malloc;
+extern calloc_fcn         real_calloc;
 extern free_fcn           real_free;
+extern malloc_fcn         real_malloc;
 extern realloc_fcn        real_realloc;
 
 
@@ -455,8 +455,10 @@ memleak_add_leakinfo(const char *name, void *sys_ptr, void *appl_ptr,
   info_ptr->left = NULL;
   info_ptr->right = NULL;
   if (hpcrun_memleak_active()) {
+    hpcrun_async_block();
     info_ptr->context =
-	hpcrun_sample_callpath(uc, hpcrun_memleak_alloc_id(), bytes, 0, 1);
+      hpcrun_sample_callpath(uc, hpcrun_memleak_alloc_id(), bytes, 0, 1);
+    hpcrun_async_unblock();
     loc_str = loc_name[loc];
   } else {
     info_ptr->context = NULL;
@@ -574,31 +576,6 @@ memleak_free_helper(const char *name, void *sys_ptr, void *appl_ptr,
  * interface operations
  *****************************************************************************/
 
-// The memleak overrides pose extra challenges for safe sampling.
-// When we enter a memleak override, if we're coming from inside our
-// own code, we can't just automatically call the real version of the
-// function and return.  The problem is that sometimes we put headers
-// in front of the malloc'd region and thus the application and the
-// system don't use the same pointer for the beginning of the region.
-//
-// For malloc, memalign, etc, it's ok to return the real version
-// without a header.  The free code checks for the case of no header
-// or footer.  And actually, there are always a few system mallocs
-// that happen before we get initialized that go untracked.
-//
-// But for free, we can't just call the real free if the region might
-// have a header.  In that case, we'd be freeing the wrong pointer and
-// the memory system would crash.
-//
-// Now, we could call the real free if we were 100% certain that the
-// malloc also came from our code and thus had no header.  But if
-// there's anything that slips through the cracks, then the program
-// crashes.  OTOH, running our code looking for a header might hit
-// deadlock if the debug MSGS are on.  Choose your poison, but
-// probably this case never happens.
-//
-// The moral is: be careful not to use malloc or free in our code.
-// Use mmap and hpcrun_malloc instead.
 
 int
 MONITOR_EXT_WRAP_NAME(posix_memalign)(void **memptr, size_t alignment,
@@ -607,20 +584,13 @@ MONITOR_EXT_WRAP_NAME(posix_memalign)(void **memptr, size_t alignment,
   ucontext_t uc;
   int ret;
 
-  if (! hpcrun_safe_enter()) {
-    *memptr = real_memalign(alignment, bytes);
-    return (*memptr == NULL) ? errno : 0;
-  }
   memleak_initialize();
-
 #ifdef USE_SYS_GCTXT
   getcontext(&uc);
 #else // ! USE_SYS_GCTXT
   INLINE_ASM_GCTXT(posix_memalign, uc);
 #endif // USE_SYS_GCTXT
-
   *memptr = memleak_malloc_helper("posix_memalign", bytes, alignment, 0, &uc, &ret);
-  hpcrun_safe_exit();
   return ret;
 }
 
@@ -629,11 +599,7 @@ void *
 MONITOR_EXT_WRAP_NAME(memalign)(size_t boundary, size_t bytes)
 {
   ucontext_t uc;
-  void *ptr;
 
-  if (! hpcrun_safe_enter()) {
-    return real_memalign(boundary, bytes);
-  }
   memleak_initialize();
 
 #ifdef USE_SYS_GCTXT
@@ -642,9 +608,7 @@ MONITOR_EXT_WRAP_NAME(memalign)(size_t boundary, size_t bytes)
   INLINE_ASM_GCTXT(memalign, uc);
 #endif // USE_SYS_GCTXT
 
-  ptr = memleak_malloc_helper("memalign", bytes, boundary, 0, &uc, NULL);
-  hpcrun_safe_exit();
-  return ptr;
+  return memleak_malloc_helper("memalign", bytes, boundary, 0, &uc, NULL);
 }
 
 
@@ -652,11 +616,7 @@ void *
 MONITOR_EXT_WRAP_NAME(valloc)(size_t bytes)
 {
   ucontext_t uc;
-  void *ptr;
 
-  if (! hpcrun_safe_enter()) {
-    return real_valloc(bytes);
-  }
   memleak_initialize();
 
 #ifdef USE_SYS_GCTXT
@@ -665,21 +625,18 @@ MONITOR_EXT_WRAP_NAME(valloc)(size_t bytes)
   INLINE_ASM_GCTXT(valloc, uc);
 #endif // USE_SYS_GCTXT
 
-  ptr = memleak_malloc_helper("valloc", bytes, memleak_pagesize, 0, &uc, NULL);
-  hpcrun_safe_exit();
-  return ptr;
+  return memleak_malloc_helper("valloc", bytes, memleak_pagesize, 0, &uc, NULL);
 }
 
+
+extern void LMALLOC;
 
 void *
 MONITOR_EXT_WRAP_NAME(malloc)(size_t bytes)
 {
   ucontext_t uc;
-  void *ptr;
+  //  mcontext_t* mc = GET_MCONTEXT(&uc);
 
-  if (! hpcrun_safe_enter()) {
-    return real_malloc(bytes);
-  }
   memleak_initialize();
 
 #ifdef USE_SYS_GCTXT
@@ -687,10 +644,8 @@ MONITOR_EXT_WRAP_NAME(malloc)(size_t bytes)
 #else // ! USE_SYS_GCTXT
   INLINE_ASM_GCTXT(malloc, uc);
 #endif // USE_SYS_GCTXT
-
-  ptr = memleak_malloc_helper("malloc", bytes, 0, 0, &uc, NULL);
-  hpcrun_safe_exit();
-  return ptr;
+  
+  return memleak_malloc_helper("malloc", bytes, 0, 0, &uc, NULL);
 }
 
 
@@ -698,15 +653,7 @@ void *
 MONITOR_EXT_WRAP_NAME(calloc)(size_t nmemb, size_t bytes)
 {
   ucontext_t uc;
-  void *ptr;
 
-  if (! hpcrun_safe_enter()) {
-    ptr = real_malloc(nmemb * bytes);
-    if (ptr != NULL) {
-      memset(ptr, 0, nmemb * bytes);
-    }
-    return ptr;
-  }
   memleak_initialize();
 
 #ifdef USE_SYS_GCTXT
@@ -715,9 +662,7 @@ MONITOR_EXT_WRAP_NAME(calloc)(size_t nmemb, size_t bytes)
   INLINE_ASM_GCTXT(calloc, uc);
 #endif // USE_SYS_GCTXT
 
-  ptr = memleak_malloc_helper("calloc", nmemb * bytes, 0, 1, &uc, NULL);
-  hpcrun_safe_exit();
-  return ptr;
+  return memleak_malloc_helper("calloc", nmemb * bytes, 0, 1, &uc, NULL);
 }
 
 
@@ -734,30 +679,22 @@ MONITOR_EXT_WRAP_NAME(free)(void *ptr)
   void *sys_ptr;
   int loc;
 
-  // look for header, even if came from inside our code.
-  int safe = hpcrun_safe_enter();
-
   memleak_initialize();
   TMSG(MEMLEAK, "free: ptr: %p", ptr);
 
   if (! leak_detection_enabled) {
     real_free(ptr);
     TMSG(MEMLEAK, "free: ptr: %p (inactive)", ptr);
-    goto finish;
+    return;
   }
   if (ptr == NULL) {
-    goto finish;
+    return;
   }
 
   loc = memleak_get_free_loc(ptr, &sys_ptr, &info_ptr);
   memleak_free_helper("free", sys_ptr, ptr, info_ptr, loc);
-  real_free(sys_ptr);
 
-finish:
-  if (safe) {
-    hpcrun_safe_exit();
-  }
-  return;
+  real_free(sys_ptr);
 }
 
 
@@ -770,15 +707,11 @@ MONITOR_EXT_WRAP_NAME(realloc)(void *ptr, size_t bytes)
   char *inactive_mesg = "inactive";
   int loc, loc2, active;
 
-  // look for header, even if came from inside our code.
-  int safe = hpcrun_safe_enter();
-
   memleak_initialize();
   TMSG(MEMLEAK, "realloc: ptr: %p bytes: %ld", ptr, bytes);
 
   if (! leak_detection_enabled) {
-    appl_ptr = real_realloc(ptr, bytes);
-    goto finish;
+    return real_realloc(ptr, bytes);
   }
 
 #ifdef USE_SYS_GCTXT
@@ -789,8 +722,7 @@ MONITOR_EXT_WRAP_NAME(realloc)(void *ptr, size_t bytes)
 
   // realloc(NULL, bytes) means malloc(bytes)
   if (ptr == NULL) {
-    appl_ptr = memleak_malloc_helper("realloc/malloc", bytes, 0, 0, &uc, NULL);
-    goto finish;
+    return memleak_malloc_helper("realloc/malloc", bytes, 0, 0, &uc, NULL);
   }
 
   // for memleak metric, treat realloc as a free of the old bytes
@@ -800,8 +732,7 @@ MONITOR_EXT_WRAP_NAME(realloc)(void *ptr, size_t bytes)
   // realloc(ptr, 0) means free(ptr)
   if (bytes == 0) {
     real_free(sys_ptr);
-    appl_ptr = NULL;
-    goto finish;
+    return NULL;
   }
 
   // if inactive, then do real_realloc() and return.
@@ -825,7 +756,7 @@ MONITOR_EXT_WRAP_NAME(realloc)(void *ptr, size_t bytes)
     appl_ptr = real_realloc(sys_ptr, bytes);
     TMSG(MEMLEAK, "realloc: bytes: %ld ptr: %p (%s)",
 	 bytes, appl_ptr, inactive_mesg);
-    goto finish;
+    return appl_ptr;
   }
 
   // realloc and add leak info to new location.  treat this as a
@@ -844,9 +775,5 @@ MONITOR_EXT_WRAP_NAME(realloc)(void *ptr, size_t bytes)
   }
   memleak_add_leakinfo("realloc/malloc", ptr2, appl_ptr, info_ptr, bytes, &uc, loc2);
 
-finish:
-  if (safe) {
-    hpcrun_safe_exit();
-  }
   return appl_ptr;
 }

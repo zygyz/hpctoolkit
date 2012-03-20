@@ -68,7 +68,6 @@
 #include <hpcrun/thread_data.h>
 #include <cct/cct.h>
 #include <messages/messages.h>
-#include <hpcrun/safe-sampling.h>
 #include <hpcrun/sample_event.h>
 #include <sample-sources/retcnt.h>
 #include <monitor.h>
@@ -223,9 +222,7 @@ hpcrun_trampoline_remove(void)
 void*
 hpcrun_trampoline_handler(void)
 {
-  // probably not possible to get here from inside our code.
-  hpcrun_safe_enter();
-
+  hpcrun_async_block();
   TMSG(TRAMP, "Trampoline fired!");
   thread_data_t* td = hpcrun_get_thread_data();
 
@@ -247,7 +244,6 @@ hpcrun_trampoline_handler(void)
   }
 #endif
   hpcrun_trampoline_advance();
-  hpcrun_safe_exit();
-
+  hpcrun_async_unblock();
   return ra; // our assembly code caller will return to ra
 }

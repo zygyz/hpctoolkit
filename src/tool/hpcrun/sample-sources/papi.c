@@ -83,10 +83,11 @@
 #include <hpcrun/hpcrun_options.h>
 #include <hpcrun/hpcrun_stats.h>
 #include <hpcrun/metrics.h>
-#include <hpcrun/safe-sampling.h>
 #include <hpcrun/sample_sources_registered.h>
 #include <hpcrun/sample_event.h>
 #include <hpcrun/thread_data.h>
+
+#include <sample-sources/blame-shift.h>
 #include <utilities/tokenize.h>
 #include <messages/messages.h>
 #include <lush/lush-backtrace.h>
@@ -110,9 +111,11 @@ static void papi_event_handler(int event_set, void *pc, long long ovec, void *co
 static int  event_is_derived(int ev_code);
 static void event_fatal_error(int ev_code, int papi_ret);
 
+
 /******************************************************************************
  * local variables
  *****************************************************************************/
+static int cyc_metric_id = 0;
 
 static void
 METHOD_FN(init)
@@ -137,6 +140,7 @@ METHOD_FN(init)
   }
 
   self->state = INIT;
+  
 }
 
 static void
@@ -151,6 +155,7 @@ METHOD_FN(thread_init)
   TMSG(PAPI, "thread init OK");
 }
 
+
 static void
 METHOD_FN(thread_init_action)
 {
@@ -162,6 +167,7 @@ METHOD_FN(thread_init_action)
   }
   TMSG(PAPI, "register thread ok");
 }
+
 
 static void
 METHOD_FN(start)
@@ -179,6 +185,7 @@ METHOD_FN(start)
   TD_GET(ss_state)[self->evset_idx] = START;
 }
 
+
 static void
 METHOD_FN(thread_fini_action)
 {
@@ -188,6 +195,7 @@ METHOD_FN(thread_fini_action)
   snprintf(msg, sizeof(msg)-1, "!!NOT PAPI_OK!! (code = %d)", retval);
   TMSG(PAPI, "unregister thread returns %s", retval == PAPI_OK? "PAPI_OK" : msg);
 }
+
 
 static void
 METHOD_FN(stop)
@@ -220,6 +228,7 @@ METHOD_FN(stop)
   TD_GET(ss_state)[self->evset_idx] = STOP;
 }
 
+
 static void
 METHOD_FN(shutdown)
 {
@@ -228,6 +237,7 @@ METHOD_FN(shutdown)
 
   self->state = UNINIT;
 }
+
 
 // Return true if PAPI recognizes the name, whether supported or not.
 // We'll handle unsupported events later.
@@ -246,6 +256,7 @@ METHOD_FN(supports_event,const char *ev_str)
   return PAPI_event_name_to_code(evtmp, &ec) == PAPI_OK;
 }
  
+
 static void
 METHOD_FN(process_event_list, int lush_metrics)
 {
@@ -311,7 +322,9 @@ METHOD_FN(process_event_list, int lush_metrics)
 					self->evl.events[i].thresh);
     }
   }
+
 }
+
 
 static void
 METHOD_FN(gen_event_set,int lush_metrics)
@@ -484,9 +497,8 @@ papi_event_handler(int event_set, void *pc, long long ovec,
   int my_events[MAX_EVENTS];
   int my_event_count = MAX_EVENTS;
 
-  // If the interrupt came from inside our code, then drop the sample
-  // and return and avoid any MSG.
-  if (! hpcrun_safe_enter_async(pc)) {
+  // Must check for async block first and avoid any MSG if true.
+  if (hpcrun_async_is_blocked(pc)) {
     hpcrun_stats_num_samples_blocked_async_inc();
     return;
   }
@@ -507,8 +519,11 @@ papi_event_handler(int event_set, void *pc, long long ovec,
 
     TMSG(PAPI_SAMPLE,"sampling call path for metric_id = %d", metric_id);
 
-    hpcrun_sample_callpath(context, metric_id, 1/*metricIncr*/, 
+    cct_node_t *node = hpcrun_sample_callpath(context, metric_id, 1/*metricIncr*/, 
 			   0/*skipInner*/, 0/*isSync*/);
+    if (cyc_metric_id == metric_id) {
+      blame_shift_apply(node, 1);
+    }
+
   }
-  hpcrun_safe_exit();
 }

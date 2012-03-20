@@ -1101,7 +1101,6 @@ def GenerateWrappers():
     olist.append("#include <mpi.h>\n")
     olist.append("\n/**** local include files****/\n")
     olist.append("#include <messages/messages.h>\n")
-    olist.append("#include <safe-sampling.h>\n")
     olist.append("#include <sample_event.h>\n")
     olist.append("#include <monitor-exts/monitor_ext.h>\n")
     olist.append("#include \"symbols.h\"\n")
@@ -1116,14 +1115,10 @@ def GenerateWrappers():
     olist.append("\nstatic inline int Get_Msg_size( int count, MPI_Datatype datatype ){\n")
     olist.append("  int dsize;\n  PMPI_Type_size( datatype, &dsize );\n  return count * dsize;\n}\n");
     olist.append("\nstatic void hpmpi_store_metric(size_t bytes){\n");
-    olist.append("  ucontext_t uc;\n");
-    olist.append("  if (hpcrun_safe_enter()) {\n");
-    olist.append("    getcontext(&uc);\n");
-    olist.append("    cct_node_t * cct = hpcrun_sample_callpath(&uc, hpcrun_mpi_metric_id(), bytes, 0, 1);\n");
-    olist.append("    TMSG(MPI, \"cct: %p, bytes: %d\", cct, bytes);\n");
-    olist.append("    hpcrun_safe_exit();\n");
-    olist.append("  }\n");
-    olist.append("}\n");
+    olist.append("  ucontext_t uc;\n  getcontext(&uc);\n  hpcrun_async_block();");
+    olist.append("  cct_node_t * cct = hpcrun_sample_callpath(&uc, hpcrun_mpi_metric_id(), bytes, 0, 1);\n");
+    olist.append("  TMSG(MPI, \"cct: %p, bytes: %d\", cct, bytes );");
+    olist.append("  hpcrun_async_unblock();\n}\n");
 
     for funct in flist:
 	CreateWrapper(funct, olist)
