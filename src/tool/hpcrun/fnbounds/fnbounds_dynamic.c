@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,6 @@
 #include <string.h>    // for strcmp, strerror
 #include <stdlib.h>    // for getenv
 #include <errno.h>     // for errno
-#include <stdbool.h>   
 #include <sys/mman.h>
 #include <sys/param.h> // for PATH_MAX
 #include <sys/stat.h>  // mkdir
@@ -219,33 +218,32 @@ fnbounds_init()
 }
 
 
-bool
-fnbounds_enclosing_addr(void* ip, void** start, void** end, load_module_t** lm)
+int
+fnbounds_enclosing_addr(void *ip, void **start, void **end, load_module_t **lm)
 {
   FNBOUNDS_LOCK;
 
-  bool ret = false; // failure unless otherwise reset to 0 below
+  int ret = 1; // failure unless otherwise reset to 0 below
   
-  load_module_t* lm_ = fnbounds_get_loadModule(ip);
-  dso_info_t* dso = (lm_) ? lm_->dso_info : NULL;
+  load_module_t *lm_ = fnbounds_get_loadModule(ip);
+  dso_info_t *dso = (lm_) ? lm_->dso_info : NULL;
   
   if (dso && dso->nsymbols > 0) {
-    void* ip_norm = ip;
+    void *ip_norm = ip;
     if (dso->is_relocatable) {
-      ip_norm = (void*) (((unsigned long) ip_norm) - dso->start_to_ref_dist);
+      ip_norm = (void *) (((unsigned long) ip_norm) - dso->start_to_ref_dist);
     }
 
      // no dso table means no enclosing addr
 
     if (dso->table) {
       // N.B.: works on normalized IPs
-      int rv = fnbounds_table_lookup(dso->table, dso->nsymbols, ip_norm, 
-				     (void**) start, (void**) end);
+      ret = fnbounds_table_lookup(dso->table, dso->nsymbols, ip_norm, 
+				  (void **) start, (void **) end);
 
-      ret = (rv == 0);
       // Convert 'start' and 'end' into unnormalized IPs since they are
       // currently normalized.
-      if (rv == 0 && dso->is_relocatable) {
+      if (ret == 0 && dso->is_relocatable) {
 	*start = PERFORM_RELOCATION(*start, dso->start_to_ref_dist);
 	*end   = PERFORM_RELOCATION(*end  , dso->start_to_ref_dist);
       }
@@ -452,7 +450,7 @@ fnbounds_compute(const char *incoming_filename, void *start, void *end)
   sprintf(dlname, FNBOUNDS_BINARY_FORMAT, fnbounds_tmpdir_get(), 
 	  mybasename(filename));
 
-  sprintf(command, "'%s' -b %s '%s' %s 1>&%d 2>&%d\n",
+  sprintf(command, "%s -b %s %s %s 1>&%d 2>&%d\n",
 	  nm_command, ENABLED(DL_BOUND_SCRIPT_DEBUG) ? "-t -v" : "",
 	  filename, fnbounds_tmpdir_get(), logfile_fd, logfile_fd);
   TMSG(DL_BOUND, "system command = %s", command);

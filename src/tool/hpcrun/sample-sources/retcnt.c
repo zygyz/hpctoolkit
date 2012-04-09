@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,6 @@
 
 #include <lib/prof-lean/hpcrun-metric.h>
 
-extern void hpcrun_set_retain_recursion_mode(bool mode);
 
 //***************************************************************************
 
@@ -107,7 +106,7 @@ static const int IRRELEVANT = 0;
 static void
 METHOD_FN(init)
 {
-  self->state = INIT;
+  self->state = INIT; // no actual init actions necessary for RETCNT
 }
 
 static void
@@ -179,9 +178,6 @@ METHOD_FN(process_event_list, int lush_metrics)
 static void
 METHOD_FN(gen_event_set,int lush_metrics)
 {
-  TMSG(REC_COMPRESS, "RETCNT event ==> retain recursion");
-  hpcrun_set_retain_recursion_mode(true); // make sure all recursion elements are retained
-                                          // whenever RETCNT is used.
   thread_data_t *td = hpcrun_get_thread_data();
   td->eventSet[self->evset_idx] = 0xDEAD;
 }
@@ -223,6 +219,6 @@ hpcrun_retcnt_inc(cct_node_t* node, int incr)
 
   TMSG(TRAMP, "Increment retcnt (metric id = %d), by %d", metric_id, incr);
   cct_metric_data_increment(metric_id,
-			    node,
+			    hpcrun_cct_metrics(node) + metric_id,
 			    (cct_metric_data_t){.i = incr});
 }

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,16 +48,10 @@
 #include "x86-unwind-interval-fixup.h"
 #include "x86-unwind-interval.h"
 
-static char intel11_f90main_signature[] = { 
-  0x53,                         // push   %rbx
-  0x48, 0x89, 0xe3,             // mov    %rsp,%rbx
-  0x48, 0x83, 0xe4, 0x80,       // and    $0xffffffffffffff80,%rsp
-  0x55,                         // push   %rbp
-  0x55,                         // push   %rbp
-  0x48, 0x8b, 0x6b, 0x08,       // mov    0x8(%rbx),%rbp
-  0x48, 0x89, 0x6c, 0x24, 0x08, // mov    %rbp,0x8(%rsp)
-  0x48,                         // rex64
+static int intel11_f90main_signature[] = { 
+  0xe3894853, 0x80e48348, 0x8b485555, 0x8948086b, 0x4808246c
 };
+
 
 static int 
 adjust_intel11_f90main_intervals(char *ins, int len, interval_status *stat)

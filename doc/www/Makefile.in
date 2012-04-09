@@ -107,7 +107,6 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-F77_SYMBOLS = @F77_SYMBOLS@
 FGREP = @FGREP@
 GNUBINUTILS_IFLAGS = @GNUBINUTILS_IFLAGS@
 GNUBINUTILS_LDFLAGS = @GNUBINUTILS_LDFLAGS@
@@ -137,16 +136,13 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBDWARF_COPY = @LIBDWARF_COPY@
-LIBDWARF_INC = @LIBDWARF_INC@
 LIBDWARF_LIB = @LIBDWARF_LIB@
 LIBELF_COPY = @LIBELF_COPY@
-LIBELF_INC = @LIBELF_INC@
 LIBELF_LIB = @LIBELF_LIB@
 LIBMONITOR_COPY = @LIBMONITOR_COPY@
 LIBMONITOR_INC = @LIBMONITOR_INC@
 LIBMONITOR_LIB = @LIBMONITOR_LIB@
 LIBMONITOR_RUN_DIR = @LIBMONITOR_RUN_DIR@
-LIBMONITOR_WRAP_NAMES = @LIBMONITOR_WRAP_NAMES@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -159,7 +155,6 @@ MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
 MONITOR = @MONITOR@
 MPICXX = @MPICXX@
-MPIF77 = @MPIF77@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OA_IFLAGS = @OA_IFLAGS@
@@ -283,16 +278,7 @@ MYSOURCES = \
 	software-instructions.html \
 	\
 	info-acks.html \
-	info-people.html
-
-MYSOURCES_IN = \
-	$(abs_srcdir)/publications.html.in
-
-MYSOURCES_TGT = \
-	$(addprefix $(srcdir)/, $(MYSOURCES))
-
-MYDATA = \
-	$(MYSOURCES) \
+	info-people.html \
 	\
 	hpctoolkit.org.sitemap.txt \
 	\
@@ -313,39 +299,8 @@ MYDATA = \
 #############################################################################
 # Automake rules
 #############################################################################
-
-# N.B.: Do not include $(MYSOURCES_IN) b/c it depends on bib2xhtml
-BUILT_SOURCES = $(MYSOURCES_TGT)
-nobase_dist_doc_DATA = $(MYDATA)
-
-#############################################################################
-# Other rules
-#############################################################################
-
-# For MacOS add/remove: | tr '\n' ' '
-MY_AWKVARS = \
-  -v varhdr="`cat $(srcdir)/style/header-hpctoolkit.html | tr '\n' ' '`" \
-  -v varftr="`cat $(srcdir)/style/footer-hpctoolkit.html | tr '\n' ' '`"
-
-MY_AWKPROG = '\
-  BEGIN { } \
-  /@header-hpctoolkit@/ { printf "%s", varhdr ; next; } \
-  /@footer-hpctoolkit@/ { printf "%s", varftr ; next; } \
-  { print; } \
-  END { } \
-  '
-
-MY_VARSRCS = \
-	$(srcdir)/style/header-hpctoolkit.html \
-	$(srcdir)/style/footer-hpctoolkit.html
-
-MY_PUBS = $(abs_top_srcdir)/doc/manual/texmf/bibtex/bib/pubs.bib
-
-# Note: bib2xhtml supports 'pdf' and 'url' fields.
-BIB2XHTML_ROOT = /opt/tallent/bib2xhtml
-BIB2XHTML = $(BIB2XHTML_ROOT)/bib2xhtml
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+nobase_dist_doc_DATA = $(MYSOURCES)
+all: all-am
 
 .SUFFIXES:
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -445,15 +400,13 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-am
+check: check-am
 all-am: Makefile $(DATA)
 installdirs:
 	for dir in "$(DESTDIR)$(docdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-am
+install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -478,7 +431,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-generic clean-libtool mostlyclean-am
@@ -545,7 +497,7 @@ ps-am:
 
 uninstall-am: uninstall-nobase_dist_docDATA
 
-.MAKE: all check install install-am install-strip
+.MAKE: install-am install-strip
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
 	distclean distclean-generic distclean-libtool distdir dvi \
@@ -561,27 +513,9 @@ uninstall-am: uninstall-nobase_dist_docDATA
 	uninstall-nobase_dist_docDATA
 
 
-hpc: $(MYSOURCES_IN) $(MYSOURCES_TGT)
-
-$(abs_srcdir)/publications.html.in : # $(MY_PUBS) # avoid auto regeneration
-	@echo "*** BIB2XHTML_ROOT=$(BIB2XHTML_ROOT) ***"
-	@if test -x $(BIB2XHTML) ; then \
-	  cd $(BIB2XHTML_ROOT) && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-overview     $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-hpctoolkit-a $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-hpctoolkit-b $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-prediction   $(MY_PUBS) $@ ; \
-	else \
-	  echo "*** Cannot run $(BIB2XHTML) ***" ; \
-	fi
-
-$(srcdir)/%.html : $(srcdir)/%.html.in $(MY_VARSRCS)
-	$(AWK) $(MY_AWKVARS) $(MY_AWKPROG) $< > $@
-
-.PHONY : hpc $(abs_srcdir)/publications.html.in
-
-#$(MY_HTMLTGT): %.html : style/header.html %.html.in style/footer.html
-#	cat $^ > $@
+#############################################################################
+# Other rules
+#############################################################################
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

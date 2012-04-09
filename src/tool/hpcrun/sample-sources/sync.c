@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -159,11 +159,9 @@ METHOD_FN(process_event_list,int lush_metrics)
   if (_p) {
     n_events = atoi(_p+1);
   }
-#ifdef OLD_DEFAULT
   if (! n_events ) {
     n_events = 1;
   }
-#endif // OLD_DEFAULT
   for (int i = 0; i < n_events; i++) {
     int n = hpcrun_new_metric();
     hpcrun_set_metric_info(n, "RENAME");

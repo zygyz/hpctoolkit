@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,6 @@
 #include "messages.i"
 #include "fmt.h"
 #include "sample_event.h"
-#include "sample_prob.h"
 #include "thread_data.h"
 #include "thread_use.h"
 
@@ -96,11 +95,7 @@
 
 #define DEBUG_PMSG_ASYNC 0
 
-//*****************************************************************************
-// constants
-//*****************************************************************************
 
-static const unsigned int msg_limit = 5000; // limit log file lines
 
 //*****************************************************************************
 // global variables
@@ -108,12 +103,7 @@ static const unsigned int msg_limit = 5000; // limit log file lines
 
 spinlock_t pmsg_lock = SPINLOCK_UNLOCKED;
 
-//*****************************************************************************
-// (file) local variables
-//*****************************************************************************
 
-static unsigned int msgs_out = 0;
-static bool check_limit = true;    // by default, limit messages
 
 //*****************************************************************************
 // forward declarations
@@ -121,6 +111,7 @@ static bool check_limit = true;    // by default, limit messages
 
 static void create_msg(char *buf, size_t buflen, bool add_thread_id, 
 		       const char *tag, const char *fmt, va_list_box* box);
+
 
 //*****************************************************************************
 // interface operations
@@ -141,16 +132,17 @@ hpcrun_emsg(const char *fmt,...)
   hpcrun_write_msg_to_log(false, true, NULL, fmt, &box);
 }
 
+
 void
-hpcrun_pmsg(const char *tag, const char *fmt, ...)
+hpcrun_pmsg(pmsg_category flag, const char *tag, const char *fmt, ...)
 {
-#define THE_THREAD 1
-#define SPECIAL_DEBUG
-#ifdef SPECIAL_DEBUG
-  if ( getenv("OT") && (TD_GET(id) != THE_THREAD)) {
+  if (debug_flag_get(flag) == 0){
+#if DEBUG_PMSG_ASYNC
+    hpcrun_emsg("PMSG flag in = %d (%s), flag ctl = %d --> NOPRINT",
+		flag, tbl[flag], debug_flag_get(flag));
+#endif
     return;
   }
-#endif
   va_list_box box;
   va_list_box_start(box, fmt);
   hpcrun_write_msg_to_log(false, true, tag, fmt, &box);
@@ -202,10 +194,7 @@ hpcrun_amsg(const char *fmt,...)
 {
   va_list_box box;
   va_list_box_start(box, fmt);
-  bool save = check_limit;
-  check_limit = false;
   hpcrun_write_msg_to_log(false, false, NULL, fmt, &box);
-  check_limit = save;
 }
 
 
@@ -215,14 +204,12 @@ hpcrun_amsg(const char *fmt,...)
 //*****************************************************************************
 
 void
-hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
-			const char *tag,
+hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id, const char *tag,
 			const char *fmt, va_list_box* box)
 {
   char buf[MSG_BUF_SIZE];
 
-  if ((hpcrun_get_disabled() && (! echo_stderr))
-      || (! hpcrun_sample_prob_active())) {
+  if (hpcrun_get_disabled() && (! echo_stderr)){
     return;
   }
 
@@ -233,8 +220,6 @@ hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
     write(2, buf, strlen(buf));
   }
 
-  if (check_limit && (msgs_out > msg_limit)) return;
-
   if (hpcrun_get_disabled()) return;
 
   spinlock_lock(&pmsg_lock);
@@ -242,7 +227,6 @@ hpcrun_write_msg_to_log(bool echo_stderr, bool add_thread_id,
   // use write to logfile file descriptor, instead of fprintf stuff
   //
   write(messages_logfile_fd(), buf, strlen(buf));
-  msgs_out++;
 
   spinlock_unlock(&pmsg_lock);
 }
@@ -286,13 +270,3 @@ create_msg(char *buf, size_t buflen, bool add_thread_id, const char *tag,
   hpcrun_msg_vns(buf, buflen - 2, fstr, box);
 }
 
-void
-unlimit_msgs(void)
-{
-  check_limit = false;
-}
-void
-limit_msgs(void)
-{
-  check_limit = true;
-}

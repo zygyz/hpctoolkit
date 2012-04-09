@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -148,7 +148,7 @@ Analysis::Raw::writeAsText_callpathMetricDB(const char* filenm)
       fprintf(stdout, "(%6u: ", nodeId);
       for (uint mId = 0; mId < hdr.numMetrics; ++mId) {
 	double mval = 0;
-	ret = hpcfmt_real8_fread(&mval, fs);
+	int ret = hpcfmt_real8_fread(&mval, fs);
 	if (ret != HPCFMT_OK) {
 	  DIAG_Throw("error reading trace file '" << filenm << "'");
 	}

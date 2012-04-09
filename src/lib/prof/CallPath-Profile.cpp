@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -86,7 +86,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "CallPath-Profile.hpp"
@@ -346,7 +345,7 @@ Profile::merge_fixCCT(const std::vector<LoadMap::MergeEffect>* mrgEffects)
 	  }
 	}
 	if (chg.old_id == lmId2) {
-	  lush_lip_setLMId(lip, (uint16_t) chg.new_id);
+	  lush_lip_setLMId(lip, chg.new_id);
 	}
       }
     }
@@ -448,7 +447,7 @@ Profile::merge_fixTrace(const CCT::MergeEffectList* mrgEffects)
 }
 
 
-static void
+void
 writeXML_help(std::ostream& os, const char* entry_nm,
 	      Struct::Tree* structure, const Struct::ANodeFilter* filter,
 	      int type)
@@ -486,14 +485,14 @@ writeXML_help(std::ostream& os, const char* entry_nm,
 
 
 static bool
-writeXML_FileFilter(const Struct::ANode& x, long GCC_ATTR_UNUSED type)
+writeXML_FileFilter(const Struct::ANode& x, long type)
 {
   return (typeid(x) == typeid(Struct::File) || typeid(x) == typeid(Struct::Alien));
 }
 
 
 static bool
-writeXML_ProcFilter(const Struct::ANode& x, long GCC_ATTR_UNUSED type)
+writeXML_ProcFilter(const Struct::ANode& x, long type)
 {
   return (typeid(x) == typeid(Struct::Proc) || typeid(x) == typeid(Struct::Alien));
 }
@@ -501,7 +500,7 @@ writeXML_ProcFilter(const Struct::ANode& x, long GCC_ATTR_UNUSED type)
 
 std::ostream&
 Profile::writeXML_hdr(std::ostream& os, uint metricBeg, uint metricEnd,
-		      uint oFlags, const char* GCC_ATTR_UNUSED pfx) const
+		      uint oFlags, const char* pfx) const
 {
   typedef std::map<uint, string> UIntToStringMap;
   UIntToStringMap metricIdToFormula;
@@ -809,7 +808,7 @@ Profile::fmt_fread(Profile* &prof, FILE* infs, uint rFlags,
   // ------------------------------------------------------------
 
   if (outfs) {
-    fprintf(outfs, "\n[You look fine today! (num-epochs: %u)]\n", num_epochs);
+    fprintf(outfs, "\n[You look fine today! (num-epochs: %d)]\n", num_epochs);
   }
 
   hpcrun_fmt_hdr_free(&hdr, free);
@@ -969,9 +968,6 @@ Profile::fmt_epoch_fread(Profile* &prof, FILE* infs, uint rFlags,
   // 
   // -------------------------
 
-  // N.B.: We currently assume FmtEpoch_NV_virtualMetrics is set iff
-  // we read from a memory buffer.  Possibly we need an explicit tag for this.
-
   bool isVirtualMetrics = false;
   val = hpcfmt_nvpairList_search(&(ehdr.nvps), FmtEpoch_NV_virtualMetrics);
   if (val && strcmp(val, "0") != 0) {
@@ -1022,7 +1018,6 @@ Profile::fmt_epoch_fread(Profile* &prof, FILE* infs, uint rFlags,
 
   if (rFlags & RFlg_NoMetricSfx) {
     m_sfx = "";
-    //if (!tidStr.empty()) { m_sfx = "[" + tidStr + "]"; } // TODO:threads
   }
 
   metric_desc_t* m_lst = metricTbl.lst;
@@ -1105,17 +1100,11 @@ Profile::fmt_epoch_fread(Profile* &prof, FILE* infs, uint rFlags,
   // make metric DB info
   // ----------------------------------------
 
-  // metric DB information:
-  //   1. create when reading an actual data file
-  //   2. preserve when reading a profile from a memory buffer
-  if ( !isVirtualMetrics ) {
-    // create metric db information
-    Prof::Metric::Mgr* mMgr = prof->metricMgr();
-    for (uint mId = 0; mId < mMgr->size(); ++mId) {
-      Prof::Metric::ADesc* m = mMgr->metric(mId);
-      m->dbId(mId);
-      m->dbNumMetrics(mMgr->size());
-    }
+  Prof::Metric::Mgr* mMgr = prof->metricMgr();
+  for (uint mId = 0; mId < mMgr->size(); ++mId) {
+    Prof::Metric::ADesc* m = mMgr->metric(mId);
+    m->dbId(mId);
+    m->dbNumMetrics(mMgr->size());
   }
 
   // ----------------------------------------
@@ -1370,7 +1359,7 @@ Profile::fmt_epoch_fwrite(const Profile& prof, FILE* fs, uint wFlags)
     const LoadMap::LM* lm = loadmap.lm(i);
 
     loadmap_entry_t lm_entry;
-    lm_entry.id = (uint16_t) lm->id();
+    lm_entry.id = lm->id();
     lm_entry.name = const_cast<char*>(lm->name().c_str());
     lm_entry.flags = 0; // TODO:flags
     
@@ -1744,7 +1733,7 @@ fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
       n_fmt.as_info = n_dyn.assocInfo();
     }
     
-    n_fmt.lm_id = (uint16_t) n_dyn.lmId();
+    n_fmt.lm_id = n_dyn.lmId();
     n_fmt.lm_ip = n_dyn.Prof::CCT::ADynNode::lmIP();
 
     if (flags.fields.isLogicalUnwind) {

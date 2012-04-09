@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,10 +46,8 @@
 
 /*************************** System Include Files ***************************/
 
-#include <stdio.h>  // for FILENAME_MAX
-
-#define __USE_XOPEN_EXTENDED // realpath()
-#include <stdlib.h>
+#include <stdlib.h> /* for 'realpath' */
+#include <limits.h> /* for 'PATH_MAX' */
 
 /**************************** User Include Files ****************************/
 
@@ -68,7 +66,7 @@
 const char*
 RealPath(const char* nm)
 {
-  static char _RealPathBuf[FILENAME_MAX]; // PATH_MAX
+  static char _RealPathBuf[PATH_MAX];
   if (realpath(nm, _RealPathBuf) == NULL) {
     return nm; /* error; return orig string */
   }

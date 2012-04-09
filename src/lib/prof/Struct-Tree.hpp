@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -147,7 +147,7 @@ public:
     // Output flags
     OFlg_Compressed      = (1 << 1), // Write in compressed format
     OFlg_LeafMetricsOnly = (1 << 2), // Write metrics only at leaves
-    OFlg_Debug           = (1 << 3)  // Debug: show xtra source line info
+    OFlg_Debug           = (1 << 3), // Debug: show xtra source line info
   };
 
   static const std::string UnknownLMNm;
@@ -156,7 +156,7 @@ public:
   static const SrcFile::ln UnknownLine;
 
   static const std::string PartialUnwindProcNm;
-
+  
 public:
   // -------------------------------------------------------
   // Create/Destroy
@@ -175,7 +175,7 @@ public:
   Root*
   root() const
   { return m_root; }
-
+  
   void
   root(Root* x)
   { m_root = x; }
@@ -183,7 +183,7 @@ public:
   bool
   empty() const
   { return (m_root == NULL); }
-
+  
   std::string
   name() const;
 
@@ -192,25 +192,18 @@ public:
   // Write contents
   // -------------------------------------------------------
   std::ostream&
-  writeXML(std::ostream& os = std::cerr, uint oFlags = 0) const;
+  writeXML(std::ostream& os = std::cerr, int oFlags = 0) const;
 
   // Dump contents for inspection (use flags from ANode)
   std::ostream&
-  dump(std::ostream& os = std::cerr, uint oFlags = 0) const;
-
+  dump(std::ostream& os = std::cerr, int oFlags = 0) const;
+  
   void
   ddump() const;
-
+ 
 private:
   Root* m_root;
 };
-
-
-// TODO: integrate with Tree::writeXML()
-void
-writeXML(std::ostream& os, const Prof::Struct::Tree& strctTree,
-	 bool prettyPrint = true);
-
 
 } // namespace Struct
 } // namespace Prof
@@ -293,7 +286,7 @@ public:
     DIAG_DevMsgIf(0, "~ANode::ANode: " << toString_id()
 		  << " " << std::hex << this << std::dec);
   }
-
+  
   // clone: return a shallow copy, unlinked from the tree
   virtual ANode*
   clone()
@@ -303,7 +296,7 @@ public:
 protected:
   ANode(const ANode& x)
   { *this = x; }
-
+  
   // deep copy of internals (but without children)
   ANode&
   operator=(const ANode& x)
@@ -331,8 +324,6 @@ public:
   uint
   id() const
   { return m_id; }
-
-  static const uint Id_NULL = 0;
 
   // maxId: the maximum id of all structure nodes
   static uint
@@ -374,7 +365,7 @@ public:
     }
     return NULL;
   }
-
+  
   ANode*
   prevSibling() const
   {
@@ -384,7 +375,7 @@ public:
     }
     return NULL;
   }
-
+  
 
   // --------------------------------------------------------
   // ancestor: find first ANode in path from this to root with given type
@@ -491,12 +482,12 @@ public:
   //                    \---...--- d2
   static bool
   arePathsOverlapping(ANode* lca, ANode* desc1, ANode* desc2);
-
+  
   // mergePaths: Given divergent paths (as defined above), merges the path
   // from 'toDesc' into 'fromDesc'. If a merge takes place returns true.
   static bool
   mergePaths(ANode* lca, ANode* toDesc, ANode* fromDesc);
-
+  
   // merge: Given two nodes, 'fromNode' and 'toNode', merges the
   // former into the latter, if possible.  If the merge takes place,
   // deletes 'fromNode' and returns true; otherwise returns false.
@@ -507,20 +498,20 @@ public:
   // into 'toNode'
   static bool
   isMergable(ANode* toNode, ANode* fromNode);
-
-
+  
+  
   // --------------------------------------------------------
   // XML output
   // --------------------------------------------------------
 
   std::string
-  toStringXML(uint oFlags = 0, const char* pre = "") const;
-
+  toStringXML(int oFlags = 0, const char* pre = "") const;
+  
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual std::ostream&
-  writeXML(std::ostream& os = std::cout, uint oFlags = 0,
+  writeXML(std::ostream& os = std::cout, int oFlags = 0,
 	   const char* pre = "") const;
 
   void
@@ -543,33 +534,33 @@ public:
   // debugging
   // --------------------------------------------------------
 
-  virtual std::string
-  toString(uint oFlags = 0, const char* pre = "") const;
+  std::string
+  toString(int oFlags = 0, const char* pre = "") const;
 
   std::string
-  toString_id(uint oFlags = 0) const;
+  toString_id(int oFlags = 0) const;
 
   std::string
-  toStringMe(uint oFlags = 0, const char* pre = "") const;
+  toStringMe(int oFlags = 0, const char* pre = "") const;
 
   // dump
   std::ostream&
-  dump(std::ostream& os = std::cerr, uint oFlags = 0,
+  dump(std::ostream& os = std::cerr, int oFlags = 0,
        const char* pre = "") const;
-
+  
   void ddump() const;
 
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 protected:
   bool
-  writeXML_pre(std::ostream& os = std::cout, uint oFlags = 0,
+  writeXML_pre(std::ostream& os = std::cout, int oFlags = 0,
 	       const char* prefix = "") const;
 
   void
-  writeXML_post(std::ostream& os = std::cout, uint oFlags = 0,
+  writeXML_post(std::ostream& os = std::cout, int oFlags = 0,
 		const char* prefix = "") const;
 private:
   void
@@ -579,7 +570,7 @@ private:
   dtorCheck() const;
 
   static uint s_nextUniqueId;
-
+  
 protected:
   ANodeTy m_type; // obsolete with typeid(), but hard to replace
   uint m_id;
@@ -656,10 +647,10 @@ public:
   void
   endLine(SrcFile::ln x)
   { m_endLn = x; }
-
+  
   void
   setLineRange(SrcFile::ln begLn, SrcFile::ln endLn, int propagate = 1);
-
+  
   void
   expandLineRange(SrcFile::ln begLn, SrcFile::ln endLn, int propagate = 1);
 
@@ -676,7 +667,7 @@ public:
     DIAG_Assert(Logic::equiv(m_begLn == ln_NULL, m_endLn == ln_NULL),
 		"ACodeNode::checkLineRange: b=" << m_begLn << " e=" << m_endLn);
   }
-
+  
   // -------------------------------------------------------
   // A set of *unrelocated* VMAs associated with this scope
   // -------------------------------------------------------
@@ -689,7 +680,7 @@ public:
   vmaSet()
   { return m_vmaSet; }
 
-
+  
   // -------------------------------------------------------
   // containsLine: returns true if this scope contains line number
   //   'ln'.  A non-zero beg_epsilon and end_epsilon allows fuzzy
@@ -749,7 +740,7 @@ public:
 
   virtual std::string
   codeName() const;
-
+  
   std::string
   lineRange() const;
 
@@ -759,13 +750,13 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual std::string
-  XMLLineRange(uint oFlags) const;
+  XMLLineRange(int oFlags) const;
 
   virtual std::string
-  XMLVMAIntervals(uint oFlags) const;
+  XMLVMAIntervals(int oFlags) const;
 
   virtual void
   CSV_dump(const Root &root, std::ostream& os = std::cout,
@@ -775,16 +766,16 @@ public:
   // --------------------------------------------------------
   // debugging
   // --------------------------------------------------------
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 protected:
   // NOTE: currently designed for PROCs
   void
   relocate();
-
+  
   void
   relocateIf()
   {
@@ -795,7 +786,7 @@ protected:
   }
 
   std::string codeName_LM_F() const;
-
+  
 protected:
   SrcFile::ln m_begLn;
   SrcFile::ln m_endLn;
@@ -819,7 +810,7 @@ protected:
   {
     *this = x;
   }
-
+  
   Root&
   operator=(const Root& x);
 
@@ -829,7 +820,7 @@ public:
   {
     Ctor(nm);
   }
-
+  
   Root(const std::string& nm)
     : ANode(TyRoot, NULL)
   {
@@ -891,10 +882,10 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual std::ostream&
-  writeXML(std::ostream& os = std::cout, uint oFlags = 0,
+  writeXML(std::ostream& os = std::cout, int oFlags = 0,
 	   const char* pre = "") const;
 
   void
@@ -903,11 +894,11 @@ public:
   // --------------------------------------------------------
   // debugging
   // --------------------------------------------------------
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
-
+   
 protected:
 private:
   void
@@ -918,7 +909,7 @@ private:
 
   void
   insertLMMap(LM* lm);
-
+ 
   friend class Group;
   friend class LM;
 
@@ -950,17 +941,17 @@ public:
   {
     Ctor(nm, parent);
   }
-
+  
   Group(const std::string& nm, ANode* parent,
 	     int begLn = ln_NULL, int endLn = ln_NULL)
     : ACodeNode(TyGroup, parent, begLn, endLn, 0, 0)
   {
     Ctor(nm.c_str(), parent);
   }
-
+  
   virtual ~Group()
   { }
-
+  
   static Group*
   demand(Root* pgm, const std::string& nm, ANode* parent);
 
@@ -976,14 +967,14 @@ public:
   { return new Group(*this); }
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   // --------------------------------------------------------
   // debugging
   // --------------------------------------------------------
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 private:
@@ -1090,7 +1081,7 @@ public:
     findStmt(0);
   }
 
-
+ 
   Proc*
   findProc(VMA vma) const;
 
@@ -1128,21 +1119,21 @@ public:
     return false;
   }
 
-
+  
   // --------------------------------------------------------
   // Output
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual std::ostream&
-  writeXML(std::ostream& os = std::cout, uint oFlags = 0,
+  writeXML(std::ostream& os = std::cout, int oFlags = 0,
 	   const char* pre = "") const;
 
 
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
   void
@@ -1239,14 +1230,14 @@ public:
   {
     Ctor(filenm, parent);
   }
-
+  
   File(const std::string& filenm, ANode *parent,
        SrcFile::ln begLn = ln_NULL, SrcFile::ln endLn = ln_NULL)
     : ACodeNode(TyFile, parent, begLn, endLn, 0, 0)
   {
     Ctor(filenm.c_str(), parent);
   }
-
+  
   virtual ~File()
   {
     delete m_procMap;
@@ -1261,7 +1252,7 @@ public:
 
 
   // --------------------------------------------------------
-  //
+  // 
   // --------------------------------------------------------
 
   virtual const std::string&
@@ -1298,23 +1289,23 @@ public:
   findProc(const std::string& name, const std::string& linkname = "") const
   { return findProc(name.c_str(), linkname.c_str()); }
 
-
+  
   // --------------------------------------------------------
   // Output
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual void
   CSV_dump(const Root &root, std::ostream& os = std::cout,
 	   const char* file_name = NULL, const char* proc_name = NULL,
 	   int lLevel = 0) const;
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
-
+  
 private:
   void
   Ctor(const char* filenm, ANode* parent);
@@ -1359,7 +1350,7 @@ public:
   {
     Ctor(name, parent, linkname, hasSym);
   }
-
+ 
   Proc(const std::string& name, ACodeNode* parent, const std::string& linkname,
        bool hasSym, SrcFile::ln begLn = ln_NULL, SrcFile::ln endLn = ln_NULL)
     : ACodeNode(TyProc, parent, begLn, endLn, 0, 0)
@@ -1416,7 +1407,7 @@ public:
   bool
   hasSymbolic() const
   { return m_hasSym; }
-
+ 
   void
   hasSymbolic(bool x)
   { m_hasSym = x; }
@@ -1441,17 +1432,17 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual void
   CSV_dump(const Root &root, std::ostream& os = std::cout,
 	   const char* file_name = NULL, const char* proc_name = NULL,
 	   int lLevel = 0) const;
-
+ 
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
-
+ 
 private:
   void
   Ctor(const char* n, ACodeNode* parent, const char* ln, bool hasSym);
@@ -1515,7 +1506,7 @@ public:
   clone()
   { return new Alien(*this); }
 
-
+  
   // --------------------------------------------------------
   //
   // --------------------------------------------------------
@@ -1539,7 +1530,7 @@ public:
   void
   name(const std::string& n)
   { m_name = n; }
-
+  
   virtual std::string
   codeName() const;
 
@@ -1549,15 +1540,15 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual void
   CSV_dump(const Root &root, std::ostream& os = std::cout,
 	   const char* file_name = NULL, const char* proc_name = NULL,
 	   int lLevel = 0) const;
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 private:
@@ -1594,14 +1585,14 @@ public:
 
   virtual ~Loop()
   { }
-
+  
   virtual ANode*
   clone()
   { return new Loop(*this); }
 
 
   // --------------------------------------------------------
-  //
+  // 
   // --------------------------------------------------------
 
   virtual std::string
@@ -1613,10 +1604,10 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 };
@@ -1651,7 +1642,7 @@ public:
     if (lmStrct && begVMA) {
       lmStrct->insertStmtIf(this);
     }
-
+    
     //DIAG_DevMsg(3, "Stmt::Stmt: " << toStringMe());
   }
 
@@ -1664,9 +1655,9 @@ public:
 
 
   // --------------------------------------------------------
-  //
+  // 
   // --------------------------------------------------------
-
+  
   virtual std::string codeName() const;
 
   // a handle for sorting within the enclosing procedure context
@@ -1684,10 +1675,10 @@ public:
   // --------------------------------------------------------
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
-
+  toXML(int oFlags = 0) const;
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 private:
@@ -1704,7 +1695,7 @@ class Ref: public ACodeNode {
 public:
   Ref(ACodeNode* parent, int _begPos, int _endPos, const char* refName);
   // parent->type() == TyStmt
-
+  
   uint
   BegPos() const
   { return begPos; };
@@ -1712,7 +1703,7 @@ public:
   uint
   EndPos() const
   { return endPos; };
-
+ 
   virtual const std::string&
   name() const
   { return m_name; }
@@ -1725,14 +1716,14 @@ public:
   { return new Ref(*this); }
 
   virtual std::string
-  toXML(uint oFlags = 0) const;
+  toXML(int oFlags = 0) const;
 
   // --------------------------------------------------------
   // debugging
   // --------------------------------------------------------
-
+  
   virtual std::ostream&
-  dumpme(std::ostream& os = std::cerr, uint oFlags = 0,
+  dumpme(std::ostream& os = std::cerr, int oFlags = 0,
 	 const char* pre = "") const;
 
 private:

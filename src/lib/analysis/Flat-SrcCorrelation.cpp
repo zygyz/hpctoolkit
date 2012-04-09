@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -63,9 +63,6 @@ using std::vector;
 #include <climits>
 
 //************************* User Include Files *******************************
-
-#include <include/gcc-attr.h>
-#include <include/uint.h>
 
 #include "Flat-SrcCorrelation.hpp"
 #include "TextUtil.hpp"
@@ -449,7 +446,7 @@ Driver::write_txt_annotateFile(std::ostream& os,
   try {
     is = IOUtil::OpenIStream(fnm.c_str());
   }
-  catch (const Diagnostics::Exception& /*ex*/) {
+  catch (const Diagnostics::Exception& x) {
     os << "  Cannot open.\n" << std::endl;
     return;
   }
@@ -676,10 +673,10 @@ Driver::computeRawMetrics(Prof::Metric::Mgr& mMgr, Prof::Struct::Tree& structure
     // process a group of profile files (and their associated metrics)
     // by load module.
     Prof::Flat::ProfileData* prof = batchJob[0].first;
-    for (Prof::Flat::ProfileData::const_iterator it1 = prof->begin();
-	 it1 != prof->end(); ++it1) {
+    for (Prof::Flat::ProfileData::const_iterator it = prof->begin();
+	 it != prof->end(); ++it) {
       
-      const string lmname_orig = it1->first;
+      const string lmname_orig = it->first;
       if (lmname_orig == prev_lmname_orig) {
 	// Skip multiple entries for same LM.  This is sufficient
 	// b/c iteration proceeds in sorted fashion.
@@ -717,9 +714,9 @@ Driver::computeRawMetrics(Prof::Metric::Mgr& mMgr, Prof::Struct::Tree& structure
     }
     
     // 2. Now execute the batch jobs
-    for (VMAIntervalSet::iterator it1 = ivalset.begin();
-	 it1 != ivalset.end(); ++it1) {
-      const VMAInterval& ival = *it1;
+    for (VMAIntervalSet::iterator it = ivalset.begin();
+	 it != ivalset.end(); ++it) {
+      const VMAInterval& ival = *it;
       structure.root()->aggregateMetrics((uint)ival.beg(), (uint)ival.end());
     }
   }
@@ -769,9 +766,9 @@ Driver::computeRawBatchJob_LM(const string& lmname, const string& lmname_orig,
       // For each metric, insert performance data into scope tree
       //-------------------------------------------------------
       using namespace Prof;
-      for (Metric::ADescVec::iterator it1 = metrics->begin();
-	   it1 != metrics->end(); ++it1) {
-	Metric::SampledDesc* m = dynamic_cast<Metric::SampledDesc*>(*it1);
+      for (Metric::ADescVec::iterator it = metrics->begin();
+	   it != metrics->end(); ++it) {
+	Metric::SampledDesc* m = dynamic_cast<Metric::SampledDesc*>(*it);
 	DIAG_Assert(m->isUnitsEvents(), "Assume metric's units is events!");
 	uint mIdx = (uint)StrUtil::toUInt64(m->profileRelId());
 	const Prof::Flat::EventData& profevent = proflm->event(mIdx);
@@ -797,12 +794,12 @@ void
 Driver::correlateRaw(Prof::Metric::ADesc* metric,
 		     const Prof::Flat::EventData& profevent,
 		     VMA lm_load_addr,
-		     Prof::Struct::Tree& GCC_ATTR_UNUSED structure,
+		     Prof::Struct::Tree& structure,
 		     Prof::Struct::LM* lmStrct,
 		     /*const*/ BinUtil::LM* lm,
 		     bool useStruct)
 {
-  ulong period = profevent.mdesc().period();
+  unsigned long period = profevent.mdesc().period();
   bool doUnrelocate = lm->doUnrelocate(lm_load_addr);
 
   uint numMetrics = m_mMgr.size();
@@ -811,7 +808,7 @@ Driver::correlateRaw(Prof::Metric::ADesc* metric,
     const Prof::Flat::Datum& dat = profevent.datum(i);
     VMA vma = dat.first; // relocated VMA
     uint32_t samples = dat.second;
-    double events = samples * (double)period; // samples * (events/sample)
+    double events = samples * period; // samples * (events/sample)
     
     // 1. Unrelocate vma.
     VMA vma_ur = (doUnrelocate) ? (vma - lm_load_addr) : vma;

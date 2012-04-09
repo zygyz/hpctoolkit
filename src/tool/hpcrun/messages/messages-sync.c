@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,6 @@
 #include "fname_max.h"
 #include "files.h"
 #include "name.h"
-#include "rank.h"
 #include "thread_data.h"
 #include "thread_use.h"
 #include "monitor.h"
@@ -148,15 +147,15 @@ messages_logfile_create()
 {
   if (hpcrun_get_disabled()) return;
 
+  // get name for log file 
+  char log_name[PATH_MAX];
+  files_log_name(log_name, 0, PATH_MAX);
+
+
+  if (getenv("HPCRUN_LOG_STDERR")) return; // HPCRUN_LOG_STDERR variable set ==> log goes to stderr
+
   // open log file
-  if (getenv("HPCRUN_LOG_STDERR") != NULL) {
-    // HPCRUN_LOG_STDERR variable set ==> log goes to stderr
-    log_file_fd = 2;
-  }
-  else {
-    // Normal case of opening .log file.
-    log_file_fd = hpcrun_open_log_file();
-  }
+  log_file_fd = open(log_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   if (log_file_fd == -1) {
     log_file_fd = 2; // cannot open log_file ==> revert to stderr
   }
@@ -180,9 +179,13 @@ messages_fini(void)
     // missing the MPI rank. fix that now by renaming the log file to what 
     // it should be.
     //----------------------------------------------------------------------
-    int rank = hpcrun_get_rank();
+    int rank = monitor_mpi_comm_rank();
     if (rank >= 0) {
-      hpcrun_rename_log_file(rank);
+      char old[PATH_MAX];
+      char new[PATH_MAX];
+      files_log_name(old, 0, PATH_MAX);
+      files_log_name(new, rank, PATH_MAX);
+      rename(old, new);
     }
   }
 }

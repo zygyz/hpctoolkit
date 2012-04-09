@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -79,8 +79,8 @@
  *                                                                            *
  *****************************************************************************/
 
-#ifndef support_HashTableSortedIterator_hpp
-#define support_HashTableSortedIterator_hpp
+#ifndef HashTableSortedIterator_h
+#define HashTableSortedIterator_h
 
 
 //************************** System Include Files ***************************
@@ -97,26 +97,26 @@
 
 class HashTableSortedIterator
 {
-public:
-  HashTableSortedIterator(const HashTable* theHashTable,
-			  EntryCompareFunctPtr const _EntryCompare);
-  virtual ~HashTableSortedIterator();
-  
-  void  operator ++(int);
-  bool IsValid() const;
-  void* Current() const;
-  void  Reset();
-  
-private:
-  int    currentEntryNumber;
-  int    numberOfSortedEntries;
-  void** sortedEntries;
-  
-  const HashTable* hashTable;
-  
-  EntryCompareFunctPtr EntryCompare;
+  public:
+    HashTableSortedIterator(const HashTable* theHashTable,
+                            EntryCompareFunctPtr const _EntryCompare);
+   ~HashTableSortedIterator();
+
+    void  operator ++(int);
+    bool IsValid() const;
+    void* Current() const;
+    void  Reset();
+
+  private:
+    int    currentEntryNumber;
+    int    numberOfSortedEntries;
+    void** sortedEntries;
+
+    const HashTable* hashTable;
+
+    EntryCompareFunctPtr EntryCompare;
 
 };
 
-#endif // support_HashTableSortedIterator_hpp
+#endif
 

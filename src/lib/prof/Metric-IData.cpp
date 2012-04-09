@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "Metric-IData.hpp"
@@ -101,7 +100,7 @@ IData::toStringMetrics(int oFlags, const char* pfx) const
 
 std::ostream&
 IData::writeMetricsXML(std::ostream& os, uint mBegId, uint mEndId,
-		       int GCC_ATTR_UNUSED oFlags, const char* pfx) const
+		       int oFlags, const char* pfx) const
 {
   bool wasMetricWritten = false;
 
@@ -125,8 +124,7 @@ IData::writeMetricsXML(std::ostream& os, uint mBegId, uint mEndId,
 
 
 std::ostream&
-IData::dumpMetrics(std::ostream& os, int GCC_ATTR_UNUSED oFlags,
-		   const char* GCC_ATTR_UNUSED pfx) const
+IData::dumpMetrics(std::ostream& os, int oFlags, const char* pfx) const
 {
   return os;
 }

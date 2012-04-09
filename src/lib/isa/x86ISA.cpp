@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -148,7 +148,7 @@ x86ISA::getInsnSize(MachInsn* mi)
   DecodingCache *cache;
 
   if ((cache = cacheLookup(mi)) == NULL) {
-    size = (ushort)print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
     cacheSet(mi, size);
   }
   else {
@@ -159,14 +159,13 @@ x86ISA::getInsnSize(MachInsn* mi)
 
 
 ISA::InsnDesc
-x86ISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		    ushort GCC_ATTR_UNUSED s)
+x86ISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort s)
 {
   ISA::InsnDesc d;
 
   if (cacheLookup(mi) == NULL) {
-    int size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+    ushort size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    cacheSet(mi, size);
   }
 
   switch(m_di->insn_type) {
@@ -216,12 +215,11 @@ x86ISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-x86ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort GCC_ATTR_UNUSED opIndex,
-			 ushort GCC_ATTR_UNUSED sz)
+x86ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
 {
   if (cacheLookup(mi) == NULL) {
-    int size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+    ushort size = print_insn_i386(PTR_TO_BFDVMA(mi), m_di);
+    cacheSet(mi, size);
   }
 
   // The target field is only set on instructions with targets.
@@ -235,8 +233,7 @@ x86ISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort GCC_ATTR_UNUSED opIndex,
 
 
 void
-x86ISA::decode(ostream& os, MachInsn* mi, VMA vma,
-	       ushort GCC_ATTR_UNUSED opIndex)
+x86ISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

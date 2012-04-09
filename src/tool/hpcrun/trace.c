@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,32 +62,33 @@
 #include "env.h"
 #include "files.h"
 #include "monitor.h"
-#include "rank.h"
-#include "string.h"
 #include "trace.h"
 #include "thread_data.h"
-#include "sample_prob.h"
 
 #include <memory/hpcrun-malloc.h>
+
 #include <messages/messages.h>
 
 #include <lib/prof-lean/hpcfmt.h>
-#include <lib/prof-lean/hpcrun-fmt.h>
 #include <lib/prof-lean/hpcio.h>
-#include <lib/prof-lean/hpcio-buffer.h>
 
 
 //*********************************************************************
 // type declarations
 //*********************************************************************
 
+typedef struct trecord_s {
+  double time;
+  unsigned int call_path_id;
+} trecord_t;
 
+#define TRECORD_SIZE (sizeof(double) + sizeof(unsigned int))
 
 //*********************************************************************
 // forward declarations 
 //*********************************************************************
 
-static void hpcrun_trace_file_validate(int valid, char *op);
+static void trace_file_validate(int valid, char *op);
 
 
 
@@ -103,15 +104,15 @@ static int tracing = 0;
 // interface operations
 //*********************************************************************
 
-int
-hpcrun_trace_isactive()
+int 
+trace_isactive()
 {
   return tracing;
 }
 
 
-void
-hpcrun_trace_init()
+void 
+trace_init()
 {
   if (getenv(HPCRUN_TRACE)) {
     tracing = 1;
@@ -119,39 +120,37 @@ hpcrun_trace_init()
 }
 
 
-void
-hpcrun_trace_open()
+void 
+trace_open()
 {
-  // With fractional sampling, if this process is inactive, then don't
-  // open an output file, not even /dev/null.
-  if (tracing && hpcrun_sample_prob_active()) {
+  if (tracing) {
+    char trace_file[PATH_MAX];
+    files_trace_name(trace_file, 0, PATH_MAX);
+
     thread_data_t *td = hpcrun_get_thread_data();
-    int fd, ret;
+    td->trace_file = hpcio_fopen_w(trace_file, 0);
+    trace_file_validate(td->trace_file != 0, "open");
 
-    // I think unlocked is ok here (we don't overlap any system
-    // locks).  At any rate, locks only protect against threads, they
-    // don't help with signal handlers (that's much harder).
-    fd = hpcrun_open_trace_file(td->id);
-    hpcrun_trace_file_validate(fd >= 0, "open");
     td->trace_buffer = hpcrun_malloc(HPCRUN_TraceBufferSz);
-    ret = hpcio_outbuf_attach(&td->trace_outbuf, fd, td->trace_buffer,
-			      HPCRUN_TraceBufferSz, HPCIO_OUTBUF_UNLOCKED);
-    hpcrun_trace_file_validate(ret == HPCFMT_OK, "open");
+    int ret = setvbuf(td->trace_file, td->trace_buffer, _IOFBF,
+		      HPCRUN_TraceBufferSz);
+    if (ret != 0) {
+      EMSG("Error setting buffer for trace file");
+    }
 
-    ret = hpctrace_fmt_hdr_outbuf(&td->trace_outbuf);
-    hpcrun_trace_file_validate(ret == HPCFMT_OK, "write header to");
+    hpctrace_fmt_hdr_fwrite(td->trace_file);
   }
 }
 
 
 void
-hpcrun_trace_append(unsigned int call_path_id)
+trace_append(unsigned int call_path_id)
 {
-  if (tracing && hpcrun_sample_prob_active()) {
+  if (tracing) {
     struct timeval tv;
     int ret = gettimeofday(&tv, NULL);
     assert(ret == 0 && "in trace_append: gettimeofday failed!");
-    uint64_t microtime = ((uint64_t)tv.tv_usec
+    uint64_t microtime = ((uint64_t)tv.tv_usec 
 			  + (((uint64_t)tv.tv_sec) * 1000000));
 
     thread_data_t *td = hpcrun_get_thread_data();
@@ -161,28 +160,35 @@ hpcrun_trace_append(unsigned int call_path_id)
     }
     td->trace_max_time_us = microtime;
 
-    ret = hpctrace_fmt_append_outbuf(&td->trace_outbuf, microtime,
-				     (uint32_t)call_path_id);
-    hpcrun_trace_file_validate(ret == HPCFMT_OK, "append");
+    int ret1 = hpcfmt_int8_fwrite(microtime, td->trace_file);
+    int ret2 = hpcfmt_int4_fwrite((uint32_t)call_path_id, td->trace_file);
+    trace_file_validate(ret1 == HPCFMT_OK && ret2 == HPCFMT_OK, "append");
   }
 }
 
 
 void
-hpcrun_trace_close()
+trace_close()
 {
-  if (tracing && hpcrun_sample_prob_active()) {
+  if (tracing) {
+    int ret;
     thread_data_t *td = hpcrun_get_thread_data();
+    ret = fflush(td->trace_file);
+    trace_file_validate(ret == 0, "flush");
 
-    int ret = hpcio_outbuf_close(&td->trace_outbuf);
-    hpcrun_trace_file_validate(ret == HPCFMT_OK, "close");
-
-    int rank = hpcrun_get_rank();
+    ret = hpcio_fclose(td->trace_file);
+    trace_file_validate(ret == 0, "close");
+    int rank = monitor_mpi_comm_rank();
     if (rank >= 0) {
-      hpcrun_rename_trace_file(rank, td->id);
+      char old_fnm[PATH_MAX];
+      char new_fnm[PATH_MAX];
+      files_trace_name(old_fnm, 0, PATH_MAX);
+      files_trace_name(new_fnm, rank, PATH_MAX);
+      rename(old_fnm, new_fnm);
     }
   }
 }
+
 
 
 //*********************************************************************
@@ -191,7 +197,7 @@ hpcrun_trace_close()
 
 
 static void
-hpcrun_trace_file_validate(int valid, char *op)
+trace_file_validate(int valid, char *op)
 {
   if (!valid) {
     EMSG("unable to %s trace file\n", op);

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -67,7 +67,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "CCT-Merge.hpp"
@@ -127,7 +126,7 @@ MergeEffect::toString(const char* pfx) const
 
 
 std::ostream&
-MergeEffect::dump(std::ostream& os, const char* GCC_ATTR_UNUSED pfx) const
+MergeEffect::dump(std::ostream& os, const char* pfx) const
 {
   os << old_cpId << " => " << new_cpId;
   return os;

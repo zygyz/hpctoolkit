@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -327,7 +327,7 @@ private:
     CtxtChange_FLAG_NULL           = 0x00000000,
     CtxtChange_FLAG_RESTORE        = 0x10000000,
     CtxtChange_FLAG_REVERT         = 0x20000000,
-    CtxtChange_FLAG_FIX_SCOPES     = 0x40000000
+    CtxtChange_FLAG_FIX_SCOPES     = 0x40000000,
   };
 
   static bool CtxtChange_eq(CtxtChange_t x, CtxtChange_t y) {

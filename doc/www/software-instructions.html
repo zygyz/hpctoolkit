@@ -20,7 +20,8 @@
 
 <!-- ********************************************************************** -->
 
-<!-- HPCToolkit Image (height = 71 pixels) --> <img style="position: absolute; top: 0px; left: 0px" src="style/header.gif" alt="hpctoolkit" /> <div style="position: relative; margin-top: 60px; width: 100%; text-align: right;"> <p style="margin: 0px; font-size: small;">   [ <a href="index.html">Home</a>   | <a href="overview.html">Overview</a>   | <a href="publications.html">Publications</a> ]   &bull;   [ <a href="examples.html">Examples</a> ]   &bull;   [ <a href="software.html">Software/Downloads</a>   | <a href="documentation.html">Documentation/Questions</a> ]   &bull;   [ <a href="info-people.html">People</a> |     <a href="info-acks.html">Acks</a> ] </p> </div> <div style="width: 100%;">   <hr /> </div> 
+<script language="JavaScript" type="text/javascript" src="style/header-hpctoolkit.js"></script>
+
 <!-- ********************************************************************** -->
 
 <a name="toc"></a>
@@ -69,16 +70,16 @@ The following prerequisites apply to our default source code distribution.
       <td></td>
     </tr>
     <tr>
-      <td>Linux + Power64</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>Cray XT/XE (CNL + x86_64)</td>
+      <td>Cray XT (CNL + x86_64)</td>
       <td>Compute Node Linux &ge; 2.1</td>
     </tr>
     <tr>
       <td>IBM Blue Gene/P (BG/P kernel + Power32)</td>
       <td>BG/P kernel &ge; V1R3M0</td>
+    </tr>
+    <tr>
+      <td>Linux + MIPS-le (64 and n32)</td>
+      <td>for SiCortex clusters (little endian MIPS)</td>
     </tr>
 
     <tr>
@@ -86,13 +87,12 @@ The following prerequisites apply to our default source code distribution.
     </tr>
 
     <tr>
+      <td>Linux + Power64</td>
+      <td>testing</td>
+    </tr>
+    <tr>
       <td>Linux + IA64 </td>
       <td>testing (uses <a href="http://www.nongnu.org/libunwind/">libunwind</a>)</td>
-    </tr>
-
-    <tr>
-      <td>Linux + MIPS-le (64 and n32)</td>
-      <td>for SiCortex clusters; little endian MIPS (no longer tested) </td>
     </tr>
   </table>
 </li>
@@ -146,15 +146,15 @@ Some vendor compilers that support GNU extensions also work.
 </li>
 
 <li>
-<p>To use <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> (HPCToolkit's interactive presentation tools) on MacOS, Windows, or Linux, a Java runtime environment (JRE) &ge; 1.5 is required.
+<p>To use <span class="hpctool">hpcviewer</span> (HPCToolkit's interactive presentation tool) on MacOS, Windows, or Linux, a Java runtime environment (JRE) &ge; 1.5 is required.
 Use the Sun or IBM version; we have had problems with OpenJDK.
 </p>
 
 <p>
-To use <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> on Linux, <a href="http://www.gtk.org">GTK+</a> is also required.
+To use <span class="hpctool">hpcviewer</span> on Linux, <a href="http://www.gtk.org">GTK+</a> is also required.
 </p>
 
-<p>Note: Since HPCToolkit's databases are portable, we often install <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> on local laptops/desktops to avoid sending display traffic over relatively slow network connections.
+<p>Note: Since HPCToolkit's databases are portable, we often install <span class="hpctool">hpcviewer</span> on local laptops/desktops to avoid sending display traffic over relatively slow network connections.
 </p>
 </li>
 
@@ -226,10 +226,10 @@ We have succssfully used versions 5.6.x, 5.8.x.
     </p>
   </li>
 
-  <li><p>An <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> build.</p>
+  <li><p>An <span class="hpctool">hpcviewer</span> build.</p>
 
-  <p>Note: It is perfectly reasonable to install <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> in multiple locations.
-    Since HPCToolkit's databases are portable, we often install <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> on local laptops/desktops to avoid sending display traffic over relatively slow network connections.</p>
+  <p>Note: It is perfectly reasonable to install <span class="hpctool">hpcviewer</span> in multiple locations.
+    Since HPCToolkit's databases are portable, we often install <span class="hpctool">hpcviewer</span> on local laptops/desktops to avoid sending display traffic over relatively slow network connections.</p>
   </li>
 
 </ol>
@@ -266,13 +266,13 @@ Please note that a list of examples below provides <code>configure</code> comman
   <code>mkdir BUILD &amp;&amp; cd BUILD</code><br />
   <code>../configure [CC=&lt;<i>c-compiler</i>&gt;] 
                      [CXX=&lt;<i>c++-compiler</i>&gt;] \<br />
-  &nbsp;&nbsp;&nbsp;&nbsp; [--prefix=&lt;<i>hpctoolkit-externals-install</i>&gt;</code>] <br />
+  &nbsp;&nbsp;&nbsp;&nbsp; [--prefix=&lt;<i>externals-install-path</i>&gt;</code>] <br />
   <code>make install</code><br />
   <code>make distclean</code><br />
 </div>
 
 <p>Externals is <i>not</i> persistent as HPCToolkit will copy everything it needs from the installation.
-  Thus, the installation path <code>&lt;hpctoolkit-externals-install&gt;</code> should be a local path and not something like <code>/usr</code>.
+  Thus, the installation path <code>&lt;externals-install-path&gt;</code> should be a local path and not something like <code>/usr</code>.
   If <code>--prefix</code> is not supplied it will automatically be set to <code>./&lt;Autoconf-host&gt;</code>.
 </p>
 
@@ -294,19 +294,18 @@ Please note that a list of examples below provides <code>configure</code> comman
   <code>../configure [CC=&lt;<i>c-compiler</i>&gt;]
                      [CXX=&lt;<i>c++-compiler</i>&gt;]
                      [MPICXX=&lt;<i>mpi-c++-compiler</i>&gt;] \<br />
-  &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>hpctoolkit-install</i>&gt; \<br />
-  &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>hpctoolkit-externals-install</i>&gt; \<br />
-   &nbsp;&nbsp;&nbsp;&nbsp; [--with-papi=&lt;<i>papi-install</i>&gt;]</code><br />
+  &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>install-path</i>&gt; \<br />
+  &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>externals-install-path</i>&gt; \<br />
+   &nbsp;&nbsp;&nbsp;&nbsp; [--with-papi=&lt;<i>papi-install-path</i>&gt;]</code><br />
   <code>make install</code><br />
 </div>
 
-<p>The above commands will build HPCToolkit and install it into <code>&lt;<i>hpctoolkit-install</i>&gt;</code>.
+<p>The above commands will build HPCToolkit and install it into <code>&lt;<i>install-path</i>&gt;</code>.
 </p>
 
 <p>To specify a C and C++ compiler other than <code>gcc</code> and <code>g++</code>, use <code>CC</code> and <code>CXX</code>.
   To enable MPI support, (1) ensure a working <code>mpicxx</code> or <code>mpiCC</code> is in your shell's path; or (2) use <code>MPICXX</code>.
-  (Naturally, <code>CXX</code> and <code>MPICXX</code> should be compatible; typically <code>MPICXX</code> is a wrapper for <code>CXX</code>.)
-  To enable PAPI-based measurements, use the <code>--with-papi</code> option; it takes as an argument the path of your PAPI installation, <code>&lt;<i>papi-install</i>&gt;</code>.
+  To enable PAPI-based measurements, use the <code>--with-papi</code> option; it takes as an argument the path of your PAPI installation, <code>&lt;<i>papi-install-path</i>&gt;</code>.
 </p>
 
 <p>Because the HPCToolkit installation is self-contained, it may be renamed or moved to another location.
@@ -315,21 +314,20 @@ Please note that a list of examples below provides <code>configure</code> comman
 </li>
 
 <li>
-<p>Install <span class="hpctool">hpcviewer</span> and <span class="hpctool">hpctraceviewer</span> .
+<p>Install <span class="hpctool">hpcviewer</span>.
 </p>
 
   <ul class="noindent">
   
-  <li> To install <span class="hpctool">hpcviewer</span> or <span class="hpctool">hpctraceviewer</span> as a stand-alone package, simply unpack and move the directory tree to the desired location.
+  <li> To install <span class="hpctool">hpcviewer</span> as a stand-alone package, simply unpack and move the directory tree to the desired location.
   (This is the only option on Windows or MacOS.)
   </li>
 
-  <li> To install <span class="hpctool">hpcviewer</span> or <span class="hpctool">hpctraceviewer</span> in an HPCToolkit installation, unpack the tarball and execute the following commands:
+  <li> To install <span class="hpctool">hpcviewer</span> in an HPCToolkit installation, unpack the tarball and execute the following command:
     <div class="indent">
-      <code>cd &lt;<i>hpcviewer</i>&gt; &amp;&amp; ./install &lt;<i>hpctoolkit-install</i>&gt;</code><br />
-      <code>cd &lt;<i>hpctraceviewer</i>&gt; &amp;&amp; ./install &lt;<i>hpctoolkit-install</i>&gt;</code>
+      <code>./&lt;<i>hpcviewer</i>&gt;/install &lt;<i>install-path</i>&gt;</code>
     </div>
-    Here, <code>&lt;<i>hpcviewer</i>&gt;</code> and <code>&lt;<i>hpctraceviewer</i>&gt;</code> are the directories created by unpacking the respective tarballs; and <code>&lt;<i>hpctoolkit-install</i>&gt;</code> is the above HPCToolkit installation directory.
+    Here, <code>&lt;<i>hpcviewer</i>&gt;</code> is the directory created by unpacking the tarball; and <code>&lt;<i>install-path</i>&gt;</code> is the above HPCToolkit installation directory.
   </li>
 
   </ul>
@@ -346,25 +344,7 @@ Please note that a list of examples below provides <code>configure</code> comman
 <p><strong>N.B.:</strong> The commands are designed to replace the respective commands in the <a href="#building-installing">above build instructions</a>.</p>
   <ul>
 
-
-    <li><p>Blue Gene/Q:</p>
-	<dl class="indent">
-          <dt>HPCToolkit's Externals</dt>
-	  <dd><code>../configure --prefix=`pwd`/../powerpc64-linux
-	      </code>
-  	  </dd>
-
-          <dt>HPCToolkit</dt>
-	  <dd><code>../configure \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; HPCPROFMPI_LT_LDFLAGS="-all-static" \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>install-path</i>&gt; \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>hpctoolkit-externals</i>&gt;/powerpc64-linux
-	      </code>
-          </dd>
-	</dl>
-    </li>
-
-    <li><p>Blue Gene/P:</p>
+    <li><p>BlueGene/P:</p>
 	<dl class="indent">
           <dt>HPCToolkit's Externals</dt>
 	  <dd><code>../configure --prefix=`pwd`/../powerpc32-linux
@@ -376,14 +356,14 @@ Please note that a list of examples below provides <code>configure</code> comman
 	  <dd><code>../configure \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; HPC_LT_LDFLAGS="-all-static -L../../lib/stubs-gcc_s" \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; HPCPROFMPI_LT_LDFLAGS="-L/bgsys/drivers/ppcfloor/gnu-linux/powerpc-bgp-linux/lib -lstdc++" \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>hpctoolkit-install</i>&gt; \<br />
+	      &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>install-path</i>&gt; \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>hpctoolkit-externals</i>&gt;/powerpc32-linux
 	      </code>
           </dd>
 	</dl>
     </li>
 
-    <li><p>Cray XT/XE:</p>
+    <li><p>Cray XT:</p>
 	<dl class="indent">
           <dt>N.B.: Use the GNU programming environment, e.g.:</dt>
 	  <dd><code>
@@ -400,7 +380,7 @@ Please note that a list of examples below provides <code>configure</code> comman
           <dt>HPCToolkit</dt>
 	  <dd><code>../configure MPICXX="CC" \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; HPC_LT_LDFLAGS="-all-static -L../../lib/stubs-gcc_s" \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>hpctoolkit-install</i>&gt; \<br />
+	      &nbsp;&nbsp;&nbsp;&nbsp; --prefix=&lt;<i>install-path</i>&gt; \<br />
               &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>hpctoolkit-externals</i>&gt;/x86_64-linux \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; --with-papi=/opt/xt-tools/papi/3.7.2/v23
 	      </code>
@@ -420,9 +400,9 @@ Please note that a list of examples below provides <code>configure</code> comman
 
           <dt>HPCToolkit</dt>
 	  <dd><code>../configure CC="gcc -m32" CXX="g++ -m32" MPICXX="mpicxx -m32" \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --host=i686-linux --prefix=&lt;<i>hpctoolkit-install</i>&gt; \<br />
+	      &nbsp;&nbsp;&nbsp;&nbsp; --host=i686-linux --prefix=&lt;<i>install-path</i>&gt; \<br />
               &nbsp;&nbsp;&nbsp;&nbsp; --with-externals=&lt;<i>hpctoolkit-externals</i>&gt;/i686-linux \<br />
-	      &nbsp;&nbsp;&nbsp;&nbsp; --with-papi=&lt;<i>papi-install</i>&gt; \<br />
+	      &nbsp;&nbsp;&nbsp;&nbsp; --with-papi=&lt;<i>papi-install-path</i>&gt; \<br />
 	      &nbsp;&nbsp;&nbsp;&nbsp; --disable-hpcrun-static
 	      </code>
           </dd>
@@ -543,12 +523,13 @@ Please note that a list of examples below provides <code>configure</code> comman
 
 </ul>
 
-<p>[<span class="lastupdated">Page last updated: 2012/02/27</span>]
+<p>[<span class="lastupdated">Page last updated: 2011/01/25</span>]
 </p>
 
 <!-- ********************************************************************** -->
 
-<div style="width: 100%; font-size: small;">   <hr />   <p style="margin: 0px; font-size: small;">     &copy;2000-2012 <a href="http://www.rice.edu">Rice University</a>     &bull;     <a href="http://www.cs.rice.edu">Rice Computer Science</a>   </p>   <a href="http://validator.w3.org/check/referer">     <img src="http://www.w3.org/Icons/valid-xhtml10-blue" alt="" height="15" /></a>   <a href="http://jigsaw.w3.org/css-validator/check/referer">     <img src="http://www.w3.org/Icons/valid-css-blue" alt="" height="15" /></a> </div> 
+<script language="JavaScript" type="text/javascript" src="style/footer-hpctoolkit.js"></script>
+
 <!-- ********************************************************************** -->
 
 </body>

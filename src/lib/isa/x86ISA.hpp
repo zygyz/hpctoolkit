@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -64,7 +64,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "ISA.hpp"
@@ -95,7 +94,7 @@ public:
   getInsnSize(MachInsn* mi);
 
   virtual ushort
-  getInsnNumOps(MachInsn* GCC_ATTR_UNUSED mi)
+  getInsnNumOps(MachInsn* mi)
   { return 1; }
 
   virtual InsnDesc
@@ -105,18 +104,12 @@ public:
   getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz = 0);
 
   virtual ushort
-  getInsnNumDelaySlots(MachInsn* GCC_ATTR_UNUSED mi,
-		       ushort GCC_ATTR_UNUSED opIndex,
-		       ushort GCC_ATTR_UNUSED sz = 0)
+  getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz = 0)
   { return 0; }
 
   virtual bool
-  isParallelWithSuccessor(MachInsn* GCC_ATTR_UNUSED mi1,
-			  ushort GCC_ATTR_UNUSED opIndex1,
-			  ushort GCC_ATTR_UNUSED sz1,
-			  MachInsn* GCC_ATTR_UNUSED mi2,
-			  ushort GCC_ATTR_UNUSED opIndex2,
-			  ushort GCC_ATTR_UNUSED sz2) const
+  isParallelWithSuccessor(MachInsn* mi1, ushort opIndex1, ushort sz1,
+			  MachInsn* mi2, ushort opIndex2, ushort sz2) const
   { return false; }
 
   virtual void
@@ -124,11 +117,11 @@ public:
 
 private:
   // Should not be used
-  x86ISA(const x86ISA& GCC_ATTR_UNUSED x)
+  x86ISA(const x86ISA& i)
   { }
 
   x86ISA&
-  operator=(const x86ISA& GCC_ATTR_UNUSED x)
+  operator=(const x86ISA& i)
   { return *this; }
 
 protected:

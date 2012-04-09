@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -411,10 +411,10 @@ makeMathMLExpr(const char* nm, DOMNode* mathMLExpr,
 
 static void 
 ProcessFILE(DOMNode* fileNode, 
-	    Analysis::Args& GCC_ATTR_UNUSED args, Prof::Metric::Mgr& mMgr, 
+	    Analysis::Args& args, Prof::Metric::Mgr& mMgr, 
 	    const string& metricNm, bool metricDoDisp, 
 	    bool metricDoPercent, bool metricDoSortBy, 
-	    const string& GCC_ATTR_UNUSED metricDispNm)
+	    const string& metricDispNm)
 {
   static XMLCh* TYPEATTR = XMLString::transcode("type");
   static XMLCh* NAMEATTR = XMLString::transcode("name");

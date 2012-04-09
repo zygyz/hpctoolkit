@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -106,13 +106,6 @@
 typedef struct cct_node_t cct_node_t;
 
 //
-// In order to associate data with a given calling context,
-// cct nodes need an id type (abstract)
-//
-
-typedef cct_node_t* cct_node_id_t;
-
-//
 // Interface procedures
 //
 
@@ -126,6 +119,7 @@ extern cct_node_t* hpcrun_cct_new_partial(void);
 // 
 
 extern cct_node_t* hpcrun_cct_parent(cct_node_t* node);
+extern cct_metric_data_t* hpcrun_cct_metrics(cct_node_t* node);
 extern int32_t hpcrun_cct_persistent_id(cct_node_t* node);
 extern cct_addr_t* hpcrun_cct_addr(cct_node_t* node);
 extern bool hpcrun_cct_is_leaf(cct_node_t* node);

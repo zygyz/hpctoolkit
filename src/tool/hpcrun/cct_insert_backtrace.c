@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -57,42 +57,19 @@
 #include <thread_data.h>
 #include <hpcrun_stats.h>
 #include <trampoline/common/trampoline.h>
-#include <utilities/ip-normalized.h>
 #include "frame.h"
 #include <unwind/common/backtrace_info.h>
-#include <unwind/common/fence_enum.h>
-#include "cct_insert_backtrace.h"
-
-//
-// local variable records the on/off state of
-// special recursive compression:
-//
-static bool retain_recursion = false;
 
 static cct_node_t*
 cct_insert_raw_backtrace(cct_node_t* cct,
                             frame_t* path_beg, frame_t* path_end)
 {
-  TMSG(BT_INSERT, "%s : start", __func__);
   if ( (path_beg < path_end) || (!cct)) {
-    TMSG(BT_INSERT, "No insert effect, cct = %p, path_beg = %p, path_end = %p",
-	 cct, path_beg, path_end);
-    return cct;
+    return NULL;
   }
-  ip_normalized_t parent_routine = ip_normalized_NULL;
   for(; path_beg >= path_end; path_beg--){
-    if ( (! retain_recursion) &&
-	 (path_beg >= path_end + 1) && 
-         ip_normalized_eq(&(path_beg->the_function), &(parent_routine)) &&
-	 ip_normalized_eq(&(path_beg->the_function), &((path_beg-1)->the_function))) { 
-      TMSG(REC_COMPRESS, "recursive routine compression!");
-    }
-    else {
-      cct_addr_t tmp = (cct_addr_t) {.as_info = path_beg->as_info, .ip_norm = path_beg->ip_norm, .lip = path_beg->lip};
-      TMSG(BT_INSERT, "inserting addr (%d, %p)", tmp.ip_norm.lm_id, tmp.ip_norm.lm_ip);
-      cct = hpcrun_cct_insert_addr(cct, &tmp);
-    }
-    parent_routine = path_beg->the_function;
+    cct_addr_t tmp = (cct_addr_t) {.as_info = path_beg->as_info, .ip_norm = path_beg->ip_norm, .lip = path_beg->lip};
+    cct = hpcrun_cct_insert_addr(cct, &tmp);
   }
   return cct;
 }
@@ -102,28 +79,16 @@ help_hpcrun_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
 			  int metricId, uint64_t metricIncr,
 			  int skipInner);
 
-//
-// 
-void
-hpcrun_set_retain_recursion_mode(bool mode)
-{
-  TMSG(REC_COMPRESS, "retain_recursion set to %s", mode ? "true" : "false");
-  retain_recursion = mode;
-}
-
 // See usage in header.
 cct_node_t*
-hpcrun_cct_insert_backtrace(cct_node_t* treenode, frame_t* path_beg, frame_t* path_end)
+hpcrun_cct_insert_backtrace(cct_bundle_t* cct, cct_node_t* treenode,
+			    int metric_id,
+			    frame_t* path_beg, frame_t* path_end,
+			    cct_metric_data_t datum)
 {
-  TMSG(FENCE, "insert backtrace into treenode %p", treenode);
-  TMSG(FENCE, "backtrace below");
-  bool bt_ins = ENABLED(BT_INSERT);
-  if (ENABLED(FENCE)) {
-    ENABLE(BT_INSERT);
-  }
+  if (! treenode) treenode = cct->tree_root;
 
   cct_node_t* path = cct_insert_raw_backtrace(treenode, path_beg, path_end);
-  if (! bt_ins) DISABLE(BT_INSERT);
 
   // Put lush as_info class correction here
 
@@ -141,21 +106,7 @@ hpcrun_cct_insert_backtrace(cct_node_t* treenode, frame_t* path_beg, frame_t* pa
     // INVARIANT: path->as_info should be either M-to-1 or 1-to-M
     lush_assoc_info__set_assoc(hpcrun_cct_addr(path)->as_info, LUSH_ASSOC_1_to_1);
   }
-  return path;
-}
-
-// See usage in header.
-cct_node_t*
-hpcrun_cct_insert_backtrace_w_metric(cct_node_t* treenode,
-				     int metric_id,
-				     frame_t* path_beg, frame_t* path_end,
-				     cct_metric_data_t datum)
-{
-  cct_node_t* path = hpcrun_cct_insert_backtrace(treenode, path_beg, path_end);
-
-  hpcrun_get_metric_proc(metric_id)(metric_id,
-				    hpcrun_reify_metric_set(path),
-				    datum);
+  hpcrun_get_metric_proc(metric_id)(metric_id, &(hpcrun_cct_metrics(path)[metric_id]), datum);
   return path;
 }
 
@@ -164,12 +115,12 @@ hpcrun_cct_insert_backtrace_w_metric(cct_node_t* treenode,
 //
 
 cct_node_t*
-hpcrun_cct_insert_bt(cct_node_t* node,
+hpcrun_cct_insert_bt(cct_bundle_t* cct, cct_node_t* node,
 		     int metricId,
 		     backtrace_t* bt,
 		     cct_metric_data_t datum)
 {
-  return hpcrun_cct_insert_backtrace_w_metric(node, metricId, hpcrun_bt_last(bt), hpcrun_bt_beg(bt), datum);
+  return hpcrun_cct_insert_backtrace(cct, node, metricId, hpcrun_bt_last(bt), hpcrun_bt_beg(bt), datum);
 }
 
 
@@ -200,10 +151,8 @@ hpcrun_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
 			   isSync);
   }
   else {
-    TMSG(BT_INSERT,"regular (NON-lush) backtrace2cct invoked");
-    n = help_hpcrun_backtrace2cct(cct, context,
-				  metricId, metricIncr,
-				  skipInner);
+    TMSG(LUSH,"regular (NON-lush) backtrace2cct invoked");
+    n = help_hpcrun_backtrace2cct(cct, context, metricId, metricIncr, skipInner);
   }
 
   // N.B.: for lush_backtrace() it may be that n = NULL
@@ -250,62 +199,23 @@ hpcrun_bt2cct(cct_bundle_t *cct, ucontext_t* context,
 #endif
 
 cct_node_t*
-hpcrun_cct_record_backtrace(cct_bundle_t* cct, bool partial, bool thread_stop,
-			    frame_t* bt_beg, frame_t* bt_last, bool tramp_found)
+hpcrun_cct_record_backtrace(cct_bundle_t* cct, bool partial,
+			    frame_t* bt_beg, frame_t* bt_last, bool tramp_found,
+			    int metricId, uint64_t metricIncr)
 {
-  TMSG(FENCE, "Recording backtrace");
   thread_data_t* td = hpcrun_get_thread_data();
-  cct_node_t* cct_cursor = cct->tree_root;
-  TMSG(FENCE, "Initially picking tree root = %p", cct_cursor);
+  cct_node_t* cct_cursor = NULL;
   if (tramp_found) {
     // start insertion below caller's frame, which is marked with the trampoline
     cct_cursor = hpcrun_cct_parent(td->tramp_cct_node);
-    TMSG(FENCE, "Tramp found ==> cursor = %p", cct_cursor);
   }
   if (partial) {
     cct_cursor = cct->partial_unw_root;
-    TMSG(FENCE, "Partial unwind ==> cursor = %p", cct_cursor);
-  }
-  if (thread_stop) {
-    cct_cursor = cct->thread_root;
-    TMSG(FENCE, "Thread stop ==> cursor = %p", cct_cursor);
   }
 
-  TMSG(FENCE, "sanity check cursor = %p", cct_cursor);
-  TMSG(FENCE, "further sanity check: bt_last frame = (%d, %p)", bt_last->ip_norm.lm_id, bt_last->ip_norm.lm_ip);
-  return hpcrun_cct_insert_backtrace(cct_cursor, bt_last, bt_beg);
-
-}
-
-cct_node_t*
-hpcrun_cct_record_backtrace_w_metric(cct_bundle_t* cct, bool partial, bool thread_stop,
-				     frame_t* bt_beg, frame_t* bt_last, bool tramp_found,
-				     int metricId, uint64_t metricIncr)
-{
-  TMSG(FENCE, "Recording backtrace");
-  TMSG(BT_INSERT, "Record backtrace w metric to id %d, incr = %d", metricId, metricIncr);
-  thread_data_t* td = hpcrun_get_thread_data();
-  cct_node_t* cct_cursor = cct->tree_root;
-  TMSG(FENCE, "Initially picking tree root = %p", cct_cursor);
-  if (tramp_found) {
-    // start insertion below caller's frame, which is marked with the trampoline
-    cct_cursor = hpcrun_cct_parent(td->tramp_cct_node);
-    TMSG(FENCE, "Tramp found ==> cursor = %p", cct_cursor);
-  }
-  if (partial) {
-    cct_cursor = cct->partial_unw_root;
-    TMSG(FENCE, "Partial unwind ==> cursor = %p", cct_cursor);
-  }
-  if (thread_stop) {
-    cct_cursor = cct->thread_root;
-    TMSG(FENCE, "Thread stop ==> cursor = %p", cct_cursor);
-  }
-
-  TMSG(FENCE, "sanity check cursor = %p", cct_cursor);
-  TMSG(FENCE, "further sanity check: bt_last frame = (%d, %p)", bt_last->ip_norm.lm_id, bt_last->ip_norm.lm_ip);
-  return hpcrun_cct_insert_backtrace_w_metric(cct_cursor, metricId,
-					      bt_last, bt_beg,
-					      (cct_metric_data_t){.i = metricIncr});
+  return hpcrun_cct_insert_backtrace(cct, cct_cursor, metricId,
+				     bt_last, bt_beg,
+				     (cct_metric_data_t){.i = metricIncr});
 
 }
 
@@ -328,9 +238,9 @@ hpcrun_dbg_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
     }
   }
 
-  cct_node_t* n = hpcrun_cct_record_backtrace_w_metric(cct, true, bt.fence == FENCE_THREAD,
-						       bt.begin, bt.last, bt.has_tramp,
-						       metricId, metricIncr);
+  cct_node_t* n = hpcrun_cct_record_backtrace(cct, true,
+					      bt.begin, bt.last, bt.has_tramp,
+					      metricId, metricIncr);
 
   hpcrun_stats_frames_total_inc((long)(bt.last - bt.begin + 1));
   hpcrun_stats_trolled_frames_inc((long) bt.n_trolls);
@@ -376,24 +286,20 @@ help_hpcrun_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
   // If this backtrace is generated from sampling in a thread,
   // take off the top 'monitor_pthread_main' node
   //
-  if (cct->ctxt && ! partial_unw && ! tramp_found && (bt.fence == FENCE_THREAD)) {
-    TMSG(FENCE, "bt last thread correction made");
-    TMSG(THREAD_CTXT, "Thread correction, back off outermost backtrace entry");
-    bt_last--;
+  if (! partial_unw && cct->ctxt) {
+      bt_last--;
   }
-  cct_node_t* n = hpcrun_cct_record_backtrace_w_metric(cct, partial_unw, bt.fence == FENCE_THREAD,
-						       bt_beg, bt_last, tramp_found,
-						       metricId, metricIncr);
+  cct_node_t* n = hpcrun_cct_record_backtrace(cct, partial_unw,
+					      bt_beg, bt_last, tramp_found,
+					      metricId, metricIncr);
 
   if (bt.trolled) hpcrun_stats_trolled_inc();
   hpcrun_stats_frames_total_inc((long)(bt.last - bt.begin + 1));
   hpcrun_stats_trolled_frames_inc((long) bt.n_trolls);
 
   if (ENABLED(USE_TRAMP)){
-    TMSG(TRAMP, "--NEW SAMPLE--: Remove old trampoline");
     hpcrun_trampoline_remove();
     td->tramp_frame = td->cached_bt;
-    TMSG(TRAMP, "--NEW SAMPLE--: Insert new trampoline");
     hpcrun_trampoline_insert(n);
   }
 

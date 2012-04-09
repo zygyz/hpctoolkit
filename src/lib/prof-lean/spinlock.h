@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -72,26 +72,18 @@
  *
  */
 
-typedef struct spinlock_s {
-	volatile long thelock;
-} spinlock_t;
-
-#define SPINLOCK_UNLOCKED_VALUE (0L)
-#define SPINLOCK_LOCKED_VALUE (1L)
-#define INITIALIZE_SPINLOCK(x) { .thelock = (x) }
-
-#define SPINLOCK_UNLOCKED INITIALIZE_SPINLOCK(SPINLOCK_UNLOCKED_VALUE)
-#define SPINLOCK_LOCKED INITIALIZE_SPINLOCK(SPINLOCK_LOCKED_VALUE)
-
+typedef volatile long spinlock_t;
+#define SPINLOCK_UNLOCKED ((spinlock_t) 0L)
+#define SPINLOCK_LOCKED ((spinlock_t) 1L)
 
 static inline void 
 spinlock_lock(spinlock_t *l)
 {
   /* test-and-test-and-set lock */
   for(;;) {
-    while (l->thelock != SPINLOCK_UNLOCKED_VALUE); 
+    while (*l != SPINLOCK_UNLOCKED); 
 
-    if (fetch_and_store(&l->thelock, SPINLOCK_LOCKED_VALUE) == SPINLOCK_UNLOCKED_VALUE) {
+    if (fetch_and_store(l, SPINLOCK_LOCKED) == SPINLOCK_UNLOCKED) {
       return; 
     }
   }
@@ -101,14 +93,14 @@ spinlock_lock(spinlock_t *l)
 static inline void 
 spinlock_unlock(spinlock_t *l)
 {
-  l->thelock = SPINLOCK_UNLOCKED_VALUE;
+  *l = SPINLOCK_UNLOCKED;
 }
 
 
 static inline bool 
 spinlock_is_locked(spinlock_t *l)
 {
-  return (l->thelock != SPINLOCK_UNLOCKED_VALUE);
+  return (*l != SPINLOCK_UNLOCKED);
 }
 
 

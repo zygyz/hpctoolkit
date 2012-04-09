@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -147,8 +147,7 @@ MipsISA::~MipsISA()
 
 
 ISA::InsnDesc
-MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		     ushort GCC_ATTR_UNUSED sz)
+MipsISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -295,8 +294,7 @@ MipsISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
-			  ushort GCC_ATTR_UNUSED sz)
+MipsISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -383,8 +381,7 @@ MipsISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
 
 
 void
-MipsISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		ushort GCC_ATTR_UNUSED opIndex)
+MipsISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

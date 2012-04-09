@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,62 +45,21 @@
 // ******************************************************* EndRiceCopyright *
 
 /******************************************************************************
- * system include files
+ * include files
  *****************************************************************************/
 
 #include <stdio.h>
 #include <assert.h>
 #include <string>
 
-
-/******************************************************************************
- * XED include files
- *****************************************************************************/
-
 extern "C" {
-#include <include/hpctoolkit-config.h>
-#include <xed-interface.h>
-
-// debug callable routines  -- only callable after xed_tables_init has been called
-// 
-
-  static xed_state_t dbg_xed_machine_state =
-#if defined (HOST_CPU_x86_64)
-    { XED_MACHINE_MODE_LONG_64, 
-      XED_ADDRESS_WIDTH_64b };
-#else
-      { XED_MACHINE_MODE_LONG_COMPAT_32,
-	  XED_ADDRESS_WIDTH_32b };
-#endif
-
-xed_iclass_enum_t
-xed_iclass(char* ins)
-{
-  xed_decoded_inst_t xedd;
-  xed_decoded_inst_t *xptr = &xedd;
-
-  xed_decoded_inst_zero_set_mode(xptr, &dbg_xed_machine_state);
-
-  xed_error_enum_t xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
-  if (xed_error != XED_ERROR_NONE) {
-    fprintf(stderr, "!! XED decode failure of insruction @ %p", ins);
-    return XED_ICLASS_INVALID;
-  }
-  return xed_decoded_inst_get_iclass(xptr);
-}
-
+#include "xed-interface.h"
 };
-
-
-/******************************************************************************
- * include files
- *****************************************************************************/
 
 #include "code-ranges.h"
 #include "function-entries.h"
 #include "process-ranges.h"
 
-#include <include/hpctoolkit-config.h>
 #include <lib/isa-lean/x86/instruction-set.h>
 
 
@@ -240,10 +199,7 @@ process_range(long offset, void *vstart, void *vend, DiscoverFnTy fn_discovery)
   char *guidepost = RELOCATE(*fstart, offset);
 
   xed_decoded_inst_zero_set_mode(xptr, &xed_machine_state);
-
-#ifdef DEBUG
   xed_iclass_enum_t prev_xiclass = XED_ICLASS_INVALID;
-#endif
 
   while (ins < end) {
 
@@ -394,10 +350,7 @@ process_range(long offset, void *vstart, void *vend, DiscoverFnTy fn_discovery)
     default:
       break;
     }
-
-#ifdef DEBUG
     prev_xiclass = xiclass;
-#endif
 
     ins += xed_decoded_inst_get_length(xptr);
   }
@@ -567,12 +520,10 @@ is_push_bp(char* ins)
 
 static const size_t WINDOW = 16; // 16 instruction window
 
-// true if save 'bp' on stack within next window instructions
-//
 static bool
-contains_bp_save_window(char* ins, size_t window)
+contains_bp_save(char* ins)
 {
-  for (size_t n = 0; n < window; n++) {
+  for (size_t n = 0; n < WINDOW; n++) {
     xed_decoded_inst_t xedd_tmp;
     xed_decoded_inst_t *xptr = &xedd_tmp;
     xed_error_enum_t xed_error;
@@ -605,14 +556,6 @@ contains_bp_save_window(char* ins, size_t window)
     ins += xed_decoded_inst_get_length(xptr);
   }
   return false;
-}
-
-// Utility routine to check for a specific window for bp save
-//
-static bool
-contains_bp_save(char* ins)
-{
-  return contains_bp_save_window(ins, WINDOW);
 }
 
 //
@@ -673,9 +616,7 @@ is_2step_push_bp(char* ins)
 static bool
 is_push_bp_seq(char* ins)
 {
-  return is_push_bp(ins) ||
-    contains_bp_save_window(ins, 1) ||
-    is_2step_push_bp(ins);
+  return is_push_bp(ins) || is_2step_push_bp(ins);
 }
 
 static void 
@@ -927,122 +868,6 @@ lea_has_zero_offset(xed_decoded_inst_t *xptr)
   return false;
 }
 
-//
-// utility to determine the address of the next instruction
-//
-static char*
-xed_next(char* ins)
-{
-  xed_decoded_inst_t xedd_tmp;
-  xed_decoded_inst_t* xptr = &xedd_tmp;
-  xed_error_enum_t xed_error;
-  int offset = 0;
-
-  xed_decoded_inst_zero_set_mode(xptr, &xed_machine_state);
-  xed_decoded_inst_zero_keep_mode(xptr);
-
-  xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
-  if (xed_error == XED_ERROR_NONE) {
-    offset = xed_decoded_inst_get_length(xptr);
-  }
-  return ins + offset;
-}
-
-static bool
-is_mov_sp_2_bp(char* ins)
-{
-  xed_decoded_inst_t xedd_tmp;
-  xed_decoded_inst_t* xptr = &xedd_tmp;
-  xed_error_enum_t xed_error;
-
-  xed_decoded_inst_zero_set_mode(xptr, &xed_machine_state);
-  xed_decoded_inst_zero_keep_mode(xptr);
-
-  xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
-  if (xed_error != XED_ERROR_NONE) return false;
-
-  if (xed_decoded_inst_get_iclass(xptr) != XED_ICLASS_MOV)
-    return false;
-
-  const xed_inst_t *xi = xed_decoded_inst_inst(xptr);
-  const xed_operand_t *op0 =  xed_inst_operand(xi, 0);
-  const xed_operand_t *op1 =  xed_inst_operand(xi, 1);
-  
-  xed_operand_enum_t op0_name = xed_operand_name(op0);
-  xed_operand_enum_t op1_name = xed_operand_name(op1);
-  
-  if ((op0_name == XED_OPERAND_REG0) && (op1_name == XED_OPERAND_REG1)) { 
-    //-------------------------------------------------------------------------
-    // register-to-register move 
-    //-------------------------------------------------------------------------
-    xed_reg_enum_t reg0 = xed_decoded_inst_get_reg(xptr, op0_name);
-    xed_reg_enum_t reg1 = xed_decoded_inst_get_reg(xptr, op1_name);
-    return x86_isReg_BP(reg0) && x86_isReg_SP(reg1);
-  }
-  return false;
-}
-
-static bool
-ins_seq_is_std_frame(char* ins)
-{
-  return is_push_bp(ins) && is_mov_sp_2_bp(xed_next(ins));
-}
-
-static const size_t FRAMELESS_PROC_WINDOW = 8;
-
-static bool
-ins_seq_has_reg_move_to_bp(char* ins)
-{
-  xed_decoded_inst_t xedd_tmp;
-  xed_decoded_inst_t* xptr = &xedd_tmp;
-  xed_error_enum_t xed_error;
-
-  xed_decoded_inst_zero_set_mode(xptr, &xed_machine_state);
-  xed_decoded_inst_zero_keep_mode(xptr);
-
-  for (size_t i=0; i < FRAMELESS_PROC_WINDOW; i++) {
-    xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
-    if (xed_error != XED_ERROR_NONE) {
-      ins++;
-      continue;
-    }
-    if (xed_decoded_inst_get_iclass(xptr) == XED_ICLASS_MOV) {
-      const xed_inst_t *xi = xed_decoded_inst_inst(xptr);
-      const xed_operand_t *op0 =  xed_inst_operand(xi, 0);
-      const xed_operand_t *op1 =  xed_inst_operand(xi, 1);
-  
-      xed_operand_enum_t op0_name = xed_operand_name(op0);
-      xed_operand_enum_t op1_name = xed_operand_name(op1);
-  
-      if ((op0_name == XED_OPERAND_REG0) && (op1_name == XED_OPERAND_REG1)) { 
-	//-------------------------------------------------------------------------
-	// register-to-register move 
-	//-------------------------------------------------------------------------
-	xed_reg_enum_t reg0 = xed_decoded_inst_get_reg(xptr, op0_name);
-	if (x86_isReg_BP(reg0))
-	  return true;
-      }
-    }
-    ins += xed_decoded_inst_get_length(xptr);
-  }
-  return false;
-}
-
-//
-//  Heuristic for identifying common frameless procedure pattern:
-//     push bp
-//     ...
-//     mov SOME_REG, bp
-//
-//  In other words, a push of bp followed by overwriting bp with some other register
-//  indicates a (probable) start of a procedure.
-//
-static bool
-ins_seq_is_common_frameless_proc(char* ins)
-{
-  return is_push_bp(ins) && ins_seq_has_reg_move_to_bp(xed_next(ins));
-}
-
 static bool 
 nextins_looks_like_fn_start(char *ins, long offset, xed_decoded_inst_t *xptrin)
 { 
@@ -1079,9 +904,17 @@ nextins_looks_like_fn_start(char *ins, long offset, xed_decoded_inst_t *xptrin)
     case XED_ICLASS_PUSHFQ: 
     case XED_ICLASS_PUSHFD: 
     case XED_ICLASS_PUSHF:  
-      return ins_seq_is_std_frame(ins) || ins_seq_is_common_frameless_proc(ins);
-      break;
+      {
+	const xed_inst_t *xi = xed_decoded_inst_inst(xptr);
+	const xed_operand_t *op0 =  xed_inst_operand(xi, 0);
+	xed_operand_enum_t   op0_name = xed_operand_name(op0);
 
+	if (op0_name == XED_OPERAND_REG0) { 
+	  add_stripped_function_entry(ins + offset, 1 /* support */); 
+	  return true;
+	}
+      }
+      return false;
     case XED_ICLASS_ADD:
     case XED_ICLASS_SUB:
       {
@@ -1298,13 +1131,9 @@ void x86_dump_ins(void *ins)
   xed_decoded_inst_zero_set_mode(xptr, &xed_machine_state);
   xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
 
-  if (xed_error == XED_ERROR_NONE) {
-    xed_format_xed(xptr, inst_buf, sizeof(inst_buf), (uint64_t) ins);
-    printf("(%p, %d bytes, %s) %s \n" , ins, xed_decoded_inst_get_length(xptr),
-	   xed_iclass_enum_t2str(xed_decoded_inst_get_iclass(xptr)), inst_buf);
-  } else {
-    printf("x86_dump_ins: xed decode addr=%p, error = %d\n", ins, xed_error);
-  }
+  xed_format_xed(xptr, inst_buf, sizeof(inst_buf), (uint64_t) ins);
+  printf("(%p, %d bytes, %s) %s \n" , ins, xed_decoded_inst_get_length(xptr),
+         xed_iclass_enum_t2str(xed_decoded_inst_get_iclass(xptr)), inst_buf);
 }
 
 // #define DEBUG_ADDSUB
@@ -1461,4 +1290,3 @@ process_leave(char *ins, long ins_offset)
   char *save_rbp = (set_rbp > push_rbp) ? set_rbp : push_rbp;
   add_protected_range(save_rbp + ins_offset + 1, ins + ins_offset + 1);
 }
-

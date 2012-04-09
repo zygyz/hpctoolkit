@@ -12,7 +12,7 @@
 ## HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 ## --------------------------------------------------------------------------
 ##
-## Copyright ((c)) 2002-2012, Rice University
+## Copyright ((c)) 2002-2011, Rice University
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -70,10 +70,8 @@ include $(top_srcdir)/src/Makeinclude.config
 # Local settings
 #############################################################################
 
-LIBDWARF_INC = @LIBDWARF_INC@
 LIBDWARF_LIB = @LIBDWARF_LIB@
 
-LIBELF_INC   = @LIBELF_INC@
 LIBELF_LIB   = @LIBELF_LIB@
 
 SYMTABAPI_INC = @SYMTABAPI_INC@
@@ -89,7 +87,7 @@ MYSOURCES = \
 	function-entries.cpp \
 	intervals.cpp
 
-MYCPPFLAGS = $(HPC_IFLAGS) -I$(SYMTABAPI_INC) -I$(LIBELF_INC) -I$(LIBDWARF_INC)
+MYCPPFLAGS = $(HPC_IFLAGS) -I$(SYMTABAPI_INC)
 
 MYCXXFLAGS = @HOST_CXXFLAGS@
 

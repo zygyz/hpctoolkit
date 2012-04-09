@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,6 @@ using std::string;
 //*************************** User Include Files ****************************
 
 #include <include/uint.h>
-#include <include/gcc-attr.h>
 
 #include "CallPath.hpp"
 #include "CallPath-MetricComponentsFact.hpp"
@@ -101,8 +100,6 @@ using namespace xml;
 
 
 //*************************** Forward Declarations ***************************
-
-std::ostream* Analysis::CallPath::dbgOs = NULL; // for parallel debugging
 
 
 //****************************************************************************
@@ -262,10 +259,10 @@ coalesceStmts(Prof::Struct::ANode* node)
       // Test for duplicate source line info.
       Prof::Struct::Stmt* n_stmt = static_cast<Prof::Struct::Stmt*>(n);
       SrcFile::ln line = n_stmt->begLine();
-      LineToStmtMap::iterator it_stmt = stmtMap.find(line);
-      if (it_stmt != stmtMap.end()) {
+      LineToStmtMap::iterator it = stmtMap.find(line);
+      if (it != stmtMap.end()) {
 	// found -- we have a duplicate
-	Prof::Struct::Stmt* n_stmtOrig = (*it_stmt).second;
+	Prof::Struct::Stmt* n_stmtOrig = (*it).second;
 	DIAG_MsgIf(0, "coalesceStmts: deleting " << n_stmt->toStringMe());
 	Prof::Struct::ANode::merge(n_stmtOrig, n_stmt); // deletes n_stmt
       }
@@ -294,7 +291,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
 		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm);
 
 static Prof::CCT::ANode*
-demandScopeInFrame(Prof::CCT::ADynNode* node, Prof::Struct::ANode* strct,
+demandScopeInFrame(Prof::CCT::ADynNode* node, Prof::Struct::ANode* strct, 
 		   StructToCCTMap& strctToCCTMap);
 
 static Prof::CCT::ProcFrm*
@@ -460,18 +457,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
 
   bool useStruct = (!lm);
 
-  // N.B.: dynamically allocate to better handle the deep recursion
-  // required for very deep CCTs.
-  StructToCCTMap* strctToCCTMap = new StructToCCTMap;
-
-  if (0 && Analysis::CallPath::dbgOs) {
-    (*Analysis::CallPath::dbgOs) << "overlayStaticStructure: node (";
-    Prof::CCT::ADynNode* node_dyn = dynamic_cast<Prof::CCT::ADynNode*>(node);
-    if (node_dyn) {
-      (*Analysis::CallPath::dbgOs) << node_dyn->lmId() << ", " << hex << node_dyn->lmIP() << dec;
-    }
-    (*Analysis::CallPath::dbgOs) << "): " << node->toStringMe() << std::endl;
-  }
+  StructToCCTMap strctToCCTMap;
 
   // ---------------------------------------------------
   // For each immediate child of this node...
@@ -482,7 +468,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
   for (Prof::CCT::ANodeSortedChildIterator it(node, Prof::CCT::ANodeSortedIterator::cmpByDynInfo);
        it.current(); /* */) {
     Prof::CCT::ANode* n = it.current();
-    it++; // advance iterator -- it is pointing at 'n'
+    it++; // advance iterator -- it is pointing at 'n' 
     
     // ---------------------------------------------------
     // process Prof::CCT::ADynNode nodes
@@ -509,9 +495,6 @@ overlayStaticStructure(Prof::CCT::ANode* node,
       //strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
 
       DIAG_MsgIf(0, "overlayStaticStructure: dyn (" << n_dyn->lmId() << ", " << hex << lm_ip << ") --> struct " << strct << dec << " " << strct->toStringMe());
-      if (0 && Analysis::CallPath::dbgOs) {
-	(*Analysis::CallPath::dbgOs) << "dyn (" << n_dyn->lmId() << ", " << hex << lm_ip << dec << ") --> struct " << strct->toStringMe() << std::endl;
-      }
 
       // 2. Demand a procedure frame for 'n_dyn' and its scope within it
       Struct::ANode* scope_strct = strct->ancestor(Struct::ANode::TyLoop,
@@ -519,8 +502,8 @@ overlayStaticStructure(Prof::CCT::ANode* node,
 						   Struct::ANode::TyProc);
       //scope_strct->demandMetric(CallPath::Profile::StructMetricIdFlg) += 1.0;
 
-      Prof::CCT::ANode* scope_frame =
-	demandScopeInFrame(n_dyn, scope_strct, *strctToCCTMap);
+      Prof::CCT::ANode* scope_frame = 
+	demandScopeInFrame(n_dyn, scope_strct, strctToCCTMap);
 
       // 3. Link 'n' to its parent
       n->unlink();
@@ -528,14 +511,12 @@ overlayStaticStructure(Prof::CCT::ANode* node,
     }
     
     // ---------------------------------------------------
-    // recur
+    // recur 
     // ---------------------------------------------------
     if (!n->isLeaf()) {
       overlayStaticStructure(n, loadmap_lm, lmStrct, lm);
     }
   }
-
-  delete strctToCCTMap;
 }
 
 
@@ -597,7 +578,7 @@ makeFrameStructure(Prof::CCT::ANode* node_frame,
 		   Prof::Struct::ACodeNode* node_strct,
 		   StructToCCTMap& strctToCCTMap)
 {
-  for (Prof::Struct::ACodeNodeChildIterator it(node_strct);
+  for (Prof::Struct::ACodeNodeChildIterator it(node_strct); 
        it.Current(); ++it) {
     Prof::Struct::ACodeNode* n_strct = it.current();
 
@@ -673,35 +654,20 @@ coalesceStmts(Prof::CCT::ANode* node)
       // Test for duplicate source line info.
       Prof::CCT::Stmt* n_stmt = static_cast<Prof::CCT::Stmt*>(n);
       SrcFile::ln line = n_stmt->begLine();
-      LineToStmtMap::iterator it_stmt = stmtMap->find(line);
-      if (it_stmt != stmtMap->end()) {
+      LineToStmtMap::iterator it = stmtMap->find(line);
+      if (it != stmtMap->end()) {
 	// found -- we have a duplicate
-	Prof::CCT::Stmt* n_stmtOrig = (*it_stmt).second;
+	Prof::CCT::Stmt* n_stmtOrig = (*it).second;
 
-	// N.B.: Because (a) trace records contain a function's
-	// representative IP and (b) two traces that contain samples
-	// from the same function should have their conflict resolved
-	// in Prof::CallPath::Profile::merge(), we would expect that
-	// merge effects are impossible.  That is, we expect that it
-	// is impossible that a CCT::ProcFrm has multiple CCT::Stmts
-	// with distinct trace ids.
-	//
-	// However, merge effects are possible *after* static
-	// structure is added to the CCT.  The reason is that multiple
-	// object-level procedures can map to one source-level
-	// procedure (e.g., multiple template instantiations mapping
-	// to the same source template or multiple stripped functions
-	// mapping to UnknownProcNm).
-	if (! Prof::CCT::ADynNode::hasMergeEffects(*n_stmtOrig, *n_stmt)) {
-	  Prof::CCT::MergeEffect effct = n_stmtOrig->mergeMe(*n_stmt);
-	  DIAG_Assert(effct.isNoop(), "Analysis::CallPath::coalesceStmts: trace ids lost (" << effct.toString() << ") when merging y into x:\n"
-		      << "\tx: " << n_stmtOrig->toStringMe(Prof::CCT::Tree::OFlg_Debug) << "\n"
-		      << "\ty: " << n_stmt->toStringMe(Prof::CCT::Tree::OFlg_Debug));
+	Prof::CCT::MergeEffect effct = n_stmtOrig->mergeMe(*n_stmt);
+	DIAG_Assert(effct.isNoop(), "Analysis::CallPath::coalesceStmts: trace ids lost (" << effct.toString() << ") when merging y into x:\n"
+		    << "\tx: " << n_stmtOrig->toStringMe(Prof::CCT::Tree::OFlg_Debug) << "\n"
+		    << "\ty: " << n_stmt->toStringMe(Prof::CCT::Tree::OFlg_Debug) << "\n"
+		    << "(Note: This should not happen because trace records contain a function's represenative IP.  Therefore, two traces that contain samples from the same function should have their conflict resolved in Prof::CallPath::Profile::merge())");
 	
-	  // remove 'n_stmt' from tree
-	  n_stmt->unlink();
-	  delete n_stmt; // NOTE: could clear corresponding StructMetricIdFlg
-	}
+	// remove 'n_stmt' from tree
+	n_stmt->unlink();
+	delete n_stmt; // NOTE: could clear corresponding StructMetricIdFlg
       }
       else {
 	// no entry found -- add
@@ -756,7 +722,7 @@ Analysis::CallPath::pruneBySummaryMetrics(Prof::CallPath::Profile& prof,
 
 void
 Analysis::CallPath::normalize(Prof::CallPath::Profile& prof,
-			      string agent, bool GCC_ATTR_UNUSED doNormalizeTy)
+			      string agent, bool doNormalizeTy)
 {
   pruneTrivialNodes(prof);
 
@@ -787,7 +753,7 @@ Analysis::CallPath::pruneStructTree(Prof::CallPath::Profile& prof)
 
 //***************************************************************************
 
-// pruneTrivialNodes:
+// pruneTrivialNodes: 
 // 
 // Without static structure, the CCT is sparse in the sense that
 // *every* node must have some non-zero inclusive metric value.  To
@@ -1054,7 +1020,7 @@ makeDatabase(Prof::CallPath::Profile& prof, const Analysis::Args& args)
 
 
 void
-write(Prof::CallPath::Profile& prof, std::ostream& os,
+write(Prof::CallPath::Profile& prof, std::ostream& os, 
       const string& title, bool prettyPrint)
 {
   static const char* experimentDTD =

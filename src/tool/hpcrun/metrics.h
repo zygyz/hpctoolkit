@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -72,11 +72,7 @@
 
 typedef hpcrun_metricVal_t cct_metric_data_t;
 
-// abstract the metric set
-//
-typedef struct metric_set_t metric_set_t;
-
-typedef void metric_upd_proc_t(int metric_id, metric_set_t* set, cct_metric_data_t datum);
+typedef void metric_upd_proc_t(int metric_id, cct_metric_data_t* loc, cct_metric_data_t datum);
 
 typedef cct_metric_data_t (*metric_bin_fn)(cct_metric_data_t v1, cct_metric_data_t v2);
 
@@ -84,34 +80,8 @@ typedef struct metric_proc_map_t {
   struct metric_proc_map_t* next;
   metric_upd_proc_t*        proc;
   int                       id;
-  int                       kind_idx;     // metrics are divided into "kinds"
-  int                       offset;
 } metric_proc_map_t;
 
-//
-// To accomodate block sparse representation,
-// use 'kinds' == dense subarrays of metrics
-//
-// Sample use:
-// Std metrics = 1 class,
-// CUDA metrics = another class
-//
-// To use the mechanism, call hpcrun_metrics_new_kind.
-// Then each call to hpcrun_new_metric will yield a slot in the
-// new metric kind subarray.
-//
-// For complicated metric assignment, hpcrun_switch_metric_kind(kind),
-// and hpcrun_get_new_metric_of_kind(kind) enable fine-grain control
-// of metric sloc allocation
-//
-// Default case is 1 kind ("STD")
-//
-// Future expansion to permit different strategies is possible, but
-// unimplemented at this time
-
-typedef struct kind_info_t kind_info_t;
-
-kind_info_t* hpcrun_metrics_new_kind();
 
 bool hpcrun_metrics_finalized(void);
 
@@ -127,7 +97,6 @@ metric_desc_p_tbl_t* hpcrun_get_metric_tbl(void);
 
 metric_upd_proc_t* hpcrun_get_metric_proc(int metric_id);
 
-// get a new metric from the cached kind
 int hpcrun_new_metric(void);
 
 void hpcrun_set_metric_info_w_fn(int metric_id, const char* name,
@@ -141,18 +110,21 @@ void hpcrun_set_metric_info(int metric_id, const char* name);
 
 void hpcrun_set_metric_name(int metric_id, char* name);
 
-// metric set operations
-
-extern metric_set_t* hpcrun_metric_set_new(void);
-extern cct_metric_data_t* hpcrun_metric_set_loc(metric_set_t* s, int id);
-extern void hpcrun_metric_std_inc(int metric_id, metric_set_t* set,
-				  hpcrun_metricVal_t incr);
-//
-// copy a metric set
-//
-extern void hpcrun_metric_set_dense_copy(cct_metric_data_t* dest,
-					 metric_set_t* set,
-					 int num_metrics);
-
+static inline void
+cct_metric_data_increment(int metric_id,
+			  cct_metric_data_t* x,
+			  cct_metric_data_t incr)
+{
+  metric_desc_t* minfo = hpcrun_id2metric(metric_id);
+  
+  switch (minfo->flags.fields.valFmt) {
+    case MetricFlags_ValFmt_Int:
+      x->i += incr.i; break;
+    case MetricFlags_ValFmt_Real:
+      x->r += incr.r; break;
+    default:
+      assert(false);
+  }
+}
 
 #endif // METRICS_H

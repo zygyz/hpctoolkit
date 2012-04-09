@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -78,7 +78,6 @@ using std::set;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "CCT-Tree.hpp"
@@ -132,7 +131,7 @@ Tree::merge(const Tree* y, uint x_newMetricBegIdx, uint mrgFlag, uint oFlag)
   
   // -------------------------------------------------------
   // Merge pre-condition: both x and y should be "locally merged",
-  // i.e., the nodes themselves should be equal (modulo metrics & children)
+  // i.e. they should be equal except for metrics and children.
   // -------------------------------------------------------
   bool isPrecondition = false;
   if (typeid(*x_root) == typeid(CCT::Root)
@@ -162,7 +161,7 @@ Tree::merge(const Tree* y, uint x_newMetricBegIdx, uint mrgFlag, uint oFlag)
   // -------------------------------------------------------
 
   if (!m_mergeCtxt) {
-    bool doTrackCPIds = !x->metadata()->traceFileNameSet().empty();
+    bool doTrackCPIds = !metadata()->traceFileNameSet().empty();
     m_mergeCtxt = new MergeContext(x, doTrackCPIds);
   }
   m_mergeCtxt->flags(mrgFlag);
@@ -170,7 +169,7 @@ Tree::merge(const Tree* y, uint x_newMetricBegIdx, uint mrgFlag, uint oFlag)
   MergeEffectList* mrgEffects =
     x_root->mergeDeep(y_root, x_newMetricBegIdx, *m_mergeCtxt, oFlag);
 
-  DIAG_If(0 /*public diag level*/) {
+  DIAG_If(0) {
     verifyUniqueCPIds();
   }
 
@@ -441,9 +440,9 @@ ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset)
     if (n != root) {
       ANode* n_parent = n->parent();
       
-      for (VMAIntervalSet::const_iterator it1 = ivalset.begin();
-	   it1 != ivalset.end(); ++it1) {
-	const VMAInterval& ival = *it1;
+      for (VMAIntervalSet::const_iterator it = ivalset.begin();
+	   it != ivalset.end(); ++it) {
+	const VMAInterval& ival = *it;
 	uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
 	for (uint mId = mBegId; mId < mEndId; ++mId) {
@@ -618,9 +617,9 @@ ANode::pruneByMetrics(const Metric::Mgr& mMgr, const VMAIntervalSet& ivalset,
     uint numIncl = 0;
     bool isImportant = false;
 
-    for (VMAIntervalSet::const_iterator it1 = ivalset.begin();
-	 it1 != ivalset.end(); ++it1) {
-      const VMAInterval& ival = *it1;
+    for (VMAIntervalSet::const_iterator it = ivalset.begin();
+	 it != ivalset.end(); ++it) {
+      const VMAInterval& ival = *it;
       uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
       for (uint mId = mBegId; mId < mEndId; ++mId) {
@@ -834,8 +833,7 @@ ANode::merge(ANode* y)
 
 
 MergeEffect
-ANode::mergeMe(const ANode& y, MergeContext* GCC_ATTR_UNUSED mrgCtxt,
-	       uint metricBegIdx)
+ANode::mergeMe(const ANode& y, MergeContext* mrgCtxt, uint metricBegIdx)
 {
   ANode* x = this;
   
@@ -879,7 +877,7 @@ ADynNode::mergeMe(const ANode& y, MergeContext* mrgCtxt, uint metricBegIdx)
     // 3. Semi-trivial conflict: x's cpId is NULL, but y's is not
     //     => use y's cpId *if* it does not conflict with one already
     //        in x's tree.
-    DIAG_Assert(mrgCtxt, "ADynNode::mergeMe: potentially introducing cp-id conflicts; cannot verify without MergeContext!");
+    DIAG_Assert(mrgCtxt, "ADynNode::mergeMe: potentially introducing cp-id conflicts; cannot verify with out MergeContext!");
 
     MergeContext::pair ret = mrgCtxt->ensureUniqueCPId(y_dyn->cpId());
     m_cpId = ret.cpId;
@@ -1081,8 +1079,7 @@ ADynNode::nameDyn() const
 
 
 void
-ADynNode::writeDyn(std::ostream& o, uint GCC_ATTR_UNUSED oFlags,
-		   const char* pfx) const
+ADynNode::writeDyn(std::ostream& o, uint oFlags, const char* pfx) const
 {
   string p(pfx);
 
@@ -1271,8 +1268,7 @@ ANode::writeXML_pre(ostream& os, uint metricBeg, uint metricEnd,
 
 
 void
-ANode::writeXML_post(ostream& os, uint GCC_ATTR_UNUSED oFlags,
-		     const char* pfx) const
+ANode::writeXML_post(ostream& os, uint oFlags, const char* pfx) const
 {
   bool doTag = (type() != ANode::TyRoot);
   if (!doTag) {

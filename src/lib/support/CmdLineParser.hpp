@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -72,8 +72,6 @@
 #include <stdint.h>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "diagnostics.h"
 
@@ -375,12 +373,8 @@ public:
   
 private:
   // Should not be used 
-  CmdLineParser(const CmdLineParser& GCC_ATTR_UNUSED x)
-  { }
-  
-  CmdLineParser&
-  operator=(const CmdLineParser& GCC_ATTR_UNUSED x)
-  { return *this; }
+  CmdLineParser(const CmdLineParser& p) { }
+  CmdLineParser& operator=(const CmdLineParser& x) { return *this; }
   
   typedef std::map<std::string, std::string*> SwitchToArgMap;
   typedef std::vector<std::string> ArgVec;

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -138,7 +138,7 @@ public:
     OFlg_Compressed      = (1 << 0), // Write in compressed format
     OFlg_LeafMetricsOnly = (1 << 1), // Write metrics only at leaves (outdated)
     OFlg_Debug           = (1 << 2), // Debug: show xtra source line info
-    OFlg_DebugAll        = (1 << 3)  // Debug: (may be invalid format)
+    OFlg_DebugAll        = (1 << 3), // Debug: (may be invalid format)
   };
 
 
@@ -600,7 +600,7 @@ public:
   // Output
   // --------------------------------------------------------
 
-  virtual std::string
+  std::string
   toString(uint oFlags = 0, const char* pfx = "") const;
 
   virtual std::string
@@ -785,7 +785,7 @@ public:
   void
   lmId(LoadMap::LMId_t x)
   {
-    if (isValid_lip()) { lush_lip_setLMId(m_lip, (uint16_t)x); return; }
+    if (isValid_lip()) { lush_lip_setLMId(m_lip, x); return; }
     m_lmId = x;
   }
 

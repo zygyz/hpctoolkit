@@ -12,7 +12,7 @@
 ## HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 ## --------------------------------------------------------------------------
 ##
-## Copyright ((c)) 2002-2012, Rice University
+## Copyright ((c)) 2002-2011, Rice University
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -75,16 +75,7 @@ MYSOURCES = \
 	software-instructions.html \
 	\
 	info-acks.html \
-	info-people.html
-
-MYSOURCES_IN = \
-	$(abs_srcdir)/publications.html.in
-
-MYSOURCES_TGT = \
-	$(addprefix $(srcdir)/, $(MYSOURCES))
-
-MYDATA = \
-	$(MYSOURCES) \
+	info-people.html \
 	\
 	hpctoolkit.org.sitemap.txt \
 	\
@@ -106,57 +97,9 @@ MYDATA = \
 # Automake rules
 #############################################################################
 
-# N.B.: Do not include $(MYSOURCES_IN) b/c it depends on bib2xhtml
-BUILT_SOURCES = $(MYSOURCES_TGT)
-
-nobase_dist_doc_DATA = $(MYDATA)
+nobase_dist_doc_DATA = $(MYSOURCES)
 
 #############################################################################
 # Other rules
 #############################################################################
 
-# For MacOS add/remove: | tr '\n' ' '
-
-MY_AWKVARS= \
-  -v varhdr="`cat $(srcdir)/style/header-hpctoolkit.html | tr '\n' ' '`" \
-  -v varftr="`cat $(srcdir)/style/footer-hpctoolkit.html | tr '\n' ' '`"
-
-MY_AWKPROG = '\
-  BEGIN { } \
-  /@header-hpctoolkit@/ { printf "%s", varhdr ; next; } \
-  /@footer-hpctoolkit@/ { printf "%s", varftr ; next; } \
-  { print; } \
-  END { } \
-  '
-
-MY_VARSRCS = \
-	$(srcdir)/style/header-hpctoolkit.html \
-	$(srcdir)/style/footer-hpctoolkit.html
-
-MY_PUBS = $(abs_top_srcdir)/doc/manual/texmf/bibtex/bib/pubs.bib
-
-# Note: bib2xhtml supports 'pdf' and 'url' fields.
-BIB2XHTML_ROOT = /opt/tallent/bib2xhtml
-BIB2XHTML = $(BIB2XHTML_ROOT)/bib2xhtml
-
-hpc: $(MYSOURCES_IN) $(MYSOURCES_TGT)
-
-$(abs_srcdir)/publications.html.in : # $(MY_PUBS) # avoid auto regeneration
-	@echo "*** BIB2XHTML_ROOT=$(BIB2XHTML_ROOT) ***"
-	@if test -x $(BIB2XHTML) ; then \
-	  cd $(BIB2XHTML_ROOT) && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-overview     $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-hpctoolkit-a $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-hpctoolkit-b $(MY_PUBS) $@ && \
-	    $(BIB2XHTML) -s unsort -i -d pubs-prediction   $(MY_PUBS) $@ ; \
-	else \
-	  echo "*** Cannot run $(BIB2XHTML) ***" ; \
-	fi
-
-$(srcdir)/%.html : $(srcdir)/%.html.in $(MY_VARSRCS)
-	$(AWK) $(MY_AWKVARS) $(MY_AWKPROG) $< > $@
-
-.PHONY : hpc $(abs_srcdir)/publications.html.in
-
-#$(MY_HTMLTGT): %.html : style/header.html %.html.in style/footer.html
-#	cat $^ > $@

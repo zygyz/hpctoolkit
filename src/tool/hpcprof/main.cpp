@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,8 +68,6 @@ using std::string;
 #include <vector>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "Args.hpp"
 
@@ -247,7 +245,7 @@ realmain(int argc, char* const* argv)
 static void
 makeMetrics(Prof::CallPath::Profile& prof,
 	    const Analysis::Args& args,
-	    const Analysis::Util::NormalizeProfileArgs_t& GCC_ATTR_UNUSED nArgs)
+	    const Analysis::Util::NormalizeProfileArgs_t& nArgs)
 {
   Prof::Metric::Mgr& mMgr = *prof.metricMgr();
 
@@ -265,8 +263,7 @@ makeMetrics(Prof::CallPath::Profile& prof,
   bool needMultiOccurance =
     (Analysis::Args::doThreadMetrics(args.prof_metrics));
 
-  mDrvdBeg = mMgr.makeSummaryMetrics(needMultiOccurance, args.prof_computeStatistics,
-                                     mSrcBeg, mSrcEnd);
+  mDrvdBeg = mMgr.makeSummaryMetrics(needMultiOccurance, mSrcBeg, mSrcEnd);
   if (mDrvdBeg != Prof::Metric::Mgr::npos) {
     mDrvdEnd = mMgr.size();
     numDrvd = (mDrvdEnd - mDrvdBeg);

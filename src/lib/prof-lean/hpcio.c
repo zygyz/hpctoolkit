@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -63,16 +63,9 @@
 
 //************************* System Include Files ****************************
 
-#ifndef _POSIX_SOURCE
-#  define _POSIX_SOURCE // fdopen()
-#endif
-#ifndef _SVID_SOURCE
-#  define _SVID_SOURCE  // fputc_unlocked()
-#endif
-
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdio.h>  // fdopen(), fputc_unlocked()
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -108,10 +101,6 @@ hpcio_fopen_w(const char* fnm, int overwrite)
   else if (overwrite == 1) {
     // Open file for writing; truncate file already exists.
     fd = open(fnm, O_WRONLY | O_CREAT | O_TRUNC, mode); 
-  }
-  else if (overwrite == 2) {
-    // Options specific to /dev/null.
-    fd = open(fnm, O_WRONLY);
   }
   else {
     return NULL; // blech
@@ -174,7 +163,7 @@ hpcio_le2_fread(uint16_t* val, FILE* fs)
   for (shift = 0; shift < 16; shift += 8) {
     if ( (c = fgetc(fs)) == EOF ) { break; }
     num_read++;
-    v = (uint16_t)(v | ((c & 0xff) << shift)); // 0, 8
+    v |= ((uint16_t)(c & 0xff) << shift); // 0, 8
   }
 
   *val = v;
@@ -225,7 +214,7 @@ hpcio_le2_fwrite(uint16_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 16; shift += 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -240,7 +229,7 @@ hpcio_le4_fwrite(uint32_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 32; shift += 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -255,7 +244,7 @@ hpcio_le8_fwrite(uint64_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 0; shift < 64; shift += 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -276,7 +265,7 @@ hpcio_be2_fread(uint16_t* val, FILE* fs)
   for (shift = 8; shift >= 0; shift -= 8) {
     if ( (c = fgetc(fs)) == EOF ) { break; }
     num_read++;
-    v = (uint16_t)(v | ((c & 0xff) << shift)); // 8, 0
+    v |= ((uint16_t)(c & 0xff) << shift); // 8, 0
   }
 
   *val = v;
@@ -328,7 +317,7 @@ hpcio_beX_fread(uint8_t* val, size_t size, FILE* fs)
     if (c == EOF) {
       break;
     }
-    val[i] = (uint8_t) c;
+    val[i] = c;
     num_read++;
   }
 
@@ -345,7 +334,7 @@ hpcio_be2_fwrite(uint16_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 8; shift >= 0; shift -= 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -360,7 +349,7 @@ hpcio_be4_fwrite(uint32_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 24; shift >= 0; shift -= 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -375,7 +364,7 @@ hpcio_be8_fwrite(uint64_t* val, FILE* fs)
   int shift = 0, num_write = 0, c;
   
   for (shift = 56; shift >= 0; shift -= 8) {
-    c = fputc( ((v >> shift) & 0xff) , fs);
+    c = fputc_unlocked( ((v >> shift) & 0xff) , fs);
     if (c == EOF) { break; }
     num_write++;
   }
@@ -389,7 +378,7 @@ hpcio_beX_fwrite(uint8_t* val, size_t size, FILE* fs)
   size_t num_write = 0;
   
   for (uint i = 0; i < size; ++i) {
-    int c = fputc(val[i], fs);
+    int c = fputc_unlocked(val[i], fs);
     if (c == EOF) {
       break;
     }

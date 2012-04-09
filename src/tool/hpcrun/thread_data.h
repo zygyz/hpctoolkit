@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,8 @@
 //
 // ******************************************************* EndRiceCopyright *
 
+//
+//
 
 #ifndef THREAD_DATA_H
 #define THREAD_DATA_H
@@ -59,13 +61,11 @@
 #include "sample_sources_registered.h"
 #include "newmem.h"
 #include "epoch.h"
-#include "cct2metrics.h"
 
 #include <lush/lush-pthread.i>
 #include <unwind/common/backtrace.h>
 
 #include <lib/prof-lean/hpcio.h>
-#include <lib/prof-lean/hpcio-buffer.h>
 
 typedef struct {
   sigjmp_buf jb;
@@ -106,6 +106,9 @@ typedef struct {
          trace_file
          hpcrun_file
 
+    suspend_sample
+       Stands on its own
+
     lushPthr_t
        lush items can stand alone
 
@@ -140,12 +143,6 @@ typedef struct thread_data_t {
   epoch_t* epoch;
 
   // ----------------------------------------
-  // cct2metrics map: associate a metric_set with
-  //                  a cct node
-  // ----------------------------------------
-  cct2metrics_t* cct2metrics_map;
-
-  // ----------------------------------------
   // backtrace buffer
   // ----------------------------------------
 
@@ -176,7 +173,6 @@ typedef struct thread_data_t {
   bool    tramp_present;   // TRUE if a trampoline installed; FALSE otherwise
   void*   tramp_retn_addr; // return address that the trampoline replaced
   void*   tramp_loc;       // current (stack) location of the trampoline
-  size_t  cached_frame_count; // (sanity check) length of cached frame list
   frame_t* cached_bt;         // the latest backtrace (start)
   frame_t* cached_bt_end;     // the latest backtrace (end)
   frame_t* cached_bt_buf_end; // the end of the cached backtrace buffer
@@ -191,6 +187,10 @@ typedef struct thread_data_t {
   int              handling_sample;
   int              splay_lock;
   int              fnbounds_lock;
+
+  // stand-alone flag to suspend sampling during some synchronous
+  // calls to an hpcrun mechanism
+  int              suspend_sampling;
 
   // ----------------------------------------
   // Logical unwinding
@@ -207,24 +207,13 @@ typedef struct thread_data_t {
   // IO support
   // ----------------------------------------
   FILE* hpcrun_file;
+  FILE* trace_file;
   void* trace_buffer;
-  hpcio_outbuf_t trace_outbuf;
 
   // ----------------------------------------
   // debug stuff
   // ----------------------------------------
   bool debug1;
-
-  // ----------------------------------------
-  // miscellaneous
-  // ----------------------------------------
-  // Set to 1 while inside hpcrun code for safe sampling.
-  int inside_hpcrun;
-
-  // True if this thread is inside dlopen or dlclose.  A synchronous
-  // override that is called from dlopen (eg, malloc) must skip this
-  // sample or else deadlock on the dlopen lock.
-  bool inside_dlfcn;
 
 } thread_data_t;
 

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -137,41 +137,13 @@ ADesc::stringToADescTy(const std::string& x)
 }
 
 
-std::string
-ADesc::nameToFmt() const
-{
-  // acceptable to create on demand
-  std::string nm;
-  
-  // {nameFmtTag}
-  //   <prefix><base><suffix><type>
-  //   <dbId><dbNumMetrics>
-
-  nm += s_nameFmtTag;
-
-  nm += s_nameFmtSegBeg + m_namePfx  + s_nameFmtSegEnd;
-  nm += s_nameFmtSegBeg + m_nameBase + s_nameFmtSegEnd;
-  nm += s_nameFmtSegBeg + m_nameSfx  + s_nameFmtSegEnd;
-  nm += s_nameFmtSegBeg + ADescTyToString(type()) + s_nameFmtSegEnd;
-
-  nm += s_nameFmtSegBeg + StrUtil::toStr(dbId()) + s_nameFmtSegEnd;
-  nm += s_nameFmtSegBeg + StrUtil::toStr(dbNumMetrics()) + s_nameFmtSegEnd;
-  
-  return nm;
-}
-
-
 void
 ADesc::nameFromString(const string& x)
 {
-  // {nameFmtTag}
-  //   <prefix><base><suffix><type>
-  //   <dbId><dbNumMetrics>
-
+  // {nameFmtTag}<prefix><base><suffix><type>
   if (x.compare(0, s_nameFmtTag.length(), s_nameFmtTag) == 0) {
-    // parse formatted name
     size_t fmtBeg = s_nameFmtTag.length();
-    for (uint i_seg = 1; i_seg <= 6; ++i_seg) {
+    for (uint i_seg = 1; i_seg <= 4; ++i_seg) {
       size_t segBeg = x.find_first_of(s_nameFmtSegBeg, fmtBeg);
       size_t segEnd = x.find_first_of(s_nameFmtSegEnd, fmtBeg);
       DIAG_Assert(segBeg == fmtBeg && segEnd != string::npos,
@@ -184,8 +156,6 @@ ADesc::nameFromString(const string& x)
         case 2: nameBase(segStr); break;
         case 3: nameSfx(segStr);  break;
         case 4: type(stringToADescTy(segStr)); break;
-        case 5: dbId((uint)StrUtil::toLong(segStr)); break;
-        case 6: dbNumMetrics((uint)StrUtil::toLong(segStr)); break;
         default: DIAG_Die(DIAG_UnexpectedInput);
       }
       
@@ -201,12 +171,7 @@ ADesc::nameFromString(const string& x)
 std::string
 ADesc::toString() const
 {
-  string nm = name();
-  if (0) {
-    nm += " {dbId: " + StrUtil::toStr(dbId()) 
-      + ", dbNumMetrics: " + StrUtil::toStr(dbNumMetrics()) + "}";
-  }
-  return nm;
+  return name();
 
   //std::ostringstream os;
   //dump(os);

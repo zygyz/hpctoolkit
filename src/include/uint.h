@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -99,7 +99,6 @@
 # include <stdint.h>
 #endif
 
-
 #if defined(__cplusplus)
 
 # if !defined(HAVE_USHORT)
@@ -111,25 +110,10 @@
 # endif
 
 # if !defined(HAVE_ULONG)
-  typedef    unsigned long int     ulong;
-# endif
-
-#else
-
-# if !defined(HAVE_USHORT_LANG_C)
-  typedef    unsigned short int    ushort;
-# endif
-
-# if !defined(HAVE_UINT_LANG_C)
-  typedef    unsigned int          uint;
-# endif
-
-# if !defined(HAVE_ULONG_LANG_C)
-  typedef    unsigned long int     ulong;
+  typedef    unsigned long int    ulong;
 # endif
 
 #endif
-
 
 //***************************************************************************
 

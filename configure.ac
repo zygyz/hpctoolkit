@@ -1,4 +1,5 @@
 dnl -*-Mode: autoconf;-*-
+
 dnl * BeginRiceCopyright *****************************************************
 dnl
 dnl $HeadURL$
@@ -11,7 +12,7 @@ dnl Information about sources of support for research and development of
 dnl HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 dnl --------------------------------------------------------------------------
 dnl
-dnl Copyright ((c)) 2002-2012, Rice University
+dnl Copyright ((c)) 2002-2011, Rice University
 dnl All rights reserved.
 dnl
 dnl Redistribution and use in source and binary forms, with or without
@@ -82,7 +83,7 @@ m4_include(config/hpc-mpiutils.m4)
 # Initialization: 
 #----------------------------------------------------------------------------
 
-AC_INIT([hpctoolkit], [5.2.1],
+AC_INIT([hpctoolkit], [5.0.1],
         [hpctoolkit-forum@rice.edu],
 	[hpctoolkit],
 	[http://hpctoolkit.org/])
@@ -90,11 +91,9 @@ AC_CONFIG_SRCDIR([src/include/hpctoolkit-config.h.in])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([config])
 
-AC_MSG_NOTICE([*** INFO: from user: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: from user: CC='${CC}' CFLAGS='${CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: from user: MPIF77='${MPIF77}' ***])
+AC_MSG_NOTICE([INFO: from user: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}'])
+AC_MSG_NOTICE([INFO: from user: CC='${CC}' CFLAGS='${CFLAGS}'])
+AC_MSG_NOTICE([INFO: from user: MPICXX='${MPICXX}'])
 
 # NOTE: please update config/README.version
 AC_PREREQ(2.67)
@@ -106,9 +105,7 @@ AM_MAINTAINER_MODE()
 AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
 
-MPICC_ORIG=${MPICC}
 MPICXX_ORIG=${MPICXX}
-MPIF77_ORIG=${MPIF77}
 
 #----------------------------------------------------------------------------
 # Setup
@@ -238,8 +235,6 @@ LT_INIT()
 AC_SUBST([LIBTOOL_DEPS])
 
 AM_PROG_AS()
-AC_PROG_AWK
-AC_PROG_SED
 
 AC_PROG_CXXCPP()
 
@@ -247,63 +242,16 @@ HPC_PROG_MPICXX(HPC_MPICXX_LIST)
 
 AC_PROG_INSTALL()
 
-AC_MSG_NOTICE([*** INFO: post autoconf tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}'  ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: CC='${CC}' CFLAGS='${CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: post autoconf tests: MPIF77='${MPIF77}' ***])
+AC_MSG_NOTICE([INFO: post autoconf tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}'])
+AC_MSG_NOTICE([INFO: post autoconf tests: CC='${CC}' CFLAGS='${CFLAGS}'])
+AC_MSG_NOTICE([INFO: post autoconf tests: MPICXX='${MPICXX}'])
 
 
-#-------------------------------------------------
-# C compiler checks
-#-------------------------------------------------
-
-AC_MSG_NOTICE([*** Using C comiler for tests ***])
-
-AC_LANG([C])
-
-# Check for header files
-AC_HEADER_STDC()
-AC_CHECK_HEADERS(unistd.h)
-AC_CHECK_HEADERS(inttypes.h)
-
-AS_UNSET([ac_cv_header_unistd_h])   # retest for C++
-AS_UNSET([ac_cv_header_inttypes_h]) # retest for C++
-
-
-# Check for types
-AC_CHECK_SIZEOF([void*])
-AC_CHECK_TYPES([ushort, uint, ulong])
-
-if test "${ac_cv_type_voidp}" = "yes" ; then
-  AC_DEFINE([HAVE_VOIDP_LANG_C], [1], [C compiler supports type "voidp"])
-fi
-if test "${ac_cv_type_ushort}" = "yes" ; then
-  AC_DEFINE([HAVE_USHORT_LANG_C], [1], [C compiler supports type "ushort"])
-fi
-if test "${ac_cv_type_uint}" = "yes" ; then
-  AC_DEFINE([HAVE_UINT_LANG_C], [1], [C compiler supports type "uint"])
-fi
-if test "${ac_cv_type_ulong}" = "yes" ; then
-  AC_DEFINE([HAVE_ULONG_LANG_C], [1], [C compiler supports type "ulong"])
-fi
-
-AS_UNSET([ac_cv_sizeof_voidp])      # retest for C++
-AS_UNSET([ac_cv_type_ushort])       # retest for C++
-AS_UNSET([ac_cv_type_uint])         # retest for C++
-AS_UNSET([ac_cv_type_ulong])        # retest for C++
-
-
-#-------------------------------------------------
-# C++ compiler checks
-#-------------------------------------------------
-
-AC_MSG_NOTICE([*** Using C++ comiler for tests ***])
-
+# Use C++ compiler for all checks
 AC_LANG([C++])
 
 # Check for header files
-#AC_HEADER_STDC()
+AC_HEADER_STDC()
 AC_CHECK_HEADERS(unistd.h)
 AC_CHECK_HEADERS(inttypes.h)
 HPC_CHECK_CXX_STDC_HEADERS()
@@ -554,11 +502,7 @@ case "${host}" in
 
     # Intel compiler
     if HPCcxxcmp([icpc ecpc]) ; then
-      # Silence the following warnings:
-      #   remark #383: value copied to temporary, reference to temporary used
-      #   remark #981: operands are evaluated in unspecified order
-      #   remark #1572: FP equality and inequality comparisons are unreliable
-      HOST_CXXFLAGS="-wd383 -wd981 -wd1572"
+      :
     fi
     if HPCcccmp([icc ecc]) ; then
       :
@@ -692,67 +636,6 @@ HOST_XPROF_LDFLAGS="${HOST_XPROF_LDFLAGS} ${my_demangle_ldflags}"
 
 
 #-------------------------------------------------
-# Test if CXX and MPICXX are compatible
-#-------------------------------------------------
-
-# Test CXX and MPICXX compatibility by compiling a short program with
-# CXX and linking it with MPICXX.  Basically, we require that CXX is
-# the underlying compiler for MPICXX and this is how we test for that.
-# Note: the Autoconf macros would delete the object files, so we need
-# to run the compile and link steps ourself.
-
-base="hpc-conftest-$$"
-hello_src="$base".cpp
-hello_o="$base".o
-hello_bin="$base".bin
-hello_out="$base".out
-ACTUAL_CXXFLAGS="$CXXFLAGS $HOST_CXXFLAGS"
-
-if test -n "$MPICXX" ; then
-  AC_MSG_CHECKING([whether CXX and MPICXX are compatible])
-
-  rm -f "$hello_src" "$hello_o" "$hello_bin" "$hello_out"
-  cat <<EOF >"$hello_src"
-#include <iostream>
-#include <string>
-int main()
-{
-  std::cout << "hello, world\n";
-  return 0;
-}
-EOF
-  $CXX -c $ACTUAL_CXXFLAGS -o "$hello_o" "$hello_src" >/dev/null 2>&1
-  $MPICXX -o "$hello_bin" "$hello_o" >"$hello_out" 2>&1
-
-  if test $? -eq 0 && test -f "$hello_bin" ; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_RESULT([no])
-    AC_MSG_WARN([MPICXX does not link with CXX (see config.log for details)])
-    AC_MSG_WARN([probably MPICXX does match CXX for compiler family or version])
-    cat <<EOF >&AS_MESSAGE_LOG_FD
-------------------------------------------------------------
-CXX:     $CXX $ACTUAL_CXXFLAGS
-MPICXX:  $MPICXX
-
-EOF
-    cat "$hello_src" >&AS_MESSAGE_LOG_FD
-    echo >&AS_MESSAGE_LOG_FD
-    cat "$hello_out" >&AS_MESSAGE_LOG_FD
-    cat <<EOF >&AS_MESSAGE_LOG_FD
-------------------------------------------------------------
-EOF
-  MPICXX=
-  fi
-
-  rm -f "$hello_src" "$hello_o" "$hello_bin" "$hello_out"
-
-else
-  AC_MSG_NOTICE([skipping MPICXX compatibility check (MPICXX not set)])
-fi
-
-
-#-------------------------------------------------
 # Distribute these settings into makefiles
 #-------------------------------------------------
 
@@ -770,11 +653,9 @@ AC_SUBST([HOST_HPCPROF_FLAT_LDFLAGS])
 AC_SUBST([HOST_HPCPROFTT_LDFLAGS])
 AC_SUBST([HOST_XPROF_LDFLAGS])
 
-AC_MSG_NOTICE([*** INFO: post hpc tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}' HOST_CXXFLAGS='${HOST_CXXFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: CC='${CC}' CFLAGS='${CFLAGS}' HOST_CFLAGS='${HOST_CFLAGS}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPICC='${MPICC}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPICXX='${MPICXX}' ***])
-AC_MSG_NOTICE([*** INFO: post hpc tests: MPIF77='${MPIF77}' ***])
+AC_MSG_NOTICE([INFO: post hpc tests: CXX='${CXX}' CXXFLAGS='${CXXFLAGS}' HOST_CXXFLAGS='${HOST_CXXFLAGS}'])
+AC_MSG_NOTICE([INFO: post hpc tests: CC='${CC}' CFLAGS='${CFLAGS}' HOST_CFLAGS='${HOST_CFLAGS}'])
+AC_MSG_NOTICE([INFO: post hpc tests: MPICXX='${MPICXX}'])
 
 #----------------------------------------------------------------------------
 # Prerequisites: external libraries
@@ -801,7 +682,7 @@ AC_SUBST([hpc_ext_libs_dir])
 #-------------------------------------------------
 
 # External's minimum svn rev number, or else a fatal error.
-EXTERNALS_MIN_REV=3616
+EXTERNALS_MIN_REV=2880
 
 AC_ARG_WITH([dummy-blank-line], [AS_HELP_STRING([], [])])
 AC_ARG_WITH([externals],
@@ -915,12 +796,10 @@ case "${LIBDWARF}" in
 esac
 
 LIBDWARF_LIB="${LIBDWARF}/lib"
-LIBDWARF_INC="${LIBDWARF}/include"
 
 AC_MSG_RESULT([$LIBDWARF])
 
 AC_SUBST([LIBDWARF_LIB])
-AC_SUBST([LIBDWARF_INC])
 AC_SUBST([LIBDWARF_COPY])
 
 
@@ -963,12 +842,10 @@ case "${LIBELF}" in
 esac
 
 LIBELF_LIB="${LIBELF}/lib"
-LIBELF_INC="${LIBELF}/include"
 
 AC_MSG_RESULT([$LIBELF])
 
 AC_SUBST([LIBELF_LIB])
-AC_SUBST([LIBELF_INC])
 AC_SUBST([LIBELF_COPY])
 
 
@@ -994,21 +871,16 @@ AC_MSG_CHECKING([for libmonitor])
 case "${LIBMONITOR}" in
   /* )
     LIBMONITOR_INC="${LIBMONITOR}/include"
-    LIBMONITOR_BIN=${LIBMONITOR}/bin
-    LIBMONITOR_LIB=${LIBMONITOR}/lib
     if test -f "${LIBMONITOR_INC}/monitor.h" ; then :
     else
-      AC_MSG_ERROR([invalid libmonitor directory: $LIBMONITOR])
+        AC_MSG_ERROR([invalid libmonitor directory: $LIBMONITOR])
     fi
     LIBMONITOR_LIB="${LIBMONITOR}/lib"
     if test -f "${LIBMONITOR_LIB}/libmonitor.so" ; then
-      OPT_LIBMONITOR_DYNAMIC=yes
+        OPT_LIBMONITOR_DYNAMIC=yes
     fi
-    wrap_file="${LIBMONITOR_LIB}/libmonitor_wrap.a"
-    if test -f "$wrap_file" ; then
-      OPT_LIBMONITOR_STATIC=yes
-      LIBMONITOR_WRAP_NAMES=`nm "$wrap_file" | grep __wrap_ |
-        $SED -e 's/.*__wrap_//' | tr '\n' ' '`
+    if test -f "${LIBMONITOR_LIB}/libmonitor_wrap.a" ; then
+        OPT_LIBMONITOR_STATIC=yes
     fi
     LIBMONITOR_COPY=yes
     LIBMONITOR_RUN_DIR="$hpc_ext_libs_dir"
@@ -1024,14 +896,10 @@ esac
 
 AC_MSG_RESULT([$LIBMONITOR])
 
-echo "libmonitor wrap names:" >&AS_MESSAGE_LOG_FD
-echo "$LIBMONITOR_WRAP_NAMES" >&AS_MESSAGE_LOG_FD
-
 AC_SUBST([LIBMONITOR_INC])
 AC_SUBST([LIBMONITOR_LIB])
 AC_SUBST([LIBMONITOR_COPY])
 AC_SUBST([LIBMONITOR_RUN_DIR])
-AC_SUBST([LIBMONITOR_WRAP_NAMES])
 
 
 #-------------------------------------------------
@@ -1432,26 +1300,16 @@ AC_SUBST([XERCES_LIB])
 # enable-hpcrun-flat: Only build hpcrun if on Linux and PAPI is present
 #-------------------------------------------------
 
-AC_ARG_ENABLE([hpcrun-flat],
-  [AS_HELP_STRING([--enable-hpcrun-flat],
-	  [build hpcrun-flat (default yes)])],
-  [],
-  [enable_hpcrun_flat=yes])
-
 AC_MSG_CHECKING([whether to build hpcrun-flat])
 
 OPT_ENABLE_HPCRUN_FLAT="no"
-enable_hpcrun_flat_msg="${enable_hpcrun_flat}"
-
-if test "${enable_hpcrun_flat}" = yes \
-   && test "${OPT_PAPI_DYNAMIC}" = yes && test "${OPT_WITH_MONITOR}" = yes \
+if test "$OPT_PAPI_DYNAMIC" = yes && test "$OPT_WITH_MONITOR" = yes \
    && test "${HOST_OS}" = "Linux"
 then
   OPT_ENABLE_HPCRUN_FLAT="yes"
-  enable_hpcrun_flat_msg="no (missing prerequisites)"
 fi
 
-AC_MSG_RESULT([${enable_hpcrun_flat_msg}])
+AC_MSG_RESULT([${OPT_ENABLE_HPCRUN_FLAT}])
 AM_CONDITIONAL(OPT_ENABLE_HPCRUN_FLAT, test "${OPT_ENABLE_HPCRUN_FLAT}" = "yes")
 
 
@@ -1486,7 +1344,7 @@ fi
 #fi
 
 AC_MSG_RESULT([$enable_hpcrun_mesg])
-AM_CONDITIONAL([OPT_ENABLE_HPCRUN], [test "${OPT_ENABLE_HPCRUN}" = yes])
+AM_CONDITIONAL([OPT_ENABLE_HPCRUN], [test "$OPT_ENABLE_HPCRUN" = yes])
 
 
 
@@ -1579,7 +1437,7 @@ AM_CONDITIONAL([OPT_ENABLE_HPCRUN_DYNAMIC],
 # enable-mpi:
 #-------------------------------------------------
 
-AC_MSG_CHECKING([whether to build MPI-based analysis tools (e.g., hpcprof-mpi)])
+AC_MSG_CHECKING([whether to build MPI versions (hpcprof-mpi)])
 
 OPT_REQ_ENABLE_MPI="auto" # yes, no, auto
 
@@ -1608,98 +1466,6 @@ if test "${OPT_REQ_ENABLE_MPI}" = "yes" -a "${OPT_ENABLE_MPI}" = no ; then
 fi
 
 AM_CONDITIONAL(OPT_ENABLE_MPI, test "${OPT_ENABLE_MPI}" = "yes")
-
-
-#-------------------------------------------------
-# enable-mpi-wrapper: check MPI compiler
-#-------------------------------------------------
-
-AC_MSG_CHECKING([whether to build MPI monitoring support])
-
-OPT_REQ_ENABLE_MPI_WRAP="no" # yes, no, auto
-
-AC_ARG_ENABLE([mpi-wrapper],
-  AS_HELP_STRING([--enable-mpi-wrapper],
-                 [Enable MPI wrapper support (uses MPIF77 and CFLAGS)]),
-  [case "${enableval}" in
-     yes) OPT_REQ_ENABLE_MPI_WRAP="yes" ;;
-     no)  OPT_REQ_ENABLE_MPI_WRAP="no" ;;
-     *)   AC_MSG_ERROR([bad value ${enableval} for --enable-mpi-wrapper]) ;;
-   esac])
-
-OPT_ENABLE_MPI_WRAP=no
-if test "${OPT_REQ_ENABLE_MPI_WRAP}" != "no" ; then
-  AC_MSG_CHECKING([whether can compile MPI code with CFLAGS='$CFLAGS'])
-
-  AC_LANG_PUSH([C])
-  CFLAGS="$CFLAGS"
-  AC_COMPILE_IFELSE([#include <mpi.h>],
-        [ans=yes],
-        [ans=no])
-
-  OPT_ENABLE_MPI_WRAP=$ans
-  AC_LANG_POP
-fi
-
-AC_MSG_RESULT([${OPT_ENABLE_MPI_WRAP} (request: ${OPT_REQ_ENABLE_MPI_WRAP})])
-
-
-if test "${OPT_REQ_ENABLE_MPI_WRAP}" = "yes" -a "${OPT_ENABLE_MPI_WRAP}" = no ; then
-  AC_MSG_ERROR([MPI wrapper support requested but MPI compiler is invalid!])
-fi
-
-AM_CONDITIONAL(OPT_ENABLE_MPI_WRAP, test "${OPT_ENABLE_MPI_WRAP}" = "yes")
-
-#-------------------------------------------------
-# enable-mpi-wrapper: check F77 symbols
-#-------------------------------------------------
-
-if test "${OPT_ENABLE_MPI_WRAP}" = "yes" ; then
-
-  if test -z "${MPIF77}" ; then
-    AC_CHECK_PROGS(MPIF77, mpif77 mpxlf_r mpixlf77 mpxlf cmpifc xlf f77 g77 pgf77 fort ifc, mpif77)
-  fi
-
-  if test -n "$MPIF77" -a "$MPIF77" != no ; then
-
-    AC_MSG_CHECKING(Whether fortran symbols have underscores)
-    /bin/rm -f ffunc.f flink.c
-    echo "      subroutine f_fun()" > ffunc.f
-    echo "      return" >> ffunc.f
-    echo "      end" >> ffunc.f
-    $MPIF77 $FFLAGS -c ffunc.f 1>/dev/null 2>/dev/null
-    echo "main(){ FF(); return 0; }" > flink.c
-    if $CC -o flink -DFF=f_fun flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(same as C)
-      F77_SYMBOLS=symbol
-    elif $CC -o flink -DFF=f_fun_ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(lowercase with underscore)
-      F77_SYMBOLS=symbol_
-    elif $CC -o flink -DFF=f_fun__ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(lowercase with 2 underscores)
-      F77_SYMBOLS=symbol__
-    elif $CC -o flink -DFF=F_FUN flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase)
-      F77_SYMBOLS=SYMBOL
-    elif $CC -o flink -DFF=F_FUN_ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase with underscore)
-      F77_SYMBOLS=SYMBOL_
-    elif $CC -o flink -DFF=F_FUN__ flink.c ffunc.o $LDFLAGS $LIBS 1>/dev/null 2>/dev/null; then
-      AC_MSG_RESULT(uppercase with 2 underscores)
-      F77_SYMBOLS=SYMBOL__
-    else
-      AC_MSG_RESULT(giving up)
-      AC_MSG_ERROR(could not determine F77 symbol names)
-    fi
-    /bin/rm -f ffunc.f ffunc.o flink flink.c flink.o ffunc
-  else
-    F77_SYMBOLS=symbol_
-    AC_MSG_RESULT(Fortran compiler not found. Guessing lowercase with underscore)
-
-  fi
-fi
-
-AC_SUBST(F77_SYMBOLS,$F77_SYMBOLS)
 
 
 #-------------------------------------------------
@@ -2066,7 +1832,6 @@ AC_MSG_NOTICE([])
 AC_MSG_NOTICE([  hpcrun?:      ${enable_hpcrun_mesg}])
 AC_MSG_NOTICE([  hpcrun-flat?: ${OPT_ENABLE_HPCRUN_FLAT}])
 AC_MSG_NOTICE([  mpi support?: ${OPT_ENABLE_MPI}])
-AC_MSG_NOTICE([  mpi wrapper support?: ${OPT_ENABLE_MPI_WRAP}])
 AC_MSG_NOTICE([  hpcrun/lush?: ${opt_enable_lush}])
 AC_MSG_NOTICE([])
 AC_MSG_NOTICE([  CC:        '${CC}'])
@@ -2076,9 +1841,7 @@ AC_MSG_NOTICE([  CXXFLAGS:  '${CXXFLAGS} ${HOST_CXXFLAGS}'])
 AC_MSG_NOTICE([  CCAS:      '${CCAS}'])
 AC_MSG_NOTICE([  CCASFLAGS: '${CCASFLAGS}'])
 AC_MSG_NOTICE([  LDFLAGS:   '${LDFLAGS}'])
-AC_MSG_NOTICE([  MPICC:     '${MPICC}'])
 AC_MSG_NOTICE([  MPICXX:    '${MPICXX}'])
-AC_MSG_NOTICE([  MPIF77:    '${MPIF77}'])
 AC_MSG_NOTICE([  HPC_LT_LDFLAGS:        '${HPC_LT_LDFLAGS}'])
 AC_MSG_NOTICE([  HPCPROFMPI_LT_LDFLAGS: '${HPCPROFMPI_LT_LDFLAGS}'])
 AC_MSG_NOTICE([])

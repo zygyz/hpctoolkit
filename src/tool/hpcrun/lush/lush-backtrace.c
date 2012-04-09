@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -238,21 +238,21 @@ lush_backtrace2cct(cct_bundle_t* cct, ucontext_t* context,
 
   frame_t* bt_beg = td->btbuf_beg;      // innermost, inclusive 
   frame_t* bt_end = td->btbuf_cur - 1; // outermost, inclusive
-  cct_node_t* cct_cursor = cct->tree_root;
+  cct_node_t* cct_cursor = NULL;
 
   if (skipInner) {
     bt_beg = hpcrun_skip_chords(bt_end, bt_beg, skipInner);
   }
 
   cct_node_t* node = NULL;
-  node = hpcrun_cct_insert_backtrace_w_metric(cct_cursor, metricId,
-					      bt_end, bt_beg,
-					      (cct_metric_data_t){.i = metricIncr});
+  node = hpcrun_cct_insert_backtrace(cct, cct_cursor, metricId,
+				     bt_end, bt_beg,
+				     (cct_metric_data_t){.i = metricIncr});
 
   if (doMetricIdleness) {
     //lush_agentid_t aid = aidMetricIdleness;
     int mid = lush_agents->metric_idleness;
-    cct_metric_data_increment(mid, node,
+    cct_metric_data_increment(mid, hpcrun_cct_metrics(node) + mid,
 			      (cct_metric_data_t){.r = incrMetricIdleness});
   }
 

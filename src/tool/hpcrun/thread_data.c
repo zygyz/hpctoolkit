@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,6 @@
 #include <lush/lush-pthread.h>
 #include <messages/messages.h>
 #include <trampoline/common/trampoline.h>
-#include <memory/mmap.h>
 
 //***************************************************************************
 
@@ -120,10 +119,9 @@ hpcrun_thread_data_init(int id, cct_ctxt_t* thr_ctxt, int is_child)
   // Wipe the thread data with a bogus bit pattern, but save the
   // memstore so we can reuse it in the child after fork.  This must
   // come first.
-  td->inside_hpcrun = 1;
+  td->suspend_sampling = 1;
   memstore = td->memstore;
   memset(td, 0xfe, sizeof(thread_data_t));
-  td->inside_hpcrun = 1;
   td->memstore = memstore;
   hpcrun_make_memstore(&td->memstore, is_child);
   td->mem_low = 0;
@@ -146,12 +144,6 @@ hpcrun_thread_data_init(int id, cct_ctxt_t* thr_ctxt, int is_child)
   // ----------------------------------------
   td->epoch = hpcrun_malloc(sizeof(epoch_t));
   td->epoch->csdata_ctxt = copy_thr_ctxt(thr_ctxt);
-
-  // ----------------------------------------
-  // cct2metrics map: associate a metric_set with
-  //                  a cct node
-  // ----------------------------------------
-  hpcrun_cct2metrics_init(&(td->cct2metrics_map));
 
   // ----------------------------------------
   // backtrace buffer
@@ -185,6 +177,8 @@ hpcrun_thread_data_init(int id, cct_ctxt_t* thr_ctxt, int is_child)
   td->splay_lock    = 0;
   td->fnbounds_lock = 0;
 
+  // N.B.: suspend_sampling is already set!
+
   // ----------------------------------------
   // Logical unwinding
   // ----------------------------------------
@@ -201,17 +195,13 @@ hpcrun_thread_data_init(int id, cct_ctxt_t* thr_ctxt, int is_child)
   // IO support
   // ----------------------------------------
   td->hpcrun_file  = NULL;
+  td->trace_file   = NULL;
   td->trace_buffer = NULL;
 
   // ----------------------------------------
   // debug support
   // ----------------------------------------
   td->debug1 = false;
-
-  // ----------------------------------------
-  // miscellaneous
-  // ----------------------------------------
-  td->inside_dlfcn = false;
 }
 
 
@@ -295,7 +285,7 @@ hpcrun_init_pthread_key(void)
 void
 hpcrun_set_thread_data(thread_data_t *td)
 {
-  TMSG(THREAD_SPECIFIC,"setting td");
+  NMSG(THREAD_SPECIFIC,"setting td");
   pthread_setspecific(_hpcrun_key,(void *) td);
 }
 
@@ -308,11 +298,12 @@ hpcrun_set_thread0_data(void)
 }
 
 
+// FIXME: use hpcrun_malloc ??
 thread_data_t *
 hpcrun_allocate_thread_data(void)
 {
-  TMSG(THREAD_SPECIFIC,"malloc thread data");
-  return hpcrun_mmap_anon(sizeof(thread_data_t));
+  NMSG(THREAD_SPECIFIC,"malloc thread data");
+  return malloc(sizeof(thread_data_t));
 }
 
 

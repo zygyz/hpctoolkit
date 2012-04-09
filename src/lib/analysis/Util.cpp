@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -73,10 +73,9 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
-#include <include/uint.h>
-
 #include "Util.hpp"
+
+#include <include/uint.h>
 
 #include <lib/banal/StructSimple.hpp>
 
@@ -360,7 +359,7 @@ copySourceFileMain(const string& fnm_orig,
 		   const string& dstDir);
 
 static bool 
-Flat_Filter(const Prof::Struct::ANode& x, long GCC_ATTR_UNUSED type)
+Flat_Filter(const Prof::Struct::ANode& x, long type)
 {
   return (x.type() == Prof::Struct::ANode::TyFile 
 	  || x.type() == Prof::Struct::ANode::TyAlien);
@@ -491,7 +490,7 @@ matchFileWithPath(const string& filenm, const Analysis::PathTupleVec& pathVec)
     const string& curPath = pathVec[i].first;
     string realPath(curPath);
     if (PathFindMgr::isRecursivePath(curPath.c_str())) {
-      realPath[realPath.length() - PathFindMgr::RecursivePathSfxLn] = '\0';
+      realPath[realPath.length()-PathFindMgr::RECURSIVE_PATH_SUFFIX_LN] = '\0';
     }
     realPath = RealPath(realPath.c_str());
     int realPathLn = realPath.length();
@@ -599,9 +598,9 @@ copyTraceFiles(const std::string& dstDir, const std::set<string>& srcFiles)
 	FileUtil::copy(dstFnm, srcFnm2);
       }
     }
-    catch (const Diagnostics::Exception& ex) {
+    catch (const Diagnostics::Exception& x) {
       DIAG_EMsg("While copying trace files ['"
-		<< srcFnm2 << "' -> '" << dstFnm << "']:" << ex.message());
+		<< srcFnm2 << "' -> '" << dstFnm << "']:" << x.message());
     }
   }
 }

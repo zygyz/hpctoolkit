@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -443,7 +443,7 @@ CmdLineParser::isOptArg_long(const char* option)
   try {
     CmdLineParser::toLong(string(option));
   }
-  catch (const CmdLineParser::Exception& /*ex*/) {
+  catch (const CmdLineParser::Exception& x) {
     return false;
   }
   return true;

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -78,7 +78,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/gnu_bfd.h>
 
 #include "LM.hpp"
@@ -127,8 +126,7 @@ BinUtil::Seg::toString(int flags, const char* pre) const
 
 
 void
-BinUtil::Seg::dump(std::ostream& o, GCC_ATTR_UNUSED int flags,
-		   const char* pre) const
+BinUtil::Seg::dump(std::ostream& o, int flags, const char* pre) const
 {
   string p(pre);
   o << std::showbase;
@@ -189,15 +187,15 @@ BinUtil::TextSeg::~TextSeg()
 void
 BinUtil::TextSeg::dump(std::ostream& o, int flags, const char* pre) const
 {
-  string pfx(pre);
-  string pfx1 = pfx + "  ";
+  string p(pre);
+  string p1 = p + "  ";
 
   Seg::dump(o, flags, pre);
-  o << pfx << "  Procedures (" << numProcs() << ")\n";
+  o << p << "  Procedures (" << numProcs() << ")\n";
   for (ProcVec::const_iterator it = m_procs.begin(); 
        it != m_procs.end(); ++it) {
-    Proc* x = *it;
-    x->dump(o, flags, pfx1.c_str());
+    Proc* p = *it;
+    p->dump(o, flags, p1.c_str());
   }
 }
 
@@ -288,16 +286,10 @@ BinUtil::TextSeg::ctor_initProcs()
       //
       // N.B. exploits the fact that the symbol table is sorted by vma
       VMA endVMA_approx = findProcEnd(i);
-
       if (dbg) {
 	if (!dbg->name.empty()) {
 	  procNm = dbg->name;
-	} else if (!symNm.empty()) {
-          // sometimes a procedure name is in the symbol table even
-          // though it is not in the dwarf section. this case occurs
-          // when gcc outlines routines from OpenMP parallel sections.
-          procNm = symNm;
-  	}
+	}
 
 #if 1
 	// Remove capability below... the DWARF sizes can be wrong!!

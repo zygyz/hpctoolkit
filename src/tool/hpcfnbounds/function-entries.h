@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,3 +62,7 @@ void entries_in_range(void *start, void *end, vector<void *> &result);
 bool query_function_entry(void *addr);
 
 void dump_reachable_functions();
+
+
+
+

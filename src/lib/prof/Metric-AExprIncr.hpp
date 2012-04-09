@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -1028,7 +1028,7 @@ public:
   }
 
   virtual double
-  initializeSrc(Metric::IData& GCC_ATTR_UNUSED mdata) const
+  initializeSrc(Metric::IData& mdata) const
   { return 0.0; }
 
   virtual double

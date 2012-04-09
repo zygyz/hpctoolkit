@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -447,8 +447,8 @@ correlateWithObject_LM(const Prof::Metric::Mgr& metricMgr,
     string the_file;
     SrcFile::ln the_line = SrcFile::ln_NULL;
 
-    for (BinUtil::ProcInsnIterator it1(*p); it1.isValid(); ++it1) {
-      BinUtil::Insn* insn = it1.current();
+    for (BinUtil::ProcInsnIterator it(*p); it.isValid(); ++it) {
+      BinUtil::Insn* insn = it.current();
       VMA vma = insn->vma();
       VMA opVMA = BinUtil::LM::isa->convertVMAToOpVMA(vma, insn->opIndex());
 

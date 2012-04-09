@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -277,9 +277,25 @@ public:
   }
 
 
+
+
   // nameToFmt: generate formatted string
   std::string
-  nameToFmt() const;
+  nameToFmt() const
+  {
+    // acceptable to create on demand
+    std::string nm;
+
+    // {nameFmtTag}<prefix><base><suffix><type>
+    nm += s_nameFmtTag;
+    nm += s_nameFmtSegBeg + m_namePfx  + s_nameFmtSegEnd;
+    nm += s_nameFmtSegBeg + m_nameBase + s_nameFmtSegEnd;
+    nm += s_nameFmtSegBeg + m_nameSfx  + s_nameFmtSegEnd;
+    nm += s_nameFmtSegBeg + ADescTyToString(type()) + s_nameFmtSegEnd;
+
+    return nm;
+  }
+
 
   // nameFromString: if 'x' is a formatted string, set the various name
   // components; otherwise set base = x.

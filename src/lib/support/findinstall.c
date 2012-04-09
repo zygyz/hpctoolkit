@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,14 +46,10 @@
 
 /*************************** System Include Files ***************************/
 
-#include <stdio.h>  // for FILENAME_MAX
-#include <libgen.h> // for dirname/basename
-
-#define __USE_XOPEN_EXTENDED // for realpath()
 #include <stdlib.h>
-
-#define __USE_XOPEN_EXTENDED // for strdup()
-#include <string.h>
+#include <libgen.h> /* for dirname/basename */
+#include <string.h> /* for strdup */
+#include <limits.h> /* for 'PATH_MAX' */
 
 /**************************** User Include Files ****************************/
 
@@ -74,7 +70,7 @@
 char*
 findinstall(const char* cmd, const char* base_cmd)
 {
-  static char rootdir[FILENAME_MAX]; // PATH_MAX
+  static char rootdir[PATH_MAX];
   char *bindir, *rootdir_rel;
   char *cmd1 = NULL, *bindir_tmp = NULL;
 

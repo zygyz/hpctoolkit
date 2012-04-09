@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,16 +48,10 @@
 #define x86_enter_h
 
 /******************************************************************************
- * XED include files
- *****************************************************************************/
-
-#include <xed-interface.h>
-
-
-/******************************************************************************
  * include files
  *****************************************************************************/
 
+#include "xed-interface.h"
 #include "x86-unwind-interval.h"
 #include "x86-unwind-analysis.h"
 #include "x86-interval-arg.h"

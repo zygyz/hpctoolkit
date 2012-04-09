@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -132,8 +132,7 @@ Mgr::makeRawMetrics(const std::vector<std::string>& profileFiles,
 
 
 uint
-Mgr::makeSummaryMetrics(bool needMultiOccurance, bool needStatistics, 
-                        uint srcBegId, uint srcEndId)
+Mgr::makeSummaryMetrics(bool needMultiOccurance, uint srcBegId, uint srcEndId)
 {
   StringToADescVecMap nmToMetricMap;
 
@@ -180,14 +179,11 @@ Mgr::makeSummaryMetrics(bool needMultiOccurance, bool needStatistics,
 
       Metric::ADesc* mNew =
 	makeSummaryMetric("Sum",  m, mVec);
-
-      if (needStatistics) {
-        makeSummaryMetric("Mean",   m, mVec);
-        makeSummaryMetric("StdDev", m, mVec);
-        makeSummaryMetric("CfVar",  m, mVec);
-        makeSummaryMetric("Min",    m, mVec);
-        makeSummaryMetric("Max",    m, mVec);
-      }
+      makeSummaryMetric("Mean",   m, mVec);
+      makeSummaryMetric("StdDev", m, mVec);
+      makeSummaryMetric("CfVar",  m, mVec);
+      makeSummaryMetric("Min",    m, mVec);
+      makeSummaryMetric("Max",    m, mVec);
 
       if (firstId == Mgr::npos) {
 	firstId = mNew->id();
@@ -202,7 +198,7 @@ Mgr::makeSummaryMetrics(bool needMultiOccurance, bool needStatistics,
 
 
 uint
-Mgr::makeSummaryMetricsIncr(bool needStatistics, uint srcBegId, uint srcEndId)
+Mgr::makeSummaryMetricsIncr(uint srcBegId, uint srcEndId)
 {
   if (srcBegId == Mgr::npos) {
     srcBegId = 0;
@@ -218,14 +214,11 @@ Mgr::makeSummaryMetricsIncr(bool needStatistics, uint srcBegId, uint srcEndId)
 
     Metric::ADesc* mNew =
       makeSummaryMetricIncr("Sum",  m);
-
-    if (needStatistics) {
-      makeSummaryMetricIncr("Mean",   m);
-      makeSummaryMetricIncr("StdDev", m);
-      makeSummaryMetricIncr("CfVar",  m);
-      makeSummaryMetricIncr("Min",    m);
-      makeSummaryMetricIncr("Max",    m);
-    }
+    makeSummaryMetricIncr("Mean",   m);
+    makeSummaryMetricIncr("StdDev", m);
+    makeSummaryMetricIncr("CfVar",  m);
+    makeSummaryMetricIncr("Min",    m);
+    makeSummaryMetricIncr("Max",    m);
     
     if (firstId == Mgr::npos) {
       firstId = mNew->id();
@@ -250,7 +243,6 @@ Mgr::makeSummaryMetric(const string mDrvdTy, const Metric::ADesc* mSrc,
 
   bool doDispPercent = true;
   bool isPercent = false;
-  bool isVisible = false;
 
   // This is a cheesy way of creating the metrics, but it is good
   // enough for now.
@@ -258,7 +250,6 @@ Mgr::makeSummaryMetric(const string mDrvdTy, const Metric::ADesc* mSrc,
   Metric::AExpr* expr = NULL;
   if (mDrvdTy.find("Sum", 0) == 0) {
     expr = new Metric::Plus(opands, mOpands.size());
-    isVisible = true;
   }
   else if (mDrvdTy.find("Mean", 0) == 0) {
     expr = new Metric::Mean(opands, mOpands.size());
@@ -293,11 +284,10 @@ Mgr::makeSummaryMetric(const string mDrvdTy, const Metric::ADesc* mSrc,
   const string& mDesc = mSrc->description();
 
   DerivedDesc* m =
-    new DerivedDesc(mNmFmt, mDesc, expr, isVisible, true/*isSortKey*/,
+    new DerivedDesc(mNmFmt, mDesc, expr, true/*isVisible*/, true/*isSortKey*/,
 		    doDispPercent, isPercent);
   m->nameBase(mNmBase);
   m->nameSfx(""); // clear; cf. Prof::CallPath::Profile::RFlg_NoMetricSfx
-  m->zeroDBInfo(); // clear
   insert(m);
   expr->accumId(m->id());
 
@@ -309,7 +299,6 @@ Mgr::makeSummaryMetric(const string mDrvdTy, const Metric::ADesc* mSrc,
 		      false/*isPercent*/);
     m2->nameBase(m2NmBase);
     m2->nameSfx(""); // clear; cf. Prof::CallPath::Profile::RFlg_NoMetricSfx
-    m2->zeroDBInfo(); // clear
     insert(m2);
 
     expr->accum2Id(m2->id());
@@ -324,7 +313,6 @@ Mgr::makeSummaryMetric(const string mDrvdTy, const Metric::ADesc* mSrc,
 		      false/*isPercent*/);
     m3->nameBase(m3NmBase);
     m3->nameSfx(""); // clear; cf. Prof::CallPath::Profile::RFlg_NoMetricSfx
-    m3->zeroDBInfo(); // clear
     insert(m3);
     m3Expr->accumId(m3->id());
 
@@ -340,7 +328,6 @@ Mgr::makeSummaryMetricIncr(const string mDrvdTy, const Metric::ADesc* mSrc)
 {
   bool doDispPercent = true;
   bool isPercent = false;
-  bool isVisible = false;
 
   // This is a cheesy way of creating the metrics, but it is good
   // enough for now.
@@ -348,7 +335,6 @@ Mgr::makeSummaryMetricIncr(const string mDrvdTy, const Metric::ADesc* mSrc)
   Metric::AExprIncr* expr = NULL;
   if (mDrvdTy.find("Sum", 0) == 0) {
     expr = new Metric::SumIncr(Metric::IData::npos, mSrc->id());
-    isVisible = true;
   }
   else if (mDrvdTy.find("Mean", 0) == 0) {
     expr = new Metric::MeanIncr(Metric::IData::npos, mSrc->id());
@@ -383,10 +369,9 @@ Mgr::makeSummaryMetricIncr(const string mDrvdTy, const Metric::ADesc* mSrc)
   const string& mDesc = mSrc->description();
 
   DerivedIncrDesc* m =
-    new DerivedIncrDesc(mNmFmt, mDesc, expr, isVisible,
+    new DerivedIncrDesc(mNmFmt, mDesc, expr, true/*isVisible*/,
 			true/*isSortKey*/, doDispPercent, isPercent);
   m->nameBase(mNmBase);
-  m->zeroDBInfo(); // clear
   insert(m);
   expr->accumId(m->id());
 
@@ -397,7 +382,6 @@ Mgr::makeSummaryMetricIncr(const string mDrvdTy, const Metric::ADesc* mSrc)
 			  false/*isSortKey*/, false/*doDispPercent*/,
 			  false/*isPercent*/);
     m2->nameBase(m2NmBase);
-    m2->zeroDBInfo(); // clear
     insert(m2);
 
     expr->accum2Id(m2->id());
@@ -411,7 +395,6 @@ Mgr::makeSummaryMetricIncr(const string mDrvdTy, const Metric::ADesc* mSrc)
 			  false/*isSortKey*/, false/*doDispPercent*/,
 			  false/*isPercent*/);
     m3->nameBase(m3NmBase);
-    m3->zeroDBInfo(); // clear
     insert(m3);
     m3Expr->accumId(m3->id());
 
@@ -783,9 +766,9 @@ Mgr::insertInMapsAndMakeUniqueName(Metric::ADesc* m)
   Metric::SampledDesc* mSmpl = dynamic_cast<Metric::SampledDesc*>(m);
   if (mSmpl) {
     const string& fnm = mSmpl->profileName();
-    StringToADescVecMap::iterator it1 = m_fnameToFMetricMap.find(fnm);
-    if (it1 != m_fnameToFMetricMap.end()) {
-      Metric::ADescVec& mvec = it1->second;
+    StringToADescVecMap::iterator it = m_fnameToFMetricMap.find(fnm);
+    if (it != m_fnameToFMetricMap.end()) {
+      Metric::ADescVec& mvec = it->second;
       mvec.push_back(mSmpl);
     }
     else {

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,8 +66,6 @@
 
 //*************************** User Include Files ****************************
 
-
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 #include <include/gnu_dis-asm.h>
 
@@ -468,7 +466,7 @@ public:
   //
   // The default function assumes non-VLIW architecture
   virtual VMA
-  convertVMAToOpVMA(VMA vma, ushort GCC_ATTR_UNUSED opIndex) const
+  convertVMAToOpVMA(VMA vma, ushort opIndex) const
   { return vma; }
 
   virtual VMA
@@ -477,11 +475,11 @@ public:
 
 private:
   // Should not be used
-  ISA(const ISA& GCC_ATTR_UNUSED i)
+  ISA(const ISA& i)
   { }
 
   ISA&
-  operator=(const ISA& GCC_ATTR_UNUSED i)
+  operator=(const ISA& i)
   { return *this; }
 
 protected:

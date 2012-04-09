@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -131,14 +131,13 @@ SparcISA::~SparcISA()
 
 
 ISA::InsnDesc
-SparcISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		      ushort GCC_ATTR_UNUSED sz)
+SparcISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   ISA::InsnDesc d;
 
   if (cacheLookup(mi) == NULL) {
-    int size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+    ushort size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
+    cacheSet(mi, size);
   }
 
   // The target field is set (to an absolute vma) on PC-relative
@@ -204,8 +203,8 @@ SparcISA::getInsnTargetVMA(MachInsn* mi, VMA vma, ushort opIndex, ushort sz)
   // actually the VMA in order to calculate VMA-relative targets.
 
   if (cacheLookup(mi) == NULL) {
-    int size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
-    cacheSet(mi, (ushort)size);
+    ushort size = print_insn_sparc(PTR_TO_BFDVMA(mi), m_di);
+    cacheSet(mi, size);
   }
 
   ISA::InsnDesc d = getInsnDesc(mi, opIndex, sz);
@@ -246,8 +245,7 @@ SparcISA::getInsnNumDelaySlots(MachInsn* mi, ushort opIndex, ushort sz)
 
 
 void
-SparcISA::decode(ostream& os, MachInsn* mi, VMA vma,
-		 ushort GCC_ATTR_UNUSED opIndex)
+SparcISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   m_dis_data.insn_addr = mi;
   m_dis_data.insn_vma = vma;

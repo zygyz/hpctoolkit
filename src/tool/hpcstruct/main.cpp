@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -71,8 +71,6 @@ using std::endl;
 #include "Args.hpp"
 
 #include <lib/banal/Struct.hpp>
-
-#include <lib/prof/Struct-Tree.hpp>
 
 #include <lib/binutils/LM.hpp>
 
@@ -157,14 +155,14 @@ realmain(int argc, char* argv[])
   Prof::Struct::Tree* strctTree = new Prof::Struct::Tree("", rootStrct);
   
   using namespace BAnal::Struct;
-  Prof::Struct::LM* lmStrct = makeStructure(lm, args.doNormalizeTy,
+  Prof::Struct::LM* lmStrct = makeStructure(lm, args.doNormalizeTy, 
 					    args.isIrreducibleIntervalLoop,
 					    args.isForwardSubstitution,
 					    procNameMgr,
 					    args.dbgProcGlob);
   lmStrct->link(rootStrct);
   
-  Prof::Struct::writeXML(*os, *strctTree, args.prettyPrintOutput);
+  writeStructure(*os, strctTree, args.prettyPrintOutput);
   IOUtil::CloseStream(os);
   
   delete strctTree;

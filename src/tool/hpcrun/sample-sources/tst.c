@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -80,7 +80,6 @@
 #include <hpcrun/hpcrun_stats.h>
 
 #include <hpcrun/metrics.h>
-#include <hpcrun/safe-sampling.h>
 #include <hpcrun/sample_event.h>
 #include <hpcrun/sample_sources_registered.h>
 #include <hpcrun/thread_data.h>
@@ -380,10 +379,9 @@ METHOD_FN(display_events)
 static int
 _tst_signal_handler(int sig, siginfo_t* siginfo, void* context)
 {
-  // If the interrupt came from inside our code, then drop the sample
-  // and return and avoid any MSG.
+  // Must check for async block first and avoid any MSG if true.
   void* pc = hpcrun_context_pc(context);
-  if (! hpcrun_safe_enter_async(pc)) {
+  if (hpcrun_async_is_blocked(pc)) {
     hpcrun_stats_num_samples_blocked_async_inc();
   }
   else {

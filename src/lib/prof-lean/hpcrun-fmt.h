@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -75,7 +75,6 @@
 #include <include/uint.h>
 
 #include "hpcio.h"
-#include "hpcio-buffer.h"
 #include "hpcfmt.h"
 
 #include "lush/lush-support.h"
@@ -190,19 +189,6 @@ hpctrace_fmt_hdr_fwrite(FILE* fs);
 
 int
 hpctrace_fmt_hdr_fprint(FILE* fs);
-
-
-//***************************************************************************
-// hpctrace in new outbuf format
-//***************************************************************************
-
-// write trace header to outbuf
-int
-hpctrace_fmt_hdr_outbuf(hpcio_outbuf_t* outbuf);
-
-// append trace record to outbuf
-int
-hpctrace_fmt_append_outbuf(hpcio_outbuf_t* outbuf, uint64_t usec, uint32_t cpid);
 
 
 //***************************************************************************

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -390,7 +390,7 @@ mkdirUnique(const char* dirnm)
       // attempt to create alternative directories
       for (uint i = 0; i < dirnmVec.size(); ++i) {
 	dirnm_new = dirnmVec[i];
-	DIAG_Msg(1, "Directory '" << dirnm << "' already exists. Trying '" << dirnm_new << "'");
+	DIAG_Msg(1, "Directory '" << dirnm << "' already exists. Trying " << dirnm_new);
 	ret = ::mkdir(dirnm_new.c_str(), mkmode);
 	if (ret == 0) {
 	  is_done = true;

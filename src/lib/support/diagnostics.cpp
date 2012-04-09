@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,10 +66,6 @@
 
 //*************************** User Include Files *****************************
 
-#include <include/gcc-attr.h>
-#include <include/uint.h>
-
-
 #include "diagnostics.h"
 
 //****************************************************************************
@@ -91,11 +87,11 @@ Diagnostics_GetDiagnosticFilterLevel()
 
 
 void
-Diagnostics_TheMostVisitedBreakpointInHistory(const char* GCC_ATTR_UNUSED filenm,
-					      uint GCC_ATTR_UNUSED lineno)
+Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm, 
+					      unsigned int lineno)
 {
   // Prevent this routine from ever being inlined
-  static uint count = 0;
+  static unsigned count = 0;
   count++;
 }
 

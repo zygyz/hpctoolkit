@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,8 +77,6 @@ using std::string;
 #include <stdint.h>
 
 //*************************** User Include Files *****************************
-
-#include <include/gcc-attr.h>
 
 #include "StrUtil.hpp"
 #include "diagnostics.h"
@@ -328,7 +326,7 @@ toStr(const uint64_t x, int base)
 
 
 string
-toStr(const void* x, int GCC_ATTR_UNUSED base)
+toStr(const void* x, int base)
 {
   sprintf(buf, "%p", x);
   return string(buf);

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -69,7 +69,6 @@ using std::string;
 //*************************** User Include Files ****************************
 
 #include <include/hpctoolkit-config.h>
-#include <include/gcc-attr.h>
 
 #include "Args.hpp"
 
@@ -236,7 +235,7 @@ CmdLineParser::OptArgDesc Args::optArgs[] = {
 #undef CLP
 
 
-static bool
+static bool 
 isOptArg_src(const char* x)
 {
   string opt(x);
@@ -244,7 +243,7 @@ isOptArg_src(const char* x)
   try {
     Args::parseArg_source(NULL, opt, "");
   }
-  catch (const Args::Exception& /*ex*/) {
+  catch (const Args::Exception& x) {
     // To enable good error messages, consider strings with a ratio of
     // commas:characters >= 1/3 to be an attempt at a src argument.
     // NOTE: this metric assumes an implicit comma at the end of the string
@@ -255,7 +254,7 @@ isOptArg_src(const char* x)
       commas += 1;
     }
 
-    double characters = (double)opt.size();
+    double characters = opt.size();
     
     ret = (commas / characters) >= tolerance;
   }
@@ -263,7 +262,7 @@ isOptArg_src(const char* x)
 }
 
 
-static bool
+static bool 
 isOptArg_obj(const char* x)
 {
   string opt(x);
@@ -271,7 +270,7 @@ isOptArg_obj(const char* x)
   try {
     Args::parseArg_object(NULL, opt, "");
   }
-  catch (const Args::Exception& /*ex*/) {
+  catch (const Args::Exception& x) {
     // To enable good error messages, consider strings of size 1
     return (opt.size() == 1);
   }
@@ -327,14 +326,14 @@ Args::~Args()
 }
 
 
-void
+void 
 Args::printVersion(std::ostream& os) const
 {
   os << getCmd() << ": " << version_info << endl;
 }
 
 
-void
+void 
 Args::printUsage(std::ostream& os) const
 {
   os << "Usage: \n"
@@ -342,29 +341,29 @@ Args::printUsage(std::ostream& os) const
      << "  " << getCmd() << " " << usage_summary2 << endl
      << "  " << getCmd() << " " << usage_summary3 << endl
      << usage_details << endl;
-}
+} 
 
 
-void
+void 
 Args::printError(std::ostream& os, const char* msg) /*const*/
 {
   os << getCmd() << ": " << msg << endl
      << "Try '" << getCmd() << " --help' for more information." << endl;
 }
 
-void
+void 
 Args::printError(std::ostream& os, const std::string& msg) /*const*/
 {
   printError(os, msg.c_str());
 }
 
 
-const std::string&
+const std::string& 
 Args::getCmd() /*const*/
-{
+{ 
   // avoid error messages with: .../bin/hpcproftt-bin
   static string cmd = "hpcproftt";
-  return cmd; // parser.getCmd();
+  return cmd; // parser.getCmd(); 
 }
 
 
@@ -391,11 +390,11 @@ Args::parse(int argc, const char* const argv[])
       Diagnostics_SetDiagnosticFilterLevel(dbg);
       trace = dbg;
     }
-    if (parser.isOpt("help")) {
-      printUsage(std::cerr);
+    if (parser.isOpt("help")) { 
+      printUsage(std::cerr); 
       exit(1);
     }
-    if (parser.isOpt("version")) {
+    if (parser.isOpt("version")) { 
       printVersion(std::cerr);
       exit(1);
     }
@@ -434,7 +433,7 @@ Args::parse(int argc, const char* const argv[])
       StrUtil::tokenize_str(str, CLP_SEPARATOR, searchPaths);
       
       for (uint i = 0; i < searchPaths.size(); ++i) {
-	searchPathTpls.push_back(Analysis::PathTuple(searchPaths[i],
+	searchPathTpls.push_back(Analysis::PathTuple(searchPaths[i], 
 						     Analysis::DefaultPathTupleTarget));
       }
     }
@@ -588,10 +587,10 @@ Args::parseArg_metric(Args* args, const string& value, const char* errTag)
 }
 
 
-void
+void 
 Args::dump(std::ostream& os) const
 {
-  os << "Args.cmd= " << getCmd() << endl;
+  os << "Args.cmd= " << getCmd() << endl; 
   Analysis::Args::dump(os);
 }
 

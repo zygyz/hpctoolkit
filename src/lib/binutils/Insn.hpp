@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "LM.hpp"
@@ -208,11 +207,11 @@ private:
   Insn()
   { }
 
-  Insn(const Insn& GCC_ATTR_UNUSED i)
+  Insn(const Insn& i)
   { }
 
   Insn&
-  operator=(const Insn& GCC_ATTR_UNUSED i)
+  operator=(const Insn& i)
   { return *this; }
   
 protected:
@@ -274,10 +273,10 @@ private:
   // Should not be used
   CISCInsn();
 
-  CISCInsn(const CISCInsn& GCC_ATTR_UNUSED i);
+  CISCInsn(const CISCInsn& i);
 
   CISCInsn&
-  operator=(const CISCInsn& GCC_ATTR_UNUSED i)
+  operator=(const CISCInsn& i)
   { return *this; }
   
 protected:
@@ -330,10 +329,10 @@ private:
   // Should not be used
   RISCInsn();
 
-  RISCInsn(const RISCInsn& GCC_ATTR_UNUSED i);
+  RISCInsn(const RISCInsn& i);
 
   RISCInsn&
-  operator=(const RISCInsn& GCC_ATTR_UNUSED i)
+  operator=(const RISCInsn& i)
   { return *this; }
   
 protected:
@@ -384,10 +383,10 @@ private:
   // Should not be used
   VLIWInsn();
 
-  VLIWInsn(const VLIWInsn& GCC_ATTR_UNUSED i);
+  VLIWInsn(const VLIWInsn& i);
 
   VLIWInsn&
-  operator=(const VLIWInsn& GCC_ATTR_UNUSED i)
+  operator=(const VLIWInsn& i)
   { return *this; }
   
 protected:

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,7 +68,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 #include <include/gnu_bfd.h>
 
@@ -185,11 +184,11 @@ protected:
   Seg()
   { }
 
-  Seg(const Seg& GCC_ATTR_UNUSED s)
+  Seg(const Seg& s)
   { }
 
   Seg&
-  operator=(const Seg& GCC_ATTR_UNUSED s)
+  operator=(const Seg& s)
   { return *this; }
   
 protected:
@@ -280,11 +279,11 @@ private:
   TextSeg()
   { }
   
-  TextSeg(const TextSeg& GCC_ATTR_UNUSED s)
+  TextSeg(const TextSeg& s)
   { }
 
   TextSeg&
-  operator=(const TextSeg& GCC_ATTR_UNUSED s)
+  operator=(const TextSeg& s)
   { return *this; }
 
   void

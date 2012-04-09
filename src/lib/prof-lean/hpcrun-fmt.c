@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -76,10 +76,7 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
-
 #include "hpcio.h"
-#include "hpcio-buffer.h"
 #include "hpcfmt.h"
 #include "hpcrun-fmt.h"
 
@@ -216,53 +213,6 @@ hpctrace_fmt_hdr_fprint(FILE* fs)
 {
   fprintf(fs, "%s\n", HPCTRACE_FMT_Magic);
   fprintf(fs, "[hdr:...]\n");
-
-  return HPCFMT_OK;
-}
-
-
-//***************************************************************************
-// hpctrace in new outbuf format
-//***************************************************************************
-
-// Write the trace header to the outbuf.
-// Returns: HPCFMT_OK on success, else HPCFMT_ERR.
-int
-hpctrace_fmt_hdr_outbuf(hpcio_outbuf_t* outbuf)
-{
-  ssize_t ret;
-
-  hpcio_outbuf_write(outbuf, HPCTRACE_FMT_Magic, HPCTRACE_FMT_MagicLen);
-  hpcio_outbuf_write(outbuf, HPCTRACE_FMT_Version, HPCTRACE_FMT_VersionLen);
-  ret = hpcio_outbuf_write(outbuf, HPCTRACE_FMT_Endian, HPCTRACE_FMT_EndianLen);
-  if (ret != HPCTRACE_FMT_EndianLen) {
-    return HPCFMT_ERR;
-  }
-
-  return HPCFMT_OK;
-}
-
-
-// Append the trace record to the outbuf.
-// Returns: HPCFMT_OK on success, else HPCFMT_ERR.
-int
-hpctrace_fmt_append_outbuf(hpcio_outbuf_t* outbuf, uint64_t usec, uint32_t cpid)
-{
-  unsigned char buf[20];
-  int shift, k;
-
-  k = 0;
-  for (shift = 56; shift >= 0; shift -= 8) {
-    buf[k] = (usec >> shift) & 0xff;
-    k++;
-  }
-  for (shift = 24; shift >= 0; shift -= 8) {
-    buf[k] = (cpid >> shift) & 0xff;
-    k++;
-  }
-  if (hpcio_outbuf_write(outbuf, buf, k) != k) {
-    return HPCFMT_ERR;
-  }
 
   return HPCFMT_OK;
 }
@@ -503,8 +453,7 @@ hpcrun_fmt_metricTbl_free(metric_tbl_t* metric_tbl, hpcfmt_free_fn dealloc)
 
 int
 hpcrun_fmt_metricDesc_fread(metric_desc_t* x, FILE* fs, 
-			    double GCC_ATTR_UNUSED fmtVersion,
-			    hpcfmt_alloc_fn alloc)
+			    double fmtVersion, hpcfmt_alloc_fn alloc)
 {
   HPCFMT_ThrowIfError(hpcfmt_str_fread(&(x->name), fs, alloc));
   HPCFMT_ThrowIfError(hpcfmt_str_fread(&(x->description), fs, alloc));
@@ -527,7 +476,7 @@ hpcrun_fmt_metricDesc_fread(metric_desc_t* x, FILE* fs,
     x->flags.fields.ty          = x_flags_old.fields.ty;
     x->flags.fields.valTy       = x_flags_old.fields.valTy;
     x->flags.fields.valFmt      = x_flags_old.fields.valFmt;
-    x->flags.fields.partner     = (uint16_t) x_flags_old.fields.partner;
+    x->flags.fields.partner     = x_flags_old.fields.partner;
     x->flags.fields.show        = x_flags_old.fields.show;
     x->flags.fields.showPercent = x_flags_old.fields.showPercent;
   }
@@ -562,7 +511,7 @@ hpcrun_fmt_metricDesc_fprint(metric_desc_t* x, FILE* fs, const char* pre)
 	  pre, hpcfmt_str_ensure(x->name), hpcfmt_str_ensure(x->description),
 	  (int)x->flags.fields.ty, (int)x->flags.fields.valTy, 
 	  (int)x->flags.fields.valFmt,
-	  (uint)x->flags.fields.partner, x->flags.fields.show, x->flags.fields.showPercent,
+	  x->flags.fields.partner, x->flags.fields.show, x->flags.fields.showPercent,
 	  x->period,
 	  hpcfmt_str_ensure(x->formula), hpcfmt_str_ensure(x->format));
   return HPCFMT_OK;
@@ -669,8 +618,8 @@ hpcrun_fmt_loadmapEntry_fwrite(loadmap_entry_t* x, FILE* fs)
 int
 hpcrun_fmt_loadmapEntry_fprint(loadmap_entry_t* x, FILE* fs, const char* pre)
 {
-  fprintf(fs, "%s[(id: %u) (nm: %s) (flg: 0x%"PRIx64")]\n",
-	  pre, (uint)x->id, x->name, x->flags);
+  fprintf(fs, "%s[(id: %"PRIu16") (nm: %s) (flg: 0x%"PRIx64")]\n",
+	  pre, x->id, x->name, x->flags);
   return HPCFMT_OK;
 }
 
@@ -758,7 +707,7 @@ hpcrun_fmt_cct_node_fprint(hpcrun_fmt_cct_node_t* x, FILE* fs,
     fprintf(fs, "(as: %s) ", as_str);
   }
 
-  fprintf(fs, "(lm-id: %u) (lm-ip: 0x%"PRIx64") ", (uint)x->lm_id, x->lm_ip);
+  fprintf(fs, "(lm-id: %"PRIu16") (lm-ip: 0x%"PRIx64") ", x->lm_id, x->lm_ip);
 
   if (flags.fields.isLogicalUnwind) {
     hpcrun_fmt_lip_fprint(&x->lip, fs, "");

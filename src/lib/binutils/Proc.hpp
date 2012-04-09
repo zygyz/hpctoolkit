@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -67,7 +67,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "LM.hpp"
@@ -297,11 +296,11 @@ private:
   Proc()
   { }
 
-  Proc(const Proc& GCC_ATTR_UNUSED p)
+  Proc(const Proc& p)
   { }
 
   Proc&
-  operator=(const Proc& GCC_ATTR_UNUSED p)
+  operator=(const Proc& p)
   { return *this; }
 
 protected:
@@ -394,10 +393,9 @@ private:
   // Should not be used
   ProcInsnIterator();
   
-  ProcInsnIterator(const ProcInsnIterator& GCC_ATTR_UNUSED i);
+  ProcInsnIterator(const ProcInsnIterator& i);
 
-  ProcInsnIterator&
-  operator=(const ProcInsnIterator& GCC_ATTR_UNUSED i)
+  ProcInsnIterator& operator=(const ProcInsnIterator& i)
   { return *this; }
 
 protected:

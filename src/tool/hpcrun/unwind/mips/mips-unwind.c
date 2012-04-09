@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -298,10 +298,9 @@ validateTroll(void* addr, void* arg)
   dylib_find_proc(addr, &proc_beg, &mod_beg);
   isInCode = (mod_beg || proc_beg);
 #else
-  void* proc_beg = NULL;
-  void* proc_end = NULL;
-  bool ret = fnbounds_enclosing_addr(addr, &proc_beg, &proc_end, NULL);
-  isInCode = ret && proc_beg;
+  void *proc_beg = NULL, *proc_end = NULL;
+  int ret = fnbounds_enclosing_addr(addr, &proc_beg, &proc_end, NULL);
+  isInCode = (ret == 0) && proc_beg;
 #endif
   
   if (isInCode && isAfterCall(addr)) {
@@ -406,10 +405,8 @@ hpcrun_unw_init_cursor(hpcrun_unw_cursor_t* cursor, void* context)
   if (MYDBG) { ui_dump(UI_ARG(intvl)); }
 }
 
-// --FIXME--: add advanced fence processing and enclosing function to cursor here
-//
 
-oint 
+int 
 hpcrun_unw_step(hpcrun_unw_cursor_t* cursor)
 {
   // current frame:

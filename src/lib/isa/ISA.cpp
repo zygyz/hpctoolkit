@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -67,8 +67,6 @@ using std::ostream;
 #include <cstring>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "ISA.hpp"
 
@@ -188,23 +186,21 @@ GNUbu_fprintf(void* stream, const char* format, ...)
 
 
 int
-GNUbu_fprintf_stub(void* GCC_ATTR_UNUSED stream, 
-		   const char* GCC_ATTR_UNUSED format, ...)
+GNUbu_fprintf_stub(void* stream, const char* format, ...)
 {
   return 0;
 }
 
 
 void
-GNUbu_print_addr_stub(bfd_vma GCC_ATTR_UNUSED di_vma,
-		      struct disassemble_info* GCC_ATTR_UNUSED di)
+GNUbu_print_addr_stub(bfd_vma di_vma, struct disassemble_info* di)
 {
 }
 
 
 int
 GNUbu_read_memory(bfd_vma vma, bfd_byte* myaddr, unsigned int len,
-		  struct disassemble_info* GCC_ATTR_UNUSED di)
+		  struct disassemble_info* di)
 {
   memcpy(myaddr, BFDVMA_TO_PTR(vma, const char*), len);
   return 0; /* success */

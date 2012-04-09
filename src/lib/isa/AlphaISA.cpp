@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -83,8 +83,7 @@ using std::ostream;
 // See 'ISA.h' for comments on the interface
 
 ISA::InsnDesc
-AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
-		      ushort GCC_ATTR_UNUSED sz)
+AlphaISA::getInsnDesc(MachInsn* mi, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -771,8 +770,7 @@ AlphaISA::getInsnDesc(MachInsn* mi, ushort GCC_ATTR_UNUSED opIndex,
 
 
 VMA
-AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
-			   ushort GCC_ATTR_UNUSED sz)
+AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort opIndex, ushort sz)
 {
   // We know that instruction sizes are guaranteed to be 4 bytes, but
   // the host may have a different byte order than the executable.
@@ -816,8 +814,7 @@ AlphaISA::getInsnTargetVMA(MachInsn* mi, VMA pc, ushort GCC_ATTR_UNUSED opIndex,
 
 
 void
-AlphaISA::decode(ostream& GCC_ATTR_UNUSED os, MachInsn* GCC_ATTR_UNUSED mi,
-		 VMA GCC_ATTR_UNUSED vma, ushort GCC_ATTR_UNUSED opIndex)
+AlphaISA::decode(ostream& os, MachInsn* mi, VMA vma, ushort opIndex)
 {
   DIAG_Die(DIAG_Unimplemented);
 }

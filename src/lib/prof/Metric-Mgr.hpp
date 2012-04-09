@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -108,12 +108,11 @@ public:
   // ------------------------------------------------------------
 
   uint
-  makeSummaryMetrics(bool needMultiOccurance, bool needStatistics,
+  makeSummaryMetrics(bool needMultiOccurance,
 		     uint srcBegId = Mgr::npos, uint srcEndId = Mgr::npos);
 
   uint
-  makeSummaryMetricsIncr(bool needStatistics, uint srcBegId = Mgr::npos, 
-                         uint srcEndId = Mgr::npos);
+  makeSummaryMetricsIncr(uint srcBegId = Mgr::npos, uint srcEndId = Mgr::npos);
 
 
   // ------------------------------------------------------------

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -200,6 +200,7 @@ hpcrun_addr_to_interval_locked(void *addr)
   interval_status istat;
   interval_tree_node *p, *q;
   splay_interval_t *ans;
+  int ret;
 
   /* See if addr is already in the tree. */
   p = interval_tree_lookup(&ui_tree_root, addr);
@@ -217,9 +218,9 @@ hpcrun_addr_to_interval_locked(void *addr)
    * the insert first, but in that case, it's not really a failure.
    */
   UI_TREE_UNLOCK;
-  bool ret = fnbounds_enclosing_addr(addr, &fcn_start, &fcn_end, &lm);
+  ret = fnbounds_enclosing_addr(addr, &fcn_start, &fcn_end, &lm);
   UI_TREE_LOCK;
-  if (! ret) {
+  if (ret != SUCCESS) {
     TMSG(UITREE, "BAD fnbounds_enclosing_addr failed: addr %p", addr);
     return (NULL);
   }

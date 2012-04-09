@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -130,8 +130,9 @@ Options: Source Structure Correlation:\n\
                        Default is 'sum'; hpcprof-mpi always computes 'sum'.\n\
   -I <path>, --include <path>\n\
                        Use <path> when searching for source files. For a\n\
-                       recursive search, append a + after the last slash,\n\
-                       e.g., /mypath/+ . You use multiple -I options.\n\
+                       recursive search, append a '*' after the last slash,\n\
+                       e.g., '/mypath/*' (quote or escape to protect from\n\
+                       the shell.) May pass multiple times.\n\
   -S <file>, --structure <file>\n\
                        Use hpcstruct structure file <file> for correlation.\n\
                        May pass multiple times (e.g., for shared libraries).\n\
@@ -141,10 +142,6 @@ Options: Source Structure Correlation:\n\
                        for which <old-path> is a prefix.  Use '\\' to escape\n\
                        instances of '=' within a path. May pass multiple\n\
                        times.\n\
-\n\
-Options: Statistics:\n\
-  --stats              Cause hpcprof to compute order statistics for all \n\
-                       measured metrics.\n\
 \n\
 Options: Special:\n\
   --force-metric       Force hpcprof to show all thread-level metrics,\n\
@@ -191,10 +188,6 @@ CmdLineParser::OptArgDesc Analysis::ArgsHPCProf::optArgs[] = {
      NULL},
 
   { 'N', "normalize",       CLP::ARG_REQ,  CLP::DUPOPT_CLOB, NULL,
-     NULL },
-
-  // Statistics options
-  {  0 , "stats",           CLP::ARG_NONE, CLP::DUPOPT_CLOB, NULL,
      NULL },
 
   // Special options
@@ -314,9 +307,6 @@ ArgsHPCProf::parse(int argc, const char* const argv[])
 	verb = (int)CmdLineParser::toLong(arg);
       }
       Diagnostics_SetDiagnosticFilterLevel(verb);
-    }
-    if (parser.isOpt("stats")) {
-      prof_computeStatistics = true;
     }
 
     // Check for agent options
@@ -499,10 +489,10 @@ ArgsHPCProf::makeDBDirName(const std::string& profileArg)
     string pfx = fnm.substr(pfx_beg, pfx_end - pfx_beg);
 
     // ---------------------------------
-    // nm (N.B.: can have 'negative' length with fnm='hpctoolkit-measurements')
+    // nm
     // ---------------------------------
-    size_t nm_beg = pos1 + str1.length();            // [inclusive
-    size_t nm_end = (nm_beg > pos2) ? nm_beg : pos2; // exclusive)
+    size_t nm_beg = pos1 + str1.length(); // [inclusive
+    size_t nm_end = pos2;                 // exclusive)
     string nm = fnm.substr(nm_beg, nm_end - nm_beg);
     
     // ---------------------------------
@@ -518,11 +508,7 @@ ArgsHPCProf::makeDBDirName(const std::string& profileArg)
       sfx = fnm.substr(sfx_beg, sfx_end - sfx_beg);
     }
     
-    db_dir = pfx + Analysis_DB_DIR_pfx;
-    if (!nm.empty()) {
-      db_dir += "-" + nm;
-    }
-    db_dir += "-" Analysis_DB_DIR_nm + sfx;
+    db_dir = pfx + Analysis_DB_DIR_pfx "-" + nm + "-" Analysis_DB_DIR_nm + sfx;
   }
 
   return db_dir;

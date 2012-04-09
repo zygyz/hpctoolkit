@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -86,7 +86,6 @@
 
 #include "cct.h"
 #include "cct_addr.h"
-#include "cct2metrics.h"
 
 //***************************** concrete data structure definition **********
 
@@ -116,6 +115,12 @@ struct cct_node_t {
   // left and right pointers for splay tree of siblings
   cct_node_t* left;
   cct_node_t* right;
+
+  // ---------------------------------------------------------
+  // metrics (variable-sized array N.B.: MUST APPEAR AT END OF STRUCTURE!)
+  // ---------------------------------------------------------
+  
+  cct_metric_data_t metrics[]; // variable-sized array
 };
 
 //
@@ -134,7 +139,8 @@ new_persistent_id()
 static cct_node_t*
 cct_node_create(cct_addr_t* addr, cct_node_t* parent)
 {
-  size_t sz = sizeof(cct_node_t);
+  size_t sz = (sizeof(cct_node_t)
+	       + sizeof(cct_metric_data_t)*hpcrun_get_num_metrics());
   cct_node_t *node;
 
   // FIXME: when multiple epochs really work, this will always be freeable.
@@ -268,8 +274,8 @@ lwrite(cct_node_t* node, cct_op_arg_t arg, size_t level)
   tmp->lm_ip = (hpcfmt_vma_t) (uintptr_t) (addr->ip_norm).lm_ip;
 
   tmp->num_metrics = my_arg->num_metrics;
-  hpcrun_metric_set_dense_copy(tmp->metrics, hpcrun_get_metric_set(node),
-			       my_arg->num_metrics);
+  memcpy(tmp->metrics, hpcrun_cct_metrics(node),
+	 my_arg->num_metrics * sizeof(cct_metric_data_t));
   hpcrun_fmt_cct_node_fwrite(tmp, flags, my_arg->fs);
 }
 
@@ -299,25 +305,31 @@ hpcrun_cct_new_partial(void)
 cct_node_t*
 hpcrun_cct_parent(cct_node_t* x)
 {
-  return x? x->parent : NULL;
+  return x->parent;
+}
+
+cct_metric_data_t*
+hpcrun_cct_metrics(cct_node_t* x)
+{
+  return &(x->metrics[0]);
 }
 
 int32_t
 hpcrun_cct_persistent_id(cct_node_t* x)
 {
-  return x ? x->persistent_id : -1;
+  return x->persistent_id;
 }
 
 cct_addr_t*
 hpcrun_cct_addr(cct_node_t* node)
 {
-  return node ? &(node->addr) : NULL;
+  return &(node->addr);
 }
 
 bool
 hpcrun_cct_is_leaf(cct_node_t* node)
 {
-  return node ? (node->children == NULL) : false;
+  return (node->children == NULL);
 }
 
 //
@@ -473,10 +485,8 @@ hpcrun_cct_fwrite(cct_node_t* cct, FILE* fs, epoch_flags_t flags)
   if (!fs) return HPCRUN_ERR;
 
   hpcfmt_int8_fwrite((uint64_t) hpcrun_cct_num_nodes(cct), fs);
-  TMSG(DATA_WRITE, "num cct nodes = %d", hpcrun_cct_num_nodes(cct));
 
   hpcfmt_uint_t num_metrics = hpcrun_get_num_metrics();
-  TMSG(DATA_WRITE, "num metrics in a cct node = %d", num_metrics);
   
   hpcrun_fmt_cct_node_t tmp_node;
 

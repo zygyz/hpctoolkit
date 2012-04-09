@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,6 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include "Struct-Tree.hpp"
@@ -143,7 +142,7 @@ Tree::name() const
 
 
 ostream&
-Tree::writeXML(ostream& os, uint oFlags) const
+Tree::writeXML(ostream& os, int oFlags) const
 {
   if (m_root) {
     m_root->writeXML(os, oFlags);
@@ -153,7 +152,7 @@ Tree::writeXML(ostream& os, uint oFlags) const
 
 
 ostream&
-Tree::dump(ostream& os, uint oFlags) const
+Tree::dump(ostream& os, int oFlags) const
 {
   writeXML(os, oFlags);
   return os;
@@ -164,29 +163,6 @@ void
 Tree::ddump() const
 {
   dump();
-}
-
-
-void
-writeXML(std::ostream& os, const Prof::Struct::Tree& strctTree,
-	 bool prettyPrint)
-{
-  static const char* structureDTD =
-#include <lib/xml/hpc-structure.dtd.h>
-
-  os << "<?xml version=\"1.0\"?>" << std::endl;
-  os << "<!DOCTYPE HPCToolkitStructure [\n" << structureDTD << "]>" << std::endl;
-  os.flush();
-
-  int oFlags = 0;
-  if (!prettyPrint) {
-    oFlags |= Prof::Struct::Tree::OFlg_Compressed;
-  }
-  
-  os << "<HPCToolkitStructure i=\"0\" version=\"4.6\" n"
-     << xml::MakeAttrStr(strctTree.name()) << ">\n";
-  strctTree.writeXML(os, oFlags);
-  os << "</HPCToolkitStructure>\n";
 }
 
 
@@ -1385,7 +1361,7 @@ ANode::ANodeTyToXMLelement(ANodeTy tp)
 
 
 string
-ANode::toStringXML(uint oFlags, const char* pre) const
+ANode::toStringXML(int oFlags, const char* pre) const
 {
   std::ostringstream os;
   writeXML(os, oFlags, pre);
@@ -1394,7 +1370,7 @@ ANode::toStringXML(uint oFlags, const char* pre) const
 
 
 string
-ANode::toXML(uint GCC_ATTR_UNUSED oFlags) const
+ANode::toXML(int oFlags) const
 {
   string self = ANodeTyToXMLelement(type()) + " i" + MakeAttrNum(id());
   return self;
@@ -1402,7 +1378,7 @@ ANode::toXML(uint GCC_ATTR_UNUSED oFlags) const
 
 
 string
-ACodeNode::toXML(uint oFlags) const
+ACodeNode::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags)
     + " " + XMLLineRange(oFlags) + " " + XMLVMAIntervals(oFlags);
@@ -1411,7 +1387,7 @@ ACodeNode::toXML(uint oFlags) const
 
 
 string
-ACodeNode::XMLLineRange(uint GCC_ATTR_UNUSED oFlags) const
+ACodeNode::XMLLineRange(int oFlags) const
 {
   string line = StrUtil::toStr(begLine());
   if (begLine() != endLine()) {
@@ -1424,7 +1400,7 @@ ACodeNode::XMLLineRange(uint GCC_ATTR_UNUSED oFlags) const
 
 
 string
-ACodeNode::XMLVMAIntervals(uint GCC_ATTR_UNUSED oFlags) const
+ACodeNode::XMLVMAIntervals(int oFlags) const
 {
   string self = "v" + MakeAttrStr(m_vmaSet.toString(), xml::ESC_FALSE);
   return self;
@@ -1432,7 +1408,7 @@ ACodeNode::XMLVMAIntervals(uint GCC_ATTR_UNUSED oFlags) const
 
 
 string
-Root::toXML(uint oFlags) const
+Root::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags) + " n" + MakeAttrStr(m_name);
   return self;
@@ -1440,7 +1416,7 @@ Root::toXML(uint oFlags) const
 
 
 string
-Group::toXML(uint oFlags) const
+Group::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags) + " n" + MakeAttrStr(m_name);
   return self;
@@ -1448,7 +1424,7 @@ Group::toXML(uint oFlags) const
 
 
 string
-LM::toXML(uint oFlags) const
+LM::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags)
     + " n" + MakeAttrStr(m_name) + " " + XMLVMAIntervals(oFlags);
@@ -1457,7 +1433,7 @@ LM::toXML(uint oFlags) const
 
 
 string
-File::toXML(uint oFlags) const
+File::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags) + " n" + MakeAttrStr(m_name);
   return self;
@@ -1465,7 +1441,7 @@ File::toXML(uint oFlags) const
 
 
 string
-Proc::toXML(uint oFlags) const
+Proc::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags) + " n" + MakeAttrStr(m_name);
   if (!m_linkname.empty() && m_name != m_linkname) { // print if different
@@ -1477,7 +1453,7 @@ Proc::toXML(uint oFlags) const
 
 
 string
-Alien::toXML(uint oFlags) const
+Alien::toXML(int oFlags) const
 {
   string self = ANode::toXML(oFlags)
     + " f" + MakeAttrStr(m_filenm) + " n" + MakeAttrStr(m_name);
@@ -1487,7 +1463,7 @@ Alien::toXML(uint oFlags) const
 
 
 string
-Loop::toXML(uint oFlags) const
+Loop::toXML(int oFlags) const
 {
   string self = ACodeNode::toXML(oFlags);
   return self;
@@ -1495,7 +1471,7 @@ Loop::toXML(uint oFlags) const
 
 
 string
-Stmt::toXML(uint oFlags) const
+Stmt::toXML(int oFlags) const
 {
   string self = ACodeNode::toXML(oFlags);
   return self;
@@ -1503,7 +1479,7 @@ Stmt::toXML(uint oFlags) const
 
 
 string
-Ref::toXML(uint oFlags) const
+Ref::toXML(int oFlags) const
 {
   string self = ACodeNode::toXML(oFlags)
     + " b" + MakeAttrNum(begPos) + " e" + MakeAttrNum(endPos);
@@ -1512,7 +1488,7 @@ Ref::toXML(uint oFlags) const
 
 
 bool
-ANode::writeXML_pre(ostream& os, uint oFlags, const char* pfx) const
+ANode::writeXML_pre(ostream& os, int oFlags, const char* pfx) const
 {
   bool doTag = (type() != TyRoot);
   bool doMetrics = ((oFlags & Tree::OFlg_LeafMetricsOnly) ?
@@ -1540,8 +1516,7 @@ ANode::writeXML_pre(ostream& os, uint oFlags, const char* pfx) const
 
 
 void
-ANode::writeXML_post(ostream& os, uint GCC_ATTR_UNUSED oFlags,
-		     const char* pfx) const
+ANode::writeXML_post(ostream& os, int oFlags, const char* pfx) const
 {
   bool doTag = (type() != TyRoot);
 
@@ -1552,7 +1527,7 @@ ANode::writeXML_post(ostream& os, uint GCC_ATTR_UNUSED oFlags,
 
 
 ostream&
-ANode::writeXML(ostream& os, uint oFlags, const char* pfx) const
+ANode::writeXML(ostream& os, int oFlags, const char* pfx) const
 {
   string indent = "  ";
   if (oFlags & Tree::OFlg_Compressed) {
@@ -1581,7 +1556,7 @@ ANode::ddumpXML() const
 
 
 ostream&
-Root::writeXML(ostream& os, uint oFlags, const char* pfx) const
+Root::writeXML(ostream& os, int oFlags, const char* pfx) const
 {
   if (oFlags & Tree::OFlg_Compressed) {
     pfx = "";
@@ -1602,7 +1577,7 @@ Root::writeXML(ostream& os, uint oFlags, const char* pfx) const
 
 
 ostream&
-LM::writeXML(ostream& os, uint oFlags, const char* pre) const
+LM::writeXML(ostream& os, int oFlags, const char* pre) const
 {
   string indent = "  ";
   if (oFlags & Tree::OFlg_Compressed) {
@@ -1656,9 +1631,8 @@ ANode::CSV_DumpSelf(const Root& root, ostream& os) const
 
 void
 ANode::CSV_dump(const Root& root, ostream& os,
-		const char* GCC_ATTR_UNUSED file_name,
-		const char* GCC_ATTR_UNUSED proc_name,
-		int GCC_ATTR_UNUSED lLevel) const
+		const char* file_name, const char* proc_name,
+		int lLevel) const
 {
   // print file name, routine name, start and end line, loop level
   os << name() << ",,,,";
@@ -1672,9 +1646,8 @@ ANode::CSV_dump(const Root& root, ostream& os,
 
 void
 File::CSV_dump(const Root& root, ostream& os,
-	       const char* GCC_ATTR_UNUSED file_name,
-	       const char* GCC_ATTR_UNUSED proc_name,
-	       int GCC_ATTR_UNUSED lLevel) const
+	       const char* file_name, const char* proc_name,
+	       int lLevel) const
 {
   // print file name, routine name, start and end line, loop level
   os << baseName() << ",," << m_begLn << "," << m_endLn << ",";
@@ -1688,9 +1661,8 @@ File::CSV_dump(const Root& root, ostream& os,
 
 void
 Proc::CSV_dump(const Root& root, ostream& os,
-	       const char* file_name,
-	       const char* GCC_ATTR_UNUSED proc_name,
-	       int GCC_ATTR_UNUSED lLevel) const
+	       const char* file_name, const char* proc_name,
+	       int lLevel) const
 {
   // print file name, routine name, start and end line, loop level
   os << file_name << "," << name() << "," << m_begLn << "," << m_endLn
@@ -1704,10 +1676,9 @@ Proc::CSV_dump(const Root& root, ostream& os,
 
 
 void
-Alien::CSV_dump(const Root& GCC_ATTR_UNUSED root, ostream& GCC_ATTR_UNUSED os,
-		const char* GCC_ATTR_UNUSED file_name,
-		const char* GCC_ATTR_UNUSED proc_name,
-		int GCC_ATTR_UNUSED lLevel) const
+Alien::CSV_dump(const Root& root, ostream& os,
+		const char* file_name, const char* proc_name,
+		int lLevel) const
 {
   DIAG_Die(DIAG_Unimplemented);
 }
@@ -1748,7 +1719,7 @@ Root::CSV_TreeDump(ostream& os) const
 //***************************************************************************
 
 string
-ANode::toString(uint oFlags, const char* pre) const
+ANode::toString(int oFlags, const char* pre) const
 {
   std::ostringstream os;
   dump(os, oFlags, pre);
@@ -1757,7 +1728,7 @@ ANode::toString(uint oFlags, const char* pre) const
 
 
 string
-ANode::toString_id(uint GCC_ATTR_UNUSED oFlags) const
+ANode::toString_id(int oFlags) const
 {
   string str = "<" + ANodeTyToName(type()) + " uid="
     + StrUtil::toStr(id()) + ">";
@@ -1766,7 +1737,7 @@ ANode::toString_id(uint GCC_ATTR_UNUSED oFlags) const
 
 
 string
-ANode::toStringMe(uint oFlags, const char* prefix) const
+ANode::toStringMe(int oFlags, const char* prefix) const
 {
   std::ostringstream os;
   dumpme(os, oFlags, prefix);
@@ -1775,7 +1746,7 @@ ANode::toStringMe(uint oFlags, const char* prefix) const
 
 
 std::ostream&
-ANode::dump(ostream& os, uint oFlags, const char* pre) const
+ANode::dump(ostream& os, int oFlags, const char* pre) const
 {
   string prefix = string(pre) + "  ";
 
@@ -1808,7 +1779,7 @@ ANode::ddump() const
 
 
 ostream&
-ANode::dumpme(ostream& os, uint oFlags, const char* prefix) const
+ANode::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   os << prefix << toString_id(oFlags) << endl;
   return os;
@@ -1816,7 +1787,7 @@ ANode::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-ACodeNode::dumpme(ostream& os, uint oFlags, const char* prefix) const
+ACodeNode::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   os << prefix << toString_id(oFlags) << " "
      << lineRange() << " " << m_vmaSet.toString();
@@ -1825,7 +1796,7 @@ ACodeNode::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Root::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Root::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   os << prefix << toString_id(oFlags) << " n=" << m_name;
   return os;
@@ -1833,7 +1804,7 @@ Root::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Group::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Group::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   os << prefix << toString_id(oFlags) << " n=" << m_name;
   return os;
@@ -1841,7 +1812,7 @@ Group::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-LM::dumpme(ostream& os, uint oFlags, const char* prefix) const
+LM::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   os << prefix << toString_id(oFlags) << " n=" << m_name;
   return os;
@@ -1849,7 +1820,7 @@ LM::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-File::dumpme(ostream& os, uint oFlags, const char* prefix) const
+File::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix) << " n=" <<  m_name;
   return os;
@@ -1857,7 +1828,7 @@ File::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Proc::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Proc::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix) << " n=" << m_name;
   return os;
@@ -1865,7 +1836,7 @@ Proc::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Alien::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Alien::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix);
   return os;
@@ -1873,7 +1844,7 @@ Alien::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Loop::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Loop::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix);
   return os;
@@ -1881,7 +1852,7 @@ Loop::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Stmt::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Stmt::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix);
   return os;
@@ -1889,7 +1860,7 @@ Stmt::dumpme(ostream& os, uint oFlags, const char* prefix) const
 
 
 ostream&
-Ref::dumpme(ostream& os, uint oFlags, const char* prefix) const
+Ref::dumpme(ostream& os, int oFlags, const char* prefix) const
 {
   ACodeNode::dumpme(os, oFlags, prefix);
   os << " pos:"  << begPos << "-" << endPos;

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,10 +50,7 @@
 
 
 static char main32_signature[] = { 
-
-  0x8d, 0x4c, 0x24, 0x04, // lea    0x4(%esp),%ecx
-  0x83, 0xe4, 0xf0,       // and    $0xfffffff0,%esp
-  0xff, 0x71, 0xfc,       // pushl  -0x4(%ecx)
+  0x8d, 0x4c, 0x24, 0x04, 0x83, 0xe4, 0xf0, 0xff, 0x71, 0xfc
 };
 
 

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,7 @@
 class PathFindMgr
 {
 public:
-  static const int RecursivePathSfxLn = 2;
+  static const int RECURSIVE_PATH_SUFFIX_LN = 2;
 
 public:
   PathFindMgr();

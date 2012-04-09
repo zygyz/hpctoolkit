@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -86,10 +86,7 @@
 #include "hpcrun_return_codes.h"
 #include "hpcrun_stats.h"
 #include "name.h"
-#include "start-stop.h"
 #include "custom-init.h"
-#include "cct_insert_backtrace.h"
-#include "safe-sampling.h"
 
 #include "metrics.h"
 
@@ -98,8 +95,6 @@
 #include "sample_sources_registered.h"
 #include "sample_sources_all.h"
 #include "segv_handler.h"
-#include "sample_prob.h"
-#include "term_handler.h"
 
 #include "epoch.h"
 #include "thread_data.h"
@@ -108,7 +103,6 @@
 #include "write_data.h"
 
 #include <memory/hpcrun-malloc.h>
-#include <memory/mmap.h>
 
 #include <monitor-exts/monitor_ext.h>
 
@@ -127,8 +121,6 @@
 
 #include <messages/messages.h>
 #include <messages/debug-flag.h>
-
-extern void hpcrun_set_retain_recursion_mode(bool mode);
 
 //***************************************************************************
 // constants
@@ -196,7 +188,6 @@ hpcrun_init_internal(bool is_child)
   hpcrun_initLoadmap();
 
   hpcrun_memory_reinit();
-  hpcrun_mmap_init();
   hpcrun_thread_data_init(0, NULL, is_child);
 
   // WARNING: a perfmon bug requires us to fork off the fnbounds
@@ -207,12 +198,8 @@ hpcrun_init_internal(bool is_child)
   hpcrun_options__init(&opts);
   hpcrun_options__getopts(&opts);
 
-  hpcrun_trace_init(); // this must go after thread initialization
-  hpcrun_trace_open();
-
-  // Decide whether to retain full single recursion, or collapse recursive calls to
-  // first instance of recursive call
-  hpcrun_set_retain_recursion_mode(getenv("HPCRUN_RETAIN_RECURSION") != NULL);
+  trace_init(); // this must go after thread initialization
+  trace_open();
 
   // Initialize logical unwinding agents (LUSH)
   if (opts.lush_agent_paths[0] != '\0') {
@@ -230,11 +217,11 @@ hpcrun_init_internal(bool is_child)
   // tallent: this is harmless, but should really only occur for pthread agent
   lushPthr_processInit();
 
+
   hpcrun_setup_segv();
   hpcrun_unw_init();
 
   hpcrun_stats_reinit();
-  hpcrun_start_stop_internal_init();
 
   // sample source setup
 
@@ -258,7 +245,7 @@ hpcrun_init_internal(bool is_child)
 
   hpcrun_enable_sampling();
   // NOTE: hack to ensure that sample source start can be delayed until mpi_init
-  if (hpctoolkit_sampling_is_active() && ! getenv("HPCRUN_MPI_ONLY")) {
+  if (! getenv("HPCRUN_MPI_ONLY")) {
       SAMPLE_SOURCES(start);
   }
   hpcrun_is_initialized_private = true;
@@ -322,9 +309,8 @@ hpcrun_init_thread_support()
 void*
 hpcrun_thread_init(int id, cct_ctxt_t* thr_ctxt)
 {
-  hpcrun_mmap_init();
   thread_data_t *td = hpcrun_allocate_thread_data();
-  td->inside_hpcrun = 1;  // safe enter, disable signals
+  td->suspend_sampling = 1; // begin: protect against spurious signals
 
   hpcrun_set_thread_data(td);
   hpcrun_thread_data_init(id, thr_ctxt, 0);
@@ -396,8 +382,6 @@ monitor_init_process(int *argc, char **argv, void* data)
     while (DEBUGGER_WAIT);
   }
 
-  hpcrun_sample_prob_init();
-
   // FIXME: if the process fork()s before main, then argc and argv
   // will be NULL in the child here.  MPT on CNL does this.
   process_name = "unknown";
@@ -414,7 +398,7 @@ monitor_init_process(int *argc, char **argv, void* data)
 
   hpcrun_set_using_threads(false);
 
-  hpcrun_files_set_executable(process_name);
+  files_set_executable(process_name);
 
   hpcrun_registered_sources_init();
 
@@ -434,15 +418,14 @@ monitor_init_process(int *argc, char **argv, void* data)
   hpcrun_process_sample_source_none();
 
   if (!hpcrun_get_disabled()) {
-    hpcrun_files_set_directory();
+    files_set_directory();
   }
 
-  TMSG(PROCESS,"hpcrun_files_set_executable called w process name = %s", process_name);
+  TMSG(PROCESS,"files_set_executable called w process name = %s", process_name);
 
   TMSG(PROCESS,"init");
 
   messages_logfile_create();
-  hpcrun_sample_prob_mesg();
 
   TMSG(PROCESS, "I am a %s process", is_child ? "child" : "parent");
 
@@ -452,8 +435,7 @@ monitor_init_process(int *argc, char **argv, void* data)
     EEMSG("TST debug ctl is active!");
     STDERR_MSG("Std Err message appears");
   }
-
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 
   return data;
 }
@@ -462,13 +444,13 @@ monitor_init_process(int *argc, char **argv, void* data)
 void
 monitor_fini_process(int how, void* data)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   hpcrun_fini_internal();
-  hpcrun_trace_close();
+  trace_close();
   fnbounds_fini();
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -480,7 +462,7 @@ monitor_pre_fork(void)
   if (! hpcrun_is_initialized()) {
     return NULL;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   TMSG(PRE_FORK,"pre_fork call");
 
@@ -491,10 +473,9 @@ monitor_pre_fork(void)
   }
 
   TMSG(PRE_FORK,"finished pre_fork call");
+  hpcrun_async_unblock();
+
   from_fork.is_child = true;
-
-  hpcrun_safe_exit();
-
   return (void *)(&from_fork);
 }
 
@@ -505,7 +486,7 @@ monitor_post_fork(pid_t child, void* data)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   TMSG(POST_FORK,"Post fork call");
 
@@ -517,7 +498,7 @@ monitor_post_fork(pid_t child, void* data)
   }
 
   TMSG(POST_FORK,"Finished post fork");
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -528,36 +509,33 @@ monitor_post_fork(pid_t child, void* data)
 //
 // On some systems, taking a signal inside MPI_Init breaks MPI_Init.
 // So, turn off sampling (not just block) within MPI_Init, with the
-// control variable MPI_RISKY to bypass this.  This is a problem on
-// IBM BlueGene and Cray XK6 (interlagos).
+// control variable MPI_RISKY to bypass this.
 //
 void
 monitor_mpi_pre_init(void)
 {
-  hpcrun_safe_enter();
-
-  TMSG(MPI, "Pre MPI_Init");
   if (! ENABLED(MPI_RISKY)) {
+    TMSG(MPI,"Pre_init");
+#if defined(HOST_SYSTEM_IBM_BLUEGENE)
+    TMSG(MPI,"Stopping Sample Sources");
     // Turn sampling off.
-    TMSG(MPI, "Stopping Sample Sources");
     SAMPLE_SOURCES(stop);
+#endif
   }
-  hpcrun_safe_exit();
 }
 
 
 void
 monitor_init_mpi(int *argc, char ***argv)
 {
-  hpcrun_safe_enter();
-
-  TMSG(MPI, "Post MPI_Init");
+  TMSG(MPI,"Init MPI");
   if (! ENABLED(MPI_RISKY)) {
+#if defined(HOST_SYSTEM_IBM_BLUEGENE)
     // Turn sampling back on.
     TMSG(MPI, "Restart Sample Sources");
     SAMPLE_SOURCES(start);
+#endif
   }
-  hpcrun_safe_exit();
 }
 
 
@@ -568,14 +546,14 @@ monitor_init_mpi(int *argc, char ***argv)
 void
 monitor_init_thread_support(void)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   TMSG(THREAD,"REALLY init_thread_support ---");
   hpcrun_init_thread_support();
   hpcrun_set_using_threads(1);
   TMSG(THREAD,"Init thread support done");
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -587,11 +565,11 @@ monitor_thread_pre_create(void)
   if (! hpcrun_is_initialized() || hpcrun_get_disabled()) {
     return NULL;
   }
-  hpcrun_safe_enter();
 
   // INVARIANTS at this point:
   //   1. init-process has occurred.
   //   2. current execution context is either the spawning process or thread.
+  hpcrun_async_block();
   TMSG(THREAD,"pre create");
 
   // -------------------------------------------------------
@@ -606,8 +584,10 @@ monitor_thread_pre_create(void)
     EMSG("error: monitor_thread_pre_create: getcontext = %d", ret);
     goto fini;
   }
-  
-  cct_node_t* n = hpcrun_gen_thread_ctxt(&context);
+  int metric_id = 0; // FIXME: obtain index of first metric
+  ENABLE(IN_THREAD_CTXT);
+  cct_node_t* n = hpcrun_sample_callpath(&context, metric_id, 0/*metricIncr*/,
+					 1/*skipInner*/, 1/*isSync*/);
 
   TMSG(THREAD,"before lush malloc");
   TMSG(MALLOC," -thread_precreate: lush malloc");
@@ -618,12 +598,19 @@ monitor_thread_pre_create(void)
   thr_ctxt->parent = epoch->csdata_ctxt;
   TMSG(THREAD_CTXT, "context = %d, parent = %d", hpcrun_cct_persistent_id(thr_ctxt->context),
        thr_ctxt->parent ? hpcrun_cct_persistent_id(thr_ctxt->parent->context) : -1);
+#if 0
+  if (ENABLED(THREAD_CTXT)) {
+    TMSG(THREAD_CTXT,"Dumping context node %d", hpcrun_get_persistent_id(thr_ctxt->context));
+    cct_dump_path(thr_ctxt->context);
+    DISABLE(IN_THREAD_CTXT);
+  }
+#endif
+    DISABLE(IN_THREAD_CTXT);
 
  fini:
 
   TMSG(THREAD,"->finish pre create");
-  hpcrun_safe_exit();
-
+  hpcrun_async_unblock();
   return thr_ctxt;
 }
 
@@ -634,12 +621,12 @@ monitor_thread_post_create(void* data)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   TMSG(THREAD,"post create");
   TMSG(THREAD,"done post create");
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -650,8 +637,8 @@ monitor_init_thread(int tid, void* data)
   void* thread_data = hpcrun_thread_init(tid, (cct_ctxt_t*)data);
   TMSG(THREAD,"back from init thread %d",tid);
 
-  hpcrun_trace_open();
-  hpcrun_safe_exit();
+  trace_open();
+  hpcrun_async_unblock();
 
   return thread_data;
 }
@@ -660,14 +647,14 @@ monitor_init_thread(int tid, void* data)
 void
 monitor_fini_thread(void* init_thread_data)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
 
   epoch_t *epoch = (epoch_t *)init_thread_data;
 
   hpcrun_thread_fini(epoch);
-  hpcrun_trace_close();
+  trace_close();
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -735,10 +722,10 @@ hpcrun_get_real_siglongjmp(void)
 void
 MONITOR_EXT_WRAP_NAME(longjmp)(jmp_buf buf, int val)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
   MONITOR_EXT_GET_NAME_WRAP(real_longjmp, longjmp);
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
   (*real_longjmp)(buf, val);
 
   // Never reached, but silence a compiler warning.
@@ -750,10 +737,10 @@ MONITOR_EXT_WRAP_NAME(longjmp)(jmp_buf buf, int val)
 void
 MONITOR_EXT_WRAP_NAME(siglongjmp)(sigjmp_buf buf, int val)
 {
-  hpcrun_safe_enter();
+  hpcrun_async_block();
   hpcrun_get_real_siglongjmp();
 
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
   (*real_siglongjmp)(buf, val);
 
   // Never reached, but silence a compiler warning.
@@ -1095,9 +1082,10 @@ monitor_pre_dlopen(const char *path, int flags)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
+
   hpcrun_pre_dlopen(path, flags);
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -1107,9 +1095,10 @@ monitor_dlopen(const char *path, int flags, void* handle)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
+
   hpcrun_dlopen(path, flags, handle);
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -1119,9 +1108,10 @@ monitor_dlclose(void* handle)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
+
   hpcrun_dlclose(handle);
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 
@@ -1131,9 +1121,10 @@ monitor_post_dlclose(void* handle, int ret)
   if (! hpcrun_is_initialized()) {
     return;
   }
-  hpcrun_safe_enter();
+  hpcrun_async_block();
+
   hpcrun_post_dlclose(handle, ret);
-  hpcrun_safe_exit();
+  hpcrun_async_unblock();
 }
 
 #endif /* ! HPCRUN_STATIC_LINK */

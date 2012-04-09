@@ -121,7 +121,7 @@ Nathan Tallent\\
 \\
 Rice University\\
 \\
-For \HPCToolkit{} 5.2.1 ($Revision$)
+For \HPCToolkit{} 5.0.0 ($Revision$)
 }
 
 %\date{}
@@ -326,7 +326,6 @@ It assumes an operational installation of \HPCToolkit{}.
 % ===========================================================================
 
 \section{Guided Tour}
-\label{chpt:quickstart:tour}
 
 \begin{figure}[t]
 \centering{\includegraphics[width=.8\textwidth]{fig/hpctoolkit-workflow}}
@@ -350,7 +349,6 @@ Finally, one explores a performance database with \HPCToolkit{}'s \hpcviewer{} g
 
 The following subsections explain \HPCToolkit{}'s work flow in more detail.
 
-
 % ==========================================================
 % ==========================================================
 
@@ -362,48 +360,51 @@ This usually means compiling with options similar to `\texttt{-g -O3}' or `\text
 While \HPCToolkit{} does not need this information to function, it can be helpful to users trying to interpret the results.
 Since compilers can usually provide line map information for fully optimized code, this requirement need not require a special build process.
 
+% ==========================================================
+% ==========================================================
 
-% ==========================================================
-% ==========================================================
 
 \subsection{Measuring Application Performance}
-\label{chpt:quickstart:tour:measurement}
 
 Measurement of application performance takes two different forms depending on whether your application is dynamically or statically linked.
 To monitor a dynamically linked application, simply use \hpcrun{} to launch the application.
 To monitor a statically linked application (\eg{}, when using Compute Node Linux or BlueGene/P), link your application using \hpclink{}.
-In either case, the application may be sequential, multithreaded or based on MPI.
-The commands below give examples for an application named \texttt{app}.
+
+The commands below give concrete examples for an application named \texttt{app}.
 %
-\begin{itemize}
+\begin{description}
 
-\item Dynamically linked applications:\hfill
+\item[Dynamically linked binaries:]\hfill
 
-Simply launch your application with \hpcrun{}:
+To monitor a sequential or multithreaded application, use:
 \begin{quote}
-  \verb|[<mpi-launcher>] hpcrun [hpcrun-options] app [app-arguments]|
+  \verb|hpcrun [options] app [app-arguments]|
 \end{quote}
-Of course, \texttt{<mpi-launcher>} is only needed for MPI programs and is usually a program like \texttt{mpiexec} or \texttt{mpirun}.
 
-\item Statically linked applications:\hfill
+To monitor an MPI application, use:
+\begin{quote}
+  \verb|<mpi-launcher> hpcrun [options] app [app-arguments]|
+\end{quote}
+(\texttt{<mpi-launcher>} is usually a program like \texttt{mpiexec} or \texttt{mpirun}.)
 
-First, link \hpcrun{}'s monitoring code into \texttt{app}, using \hpclink{}:
+\item[Statically linked binaries:]\hfill
+
+To link \hpcrun{}'s monitoring code into \texttt{app}, use:
 \begin{quote}
   \verb|hpclink <linker> -o app <linker-arguments>|
 \end{quote}
 
-Then monitor \texttt{app} by passing \hpcrun{} options through environment variables.
-For instance:
+To monitor \texttt{app}, pass \hpcrun{} options through environment variables.  For instance:
 \begin{quote}
 \begin{verbatim}
 export HPCRUN_EVENT_LIST="PAPI_TOT_CYC@4000001"
-[<mpi-launcher>] app [app-arguments]
+<mpi-launcher> app [app-arguments]
 \end{verbatim}
 \end{quote}
-\hpclink{}'s \mytt{--help} option gives a list of environment variables that affect monitoring.
+\hpclink{}'s \mytt{--help} option gives a list of variables that affect monitoring.
 See Chapter~\ref{chpt:statically-linked-apps} for more information.
 
-\end{itemize}
+\end{description}
 %
 Any of these commands will produce a measurements database that contains separate measurement information for each MPI rank and thread in the application.
 The database is named according the form:
@@ -413,7 +414,7 @@ The database is named according the form:
 If the application \texttt{app} is run under control of a recognized batch job scheduler (such as PBS or GridEngine), the name of the measurements directory will contain the corresponding job identifier \texttt{<jobid>}.
 Currently, the database contains measurements files for each thread that are named using the following template:
 \begin{quote}
-  \verb|app-<mpi-rank>-<thread-id>-<host-id>-<process-id>.<generation-id>.hpcrun|
+  \verb|app-<mpi-rank>-<thread-id>-<host-id>-<process-id>.hpcrun|
 \end{quote}
 
 \subsubsection{Specifying Sample Sources}
@@ -465,24 +466,17 @@ However, the latter can also generate additional information for plotting thread
 
 \hpcprof{} is typically used as follows:
 \begin{quote}
-\begin{verbatim}
-hpcprof -S app.hpcstruct -I <app-src>/'*' \
-  hpctoolkit-app-measurements1 [hpctoolkit-app-measurements2 ...]
-\end{verbatim}
+  \verb|hpcprof -S app.hpcstruct -I <app-src>/'*' hpctoolkit-app-measurements|
 \end{quote}
 and \hpcprofmpi{} is analogous:
 \begin{quote}
 \begin{verbatim}
 <mpi-launcher> hpcprof-mpi \
-  -S app.hpcstruct -I <app-src>/'*' \
-  hpctoolkit-app-measurements1 [hpctoolkit-app-measurements2 ...]
+  -S app.hpcstruct -I <app-src>/'*' hpctoolkit-app-measurements
 \end{verbatim}
 \end{quote}
 Either command will produce an \HPCToolkit{} performance database with the name \texttt{hpctoolkit-app-database}.
 If this database directory already exists, \hpcprofAll{} will form a unique name using a numerical qualifier.
-
-Both \hpcprofAll{} can collate multiple measurement databases, as long as they are gathered against the same binary.
-This capability is useful for (a) combining event sets gathered over multiple executions and (b) performing scalability studies (see Section~\ref{sec:effective-performance-analysis:scalability}).
 
 The above commands use two important options.
 The \texttt{-S/--structure} option takes a program structure file.
@@ -518,22 +512,13 @@ Additional help for \hpcviewer{} can be found in a help pane available from \hpc
 To effectively analyze application performance, consider using one of the following strategies, which are described in more detail in Chapter~\ref{chpt:effective-performance-analysis}.
 \begin{itemize}
 \item
-A waste metric, which represents the difference between achieved performance and potential peak performance is a good way of understanding the potential for tuning the node performance of codes (Section~\ref{sec:effective-performance-analysis:inefficiencies}).
+A waste metric, which represents the difference between achieved performance and potential peak performance is a good way of understanding the potential for tuning the node performance of codes.
 \hpcviewer{} supports synthesis of derived metrics to aid analysis.
 Derived metrics are specified within \hpcviewer{} using spreadsheet-like formula.
 See the \hpcviewer{} help pane for details about how to specify derived metrics.
 
 \item
-Scalability bottlenecks in parallel codes can be pinpointed by differential analysis of two profiles with different degrees of parallelism (Section~\ref{sec:effective-performance-analysis:scalability}).
-
-The following sketches the mechanics of performing a simple scalability study between executions $x$ and $y$ of an application \texttt{app}:
-\begin{quote}
-  \verb|hpcrun [options-x] app [app-arguments-x]| \hfill (execution $x$) \\
-  \verb|hpcrun [options-y] app [app-arguments-y]| \hfill (execution $y$) \\
-  \verb|hpcstruct app| \\
-  \verb|hpcprof/mpi -S ... -I ... measurements-x measurements-y| \\
-  \verb|hpcviewer hpctoolkit-database| \hfill (compute a scaling-loss metric)
-\end{quote}
+Scalability bottlenecks in parallel codes can be pinpointed by differential analysis of two profiles with different degrees of parallelism.
 
 \end{itemize}
 
@@ -863,14 +848,6 @@ To isolate code that is an impediment to scalable performance, one can use the {
 %\label{sec:effective-performance-analysis:load-imbalance}
 
 
-% ***************************************************************************
-% ***************************************************************************
-
-\chapter{Running Applications with \hpcrun{} and \hpclink{}}
-\label{chpt:hpcrun}
-
-\input{hpcrun}
-
 
 % ***************************************************************************
 % ***************************************************************************
@@ -879,15 +856,7 @@ To isolate code that is an impediment to scalable performance, one can use the {
 \label{chpt:hpcviewer-interface}
 
 \input{hpcviewer}
-
-
-% ***************************************************************************
-% ***************************************************************************
-
-\chapter{\hpctraceviewer{}'s User Interface}
-\label{chpt:hpcviewer-interface}
-
-\input{hpctraceviewer}
+%\includepdf[pages=1-12]{HPCToolkit-hpcviewer}
 
 
 % ***************************************************************************
@@ -1148,8 +1117,8 @@ In cases such as this, you can often specify \texttt{-fast} along with an option
 % ***************************************************************************
 % ***************************************************************************
 
-\chapter{FAQ and Troubleshooting}
-\label{chpt:faq-troubleshooting}
+\chapter{Troubleshooting}
+\label{chpt:troubleshooting}
 
 % ===========================================================================
 % ===========================================================================
@@ -1212,42 +1181,6 @@ The most common causes for unusually high overhead are the following:
   (We plan to address this issue in a future release.)
 
 \end{itemize}
-
-
-% ===========================================================================
-% ===========================================================================
-
-\section{Fail to run \hpcviewer{}: executable launcher was unable to locate its companion shared library}
-
-Although this error mostly incurrs on Windows platform, but it can happen in other environment. 
-The cause of this issue is that the permission of one of Eclipse launcher libary (org.eclipse.equinox.launcher.*) is too restricted. 
-To fix this, set the permission of the library to 0755, and launch again the viewer.
-
-
-% ===========================================================================
-% ===========================================================================
-
-\section{When executing \hpcviewer, it complains cannot create ``Java Virtual Machine"}
-The error message indicates that your machine cannot instantiate the JVM 
-with the default size specified for the Java heap. 
-If you encounter this problem, we recommend that you edit the 
-\texttt{hpcviewer.ini} 
-file which is located in HPCToolkit installation directory to reduce the
-Java heap size.
-By default, the content of the file is as follows:
-\begin{verbatim}
--consoleLog
--vmargs
--Dosgi.requiredJavaVersion=1.5
--XX:MaxPermSize=256m
--Xms40m
--Xmx1812m
-\end{verbatim}
-You can decrease the maximum size of the Java heap from 1812MB to 1GB
- by changing the {\tt Xmx} specification in the \texttt{hpcviewer.ini} file as follows:
-\begin{verbatim}
--Xmx1024m
-\end{verbatim}
 
 
 
@@ -1528,128 +1461,29 @@ such as {\tt select()}, {\tt poll()} or {\tt sem\_wait()}.
 % ===========================================================================
 % ===========================================================================
 
-\section{How do I debug \hpcrun{}?}
+\begin{comment}
 
-Assume you want to debug \hpcrun{} when collecting measurements for an application named \texttt{app}.
+\section{How do I debug collection of measurements?}
 
-% ==========================================================
-% ==========================================================
+Static binary:
 
-\subsection{Tracing \libmonitor{}}
+1. link and run using monitor-link 
 
-\hpcrun{} uses \libmonitor{} for process/thread control.
-To collect a debug trace of \libmonitor{}, use either \texttt{monitor-run} or \texttt{monitor-link}, which are located within:
-%
-\begin{quote}
-  \verb|<externals-install>/libmonitor/bin|
-\end{quote}
-Launch your application as follows:
-%
-\begin{itemize}
+<externals-install>/libmonitor/bin/monitor-link
 
-\item Dynamically linked applications:\hfill
-\begin{quote}
-  \verb|[<mpi-launcher>] monitor-run --debug app [app-arguments]|
-\end{quote}
-
-\item Statically linked applications:\hfill
-
-Link \libmonitor{} into \texttt{app}:
-\begin{quote}
-  \verb|monitor-link <linker> -o app <linker-arguments>|
-\end{quote}
-%
-Then execute \texttt{app} under special environment variables:
-\begin{quote}
-\begin{verbatim}
-export MONITOR_DEBUG=1
-[<mpi-launcher>] app [app-arguments]
-\end{verbatim}
-\end{quote}
-\end{itemize}
+use the following:
+ export MONITOR_DEBUG=1
 
 
-% ==========================================================
-% ==========================================================
+2. use the hpclink binary with 
 
-\subsection{Tracing \hpcrun{}}
+  export HPCRUN_EVENT_LIST="WALLCLOCK@0" or HPCRUN_EVENT_LIST="NONE"
+  export MONITOR_DEBUG=1
+  export HPCRUN_DEBUG_FLAGS="ALL"
 
-Broadly speaking, there are two levels at which a user can test \hpcrun{}.
-The first level is tracing \hpcrun{}'s application control, that is, running \hpcrun{} without an asynchronous sample source.
-The second level is tracing \hpcrun{} with a sample source.
-The key difference between the two is that the former uses the \texttt{--event NONE} or \mytt{HPCRUN_EVENT_LIST="NONE"} option (shown below) whereas the latter does not (which enables the default WALLCLOCK sample source).
-With this in mind, to collect a debug trace for either of these levels, use commands similar to the following:
-%
-\begin{itemize}
+  hpcrun --monitor-debug --dynamic-debug ALL --event WALLCLOCK@0
 
-\item Dynamically linked applications:\hfill
-%
-\begin{quote}
-\begin{verbatim}
-[<mpi-launcher>] \
-  hpcrun --monitor-debug --dynamic-debug ALL --event NONE \
-    app [app-arguments]
-\end{verbatim}
-\end{quote}
-
-\item Statically linked applications:\hfill
-
-Link \hpcrun{} into \texttt{app} (see Section~\ref{chpt:quickstart:tour:measurement}).
-Then execute \texttt{app} under special environment variables:
-\begin{quote}
-\begin{verbatim}
-export MONITOR_DEBUG=1
-export HPCRUN_EVENT_LIST="NONE"
-export HPCRUN_DEBUG_FLAGS="ALL"
-[<mpi-launcher>] app [app-arguments]
-\end{verbatim}
-\end{quote}
-\end{itemize}
-%
-Note that the \texttt{*debug*} flags are optional.
-The \mytt{--monitor-debug/MONITOR_DEBUG} flag enables \libmonitor{} tracing.
-The \mytt{--dynamic-debug/HPCRUN_DEBUG_FLAGS} flag enables \hpcrun{} tracing.
-
-
-% ==========================================================
-% ==========================================================
-
-\subsection{Using \hpcrun{} with a debugger}
-
-To debug hpcrun within a debugger use the following instructions.
-Note that \hpcrun{} is easiest to debug if you configure and build \HPCToolkit{} with \texttt{configure}'s \texttt{--enable-develop} option.
-(It is not necessary to rebuild \HPCToolkit{}'s Externals.)
-%
-\begin{enumerate}
-
-\item Launch your application.
-  To debug \hpcrun{} without controlling sampling signals, launch normally.
-  To debug \hpcrun{} with controlled sampling signals, launch as follows:
-\begin{quote}
-\begin{verbatim}
-hpcrun --debug --event WALLCLOCK@0 app [app-arguments]
-\end{verbatim}
-\end{quote}
-or
-\begin{quote}
-\begin{verbatim}
-export HPCRUN_WAIT=1
-export HPCRUN_EVENT_LIST="WALLCLOCK@0"
-app [app-arguments]
-\end{verbatim}
-\end{quote}
-
-\item Attach a debugger.
-  The debugger should be spinning in a loop whose exit is conditioned by the \verb|DEBUGGER_WAIT| variable.
-
-\item Set any desired breakpoints.
-  To send a sampling signal at a particular point, make sure to stop at that point with a \emph{one-time} or \emph{temporary} breakpoint (\texttt{tbreak} in GDB).
-
-\item Set the \verb|DEBUGGER_WAIT| variable to 0 and continue.
-
-\item To raise a controlled sampling signal, raise a SIGPROF, \eg{}, using GDB's command \verb|signal SIGPROF|.
-
-\end{enumerate}
+\end{comment}
 
 
 % ===========================================================================

@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -445,25 +445,20 @@ VMAIntervalSet::fromString(const char* formattedstr)
 {
   const char* s = formattedstr;
   const char* p = formattedstr;
-
-  // ignore leading whitespace
   if (!p || p[0] == '\0') { return; }
   
   // skip '{'
   DIAG_Assert(*p == '{', DIAG_UnexpectedInput << "'" << s << "'");
   p++;
-  // INVARIANT: q points to either next interval or close of set
 
   // find intervals: p points to '[' and q points to ')'
   const char* q = p;
   while ( (p = strchr(q, '[')) ) {
     VMAInterval vmaint(p);
     insert(vmaint); // the overloaded insert
-
-    // post-INVARIANT: q points to either next interval or close of set
-    q = strchr(p, ')');
-    q++;
+    q = strchr(p, ')'); // q point
   }
+  q++;
   
   // skip '}'
   DIAG_Assert(*q == '}', DIAG_UnexpectedInput << "'" << s << "'");

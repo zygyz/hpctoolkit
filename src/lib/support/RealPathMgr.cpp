@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -65,13 +65,10 @@ using std::string;
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
-
 #include "Logic.hpp"
 #include "RealPathMgr.hpp"
 #include "PathReplacementMgr.hpp"
 #include "PathFindMgr.hpp"
-#include "StrUtil.hpp"
 
 #include "diagnostics.h"
 #include "realpath.h"
@@ -170,28 +167,35 @@ RealPathMgr::realpath(string& pathNm) const
 
 
 void
-RealPathMgr::searchPaths(const string& pathsStr)
+RealPathMgr::searchPaths(const string& sPaths)
 {
-  std::vector<std::string> searchPathVec;
-  StrUtil::tokenize_str(pathsStr, ":", searchPathVec);
-
-  // INVARIANT: m_searchPaths is non-empty
-  m_searchPaths += "."; // current working directory
+  size_t trailingIn = -1;
+  size_t in = sPaths.find_first_of(":");
   
-  for (uint i = 0; i < searchPathVec.size(); ++i) {
-    string path = searchPathVec[i];
+  while (trailingIn != sPaths.length()) {
+    // since trailingIn points to a ":", must add 1 to point to the path
+    trailingIn++;
+    std::string currentPath = sPaths.substr(trailingIn, in - trailingIn);
 
-    if (PathFindMgr::isRecursivePath(path.c_str())) {
-      path = path.substr(0, path.length() - PathFindMgr::RecursivePathSfxLn);
-      path = RealPath(path.c_str());
-      path += "/*";
+    if (PathFindMgr::isRecursivePath(currentPath.c_str())) {
+      // if its recursive, need to strip off and add back on '/*'
+      currentPath = currentPath.substr(0,currentPath.length() - 2);
+      currentPath = RealPath(currentPath.c_str());
+      m_searchPaths += (currentPath + "/*:");
     }
-    else if (path != ".") {
-      path = RealPath(path.c_str());
+    else if (currentPath != ".") { // so we can exclude this from cache
+      currentPath = RealPath(currentPath.c_str());
+      m_searchPaths += (currentPath + ":");
     }
-
-    m_searchPaths += ":" + path;
+    
+    trailingIn = in;
+    in = sPaths.find_first_of(":", trailingIn + 1);
+    
+    if (in == sPaths.npos) { // deals with corner case of last element
+      in = sPaths.length();
+    }
   }
+  m_searchPaths += "."; // add CWD back in
 }
 
 
@@ -207,8 +211,7 @@ RealPathMgr::toString(uint flags) const
 
 
 std::ostream&
-RealPathMgr::dump(std::ostream& os, uint GCC_ATTR_UNUSED flags,
-		  const char* pfx) const
+RealPathMgr::dump(std::ostream& os, uint flags, const char* pfx) const
 {
   os << pfx << "[ RealPathMgr:" << std::endl;
   for (MyMap::const_iterator it = m_cache.begin(); it != m_cache.end(); ++it) {

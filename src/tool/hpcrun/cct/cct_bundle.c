@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -82,24 +82,15 @@ hpcrun_cct_bundle_init(cct_bundle_t* bundle, cct_ctxt_t* ctxt)
 {
   bundle->top = hpcrun_cct_new();
   bundle->tree_root = bundle->top;
-
-  bundle->thread_root = bundle->tree_root;
   bundle->ctxt = ctxt;
   bundle->num_nodes = 0;
   //
   // If there is a creation context (ie, this is a pthread),
-  // then the creation context gets special treatment.
-  //
-  // If the -dd flag ATTACH_THREAD_CTXT is *set*, then
-  // insert the creation context in the cct, and attach all 
-  // thread-stopped call paths
+  // insert the creation context in the cct, and attach all call paths
   // to the call context prefix node instead of the top of the tree.
   //
-  // NOTE: special -dd flag ATTACH_THREAD_CTXT is by default *NOT* active,
-  //       so the creation context is ignored.
-  //
-  if (ENABLED(ATTACH_THREAD_CTXT) && ctxt) {
-    hpcrun_walk_path(ctxt->context, l_insert_path, (cct_op_arg_t) &(bundle->thread_root));
+  if (ctxt) {
+    hpcrun_walk_path(ctxt->context, l_insert_path, (cct_op_arg_t) &(bundle->tree_root));
   }
   bundle->partial_unw_root = hpcrun_cct_new_partial();
 }

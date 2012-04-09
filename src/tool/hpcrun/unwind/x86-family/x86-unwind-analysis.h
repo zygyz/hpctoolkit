@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,20 +47,11 @@
 #ifndef x86_unwind_analysis_h
 #define x86_unwind_analysis_h
 
-//************************** XED Include Files ******************************
-
-#include <xed-interface.h>
-
-//*************************** User Include Files ****************************
-
+#include "xed-interface.h"
 #include "x86-unwind-interval.h"
-
 #include <memory/hpcrun-malloc.h>
-
-//***************************************************************************
 
 extern void *x86_get_branch_target(void *ins,xed_decoded_inst_t *xptr);
 
 #define FIX_INTERVALS_AT_RETURN
-
 #endif  // x86_unwind_analysis_h

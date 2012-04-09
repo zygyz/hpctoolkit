@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -67,8 +67,6 @@ using std::string;
 #include <dirent.h>
 
 //*************************** User Include Files ****************************
-
-#include <include/gcc-attr.h>
 
 #include "FileUtil.hpp"
 #include "PathFindMgr.hpp"
@@ -188,7 +186,7 @@ PathFindMgr::pathfind_slow(const char* pathList, const char* name,
     if (PathFindMgr::isRecursivePath(aPath)) {
       // copy to recursive path list (Do not copy trailing '/*' )
       int l = strlen(aPath);
-      strncat(pathList_r, aPath, l - RecursivePathSfxLn);
+      strncat(pathList_r, aPath, l - RECURSIVE_PATH_SUFFIX_LN);
       strcat(pathList_r, ":"); // will have a trailing ':' for 'strchr'
     }
     else {
@@ -274,10 +272,10 @@ PathFindMgr::find(std::string& pathNm)
     // -----------------------------------------------------
     std::string toReturn;
     int comparisonDepth = 0;
-    std::vector<std::string>::const_iterator it1;
+    std::vector<std::string>::const_iterator it;
 
-    for (it1 = pathVec.begin(); it1 != pathVec.end(); it1++) {
-      const std::string& currentPath = *it1;
+    for (it = pathVec.begin(); it != pathVec.end(); it++) {
+      const std::string& currentPath = *it;
       
       if (currentPath == toReturn) {
 	continue;
@@ -397,7 +395,7 @@ PathFindMgr::scan(std::string& path, std::set<std::string>& seenPaths,
 
   bool doRecursiveScan = isRecursivePath(path.c_str());
   if (doRecursiveScan) {
-    path = path.substr(0, path.length() - RecursivePathSfxLn);
+    path = path.substr(0, path.length() - RECURSIVE_PATH_SUFFIX_LN);
   }
 
   std::string localPaths;
@@ -572,26 +570,11 @@ PathFindMgr::resolve(std::string& path)
 }
 
 
-//-----------------------------------------------------------
-// PathFindMgr::isRecursivePath
-//
-// Description
-//   If the last two characters on a path are '/*' or '/+' 
-//   then treat this as a path that needs to be recursively
-//   expanded. The '+' was added as a superior alternative to
-//   '*' because it sidesteps problems with quoting '*' to avoid
-//   interaction with shell expansion when wrapper scripts
-//   are employed.
-//
-// Modification history:
-//   2012/03/02 - johnmc
-//-----------------------------------------------------------
 int 
 PathFindMgr::isRecursivePath(const char* path)
 {
   int l = strlen(path);
-  if (l > PathFindMgr::RecursivePathSfxLn && 
-      (path[l - 1] == '*' || path[l - 1] == '+') &&
+  if (l > PathFindMgr::RECURSIVE_PATH_SUFFIX_LN && path[l - 1] == '*' &&
       path[l - 2] == '/') {
     return 1;
   }
@@ -611,8 +594,7 @@ PathFindMgr::toString(uint flags) const
 
 
 std::ostream&
-PathFindMgr::dump(std::ostream& os, uint GCC_ATTR_UNUSED flags,
-		  const char* pfx) const
+PathFindMgr::dump(std::ostream& os, uint flags, const char* pfx) const
 {
   using std::endl;
 

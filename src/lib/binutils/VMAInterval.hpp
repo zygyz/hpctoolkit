@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2011, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,6 @@
 
 //*************************** User Include Files ****************************
 
-#include <include/gcc-attr.h>
 #include <include/uint.h>
 
 #include <lib/isa/ISATypes.hpp>
@@ -332,10 +331,7 @@ public:
 
 private:
   VMAIntervalSet(const VMAIntervalSet& x);
-
-  VMAIntervalSet&
-  operator=(const VMAIntervalSet& GCC_ATTR_UNUSED x)
-  { return *this; }
+  VMAIntervalSet& operator=(const VMAIntervalSet& x) { return *this; }
 
 private:
   
@@ -495,10 +491,7 @@ public:
 
 private:
   VMAIntervalMap(const VMAIntervalMap& x);
-
-  VMAIntervalMap&
-  operator=(const VMAIntervalMap& x)
-  { return *this; }
+  VMAIntervalMap& operator=(const VMAIntervalMap& x) { return *this; }
 
 private:
   
