@@ -88,7 +88,7 @@ public:
   WordSet& operator-=(const WordSet &rhs); // difference
   WordSet& operator=(const WordSet &rhs);  // copy
   
-  using HashTable::NumberOfEntries;
+  HashTable::NumberOfEntries;
   
   void Dump(std::ostream& file = std::cerr, 
 	    const char* name = "", 
@@ -119,8 +119,8 @@ public:
   WordSetIterator(const WordSet *theTable);
   virtual ~WordSetIterator() { }
   unsigned long *Current() const;
-  using HashTableIterator::operator++;
-  using HashTableIterator::Reset;
+  HashTableIterator::operator++;
+  HashTableIterator::Reset;
 };
 
 //-------------------------------------------------------------
@@ -132,8 +132,8 @@ public:
                         EntryCompareFunctPtr const EntryCompare);
   virtual ~WordSetSortedIterator() { }
   unsigned long *Current() const;
-  using HashTableSortedIterator::operator++;
-  using HashTableSortedIterator::Reset;
+  HashTableSortedIterator::operator++;
+  HashTableSortedIterator::Reset;
   
 private:
   unsigned long current;  

@@ -60,9 +60,6 @@
 //************************* System Include Files ****************************
 
 #include <algorithm>
-#include <string>
-using std::string;
-
 #include <cstring>
 
 //*************************** User Include Files ****************************
@@ -96,24 +93,21 @@ PathReplacementMgr::singleton()
 }
 
 
-string
-PathReplacementMgr::replace(const string& path) const
+std::string
+PathReplacementMgr::getReplacedPath(const std::string& original) const
 {
   for (size_t i = 0; i < m_pathReplacement.size(); i++) {
-    const StringPair& x = m_pathReplacement[i];
-    const string& x_old = x.first;
-    const string& x_new = x.second;
-
-    // Alternative: match substring instead of prefix
-    // size_t pos = path.find(x_old); if (pos != string::npos) {}
-
-    if (path.compare(0, x_old.size(), x_old) == 0) {
-      string newPath = path;
-      newPath.replace(0, x_old.size(), x_new);
+    StringPair temp = m_pathReplacement[i];
+    size_t found = strncmp(original.c_str(), temp.first.c_str(),
+			   temp.first.length());
+    
+    if (found == 0) {
+      std::string newPath = original;
+      newPath.replace(0, temp.first.size(), temp.second);
       return newPath;
     }
   }
-  return path;
+  return original;
 }
 
 
@@ -132,10 +126,12 @@ compare_as_strings(const PathReplacementMgr::StringPair& a,
 
 
 void
-PathReplacementMgr::addPath(const string& oldPath, const string& newPath)
+PathReplacementMgr::addPath(const std::string& originalPath,
+			    const std::string& newPath)
 {
-  m_pathReplacement.push_back(StringPair(oldPath, newPath));
-  std::stable_sort(m_pathReplacement.begin(), m_pathReplacement.end(),
-		   compare_as_strings);
+  StringPair temp(originalPath, newPath);
+  m_pathReplacement.push_back(temp);
+  stable_sort(m_pathReplacement.begin(), m_pathReplacement.end(),
+	      compare_as_strings);
 }
 

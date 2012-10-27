@@ -241,10 +241,7 @@ system_server_shutdown()
   if (server_pid != 0) {
     int ret = write(WRITE_FD(CLIENT_TO_SERVER), &server_done, 
 		    sizeof(server_done));
-    if (ret != sizeof(server_done)) {
-      EMSG("%s: write failed: size: %d, ret: %d",
-	   __func__, sizeof(server_done), ret);
-    }
+    EXIT_ON_ERROR(ret, sizeof(server_done), "system server shutdown failed");
   }
 }
  

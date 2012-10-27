@@ -78,6 +78,8 @@
 #include <unistd.h>    // getpid
 #include <fcntl.h>
 
+#include <include/hpctoolkit-config.h>
+
 //*********************************************************************
 // external libraries
 //*********************************************************************
@@ -89,7 +91,6 @@
 //*********************************************************************
 
 #include "fnbounds_interface.h"
-#include "client.h"
 
 #include "dylib.h"
 
@@ -111,7 +112,6 @@
 
 // FIXME:tallent: more spaghetti includes
 #include <hpcfnbounds/fnbounds-file-header.h>
-#include <hpcfnbounds/syserv-mesg.h>
 
 #include <lib/prof-lean/spinlock.h>
 
@@ -132,9 +132,8 @@
 // local variables
 //*********************************************************************
 
-static int use_new_server = 0;
-
-static char* tmproot = "/tmp";
+// FIXME: tmproot should be overridable with an option.
+static char *tmproot = "/tmp";
 
 static char fnbounds_tmpdir[PATH_MAX];
 
@@ -176,6 +175,7 @@ fnbounds_compute(const char *filename, void *start, void *end);
 static void
 fnbounds_map_executable();
 
+
 static const char *
 mybasename(const char *string);
 
@@ -202,33 +202,14 @@ static char *nm_command = 0;
 int 
 fnbounds_init()
 {
-  char* tmpdir = getenv("HPCRUN_TMPDIR");
-  if (tmpdir != NULL && *tmpdir != 0) {
-    tmproot = tmpdir;
-  }
-  else {
-    tmpdir = getenv("TMPDIR");
-    if (tmpdir != NULL && *tmpdir != 0) {
-      tmproot = tmpdir;
-    }
-  }
-  nm_command = getenv("HPCRUN_FNBOUNDS_CMD");
-
   if (hpcrun_get_disabled()) return 0;
-
-  if (getenv("NEW_SYSTEM_SERVER") != NULL) {
-    AMSG("using new fnbounds server");
-    use_new_server = 1;
-    hpcrun_syserv_init();
-    fnbounds_map_executable();
-    fnbounds_map_open_dsos();
-    return 0;
-  }
 
   int result = system_server_start();
   if (result == 0) {
     result = fnbounds_tmpdir_create();
     if (result == 0) {
+      nm_command = getenv("HPCRUN_FNBOUNDS_CMD");
+  
       fnbounds_map_executable();
       fnbounds_map_open_dsos();
     }
@@ -238,7 +219,6 @@ fnbounds_init()
   }
   return result;
 }
-
 
 bool
 fnbounds_enclosing_addr(void* ip, void** start, void** end, load_module_t** lm)
@@ -294,6 +274,7 @@ fnbounds_map_open_dsos()
 {
   dylib_map_open_dsos();
 }
+
 
 bool
 fnbounds_ensure_mapped_dso(const char *module_name, void *start, void *end)
@@ -363,14 +344,10 @@ fnbounds_fini()
 {
   if (hpcrun_get_disabled()) return;
 
-  if (use_new_server) {
-    hpcrun_syserv_fini();
-    return;
-  }
-
   system_server_shutdown();
   fnbounds_tmpdir_remove();
 }
+
 
 void
 fnbounds_release_lock(void)
@@ -378,20 +355,6 @@ fnbounds_release_lock(void)
   FNBOUNDS_UNLOCK;  
 }
 
-fnbounds_table_t
-fnbounds_fetch_executable_table(void)
-{
-  char exename[PATH_MAX];
-  realpath("/proc/self/exe", exename);
-  TMSG(INTERVALS_PRINT, "name of loadmap = %s", exename);
-  load_module_t* exe_lm = hpcrun_loadmap_findByName(exename);
-  TMSG(INTERVALS_PRINT, "load module found = %p", exe_lm);
-  if (!exe_lm) return (fnbounds_table_t) {.table = (void**) NULL, .len = 0};
-  TMSG(INTERVALS_PRINT, "dso info for load module = %p", exe_lm->dso_info);
-  if (! exe_lm->dso_info) return (fnbounds_table_t) {.table = (void**) NULL, .len = 0};
-  return (fnbounds_table_t)
-    { .table = exe_lm->dso_info->table, .len = exe_lm->dso_info->nsymbols};
-}
 
 //*********************************************************************
 // private operations
@@ -487,30 +450,6 @@ fnbounds_compute(const char *incoming_filename, void *start, void *end)
     return (NULL);
 
   realpath(incoming_filename, filename);
-
-  //---------------------------------------------------------------
-  // Try to support both old and new system servers for now.
-  // The indenting is temporarily out of whack (sorry).
-  //---------------------------------------------------------------
-
-  struct fnbounds_file_header fh;
-  void **nm_table;
-  long map_size;
-
-  if (use_new_server) {
-
-  nm_table = (void **) hpcrun_syserv_query(filename, &fh);
-  if (nm_table == NULL) {
-    return hpcrun_dso_make(filename, NULL, NULL, start, end, 0);
-  }
-  map_size = fh.mmap_size;
-
-  } else {
-
-  //---------------------------------------------------------------
-  // Old system server.
-  //---------------------------------------------------------------
-
   sprintf(dlname, FNBOUNDS_BINARY_FORMAT, fnbounds_tmpdir_get(), 
 	  mybasename(filename));
 
@@ -529,8 +468,9 @@ fnbounds_compute(const char *incoming_filename, void *start, void *end)
     return hpcrun_dso_make(filename, NULL, NULL, start, end, 0);
   }
 
-  map_size = 0;
-  nm_table = (void **)fnbounds_read_nm_file(dlname, &map_size, &fh);
+  long map_size = 0;
+  struct fnbounds_file_header fh;
+  void **nm_table = (void **)fnbounds_read_nm_file(dlname, &map_size, &fh);
   if (nm_table == NULL) {
     EMSG("fnbounds computed bogus symbols for file %s, (all intervals poisoned)", filename);
 
@@ -540,12 +480,6 @@ fnbounds_compute(const char *incoming_filename, void *start, void *end)
 
     return hpcrun_dso_make(filename, NULL, NULL, start, end, 0);
   }
-
-  }  // end of old system server
-
-  //---------------------------------------------------------------
-  // End of the dual system servers.
-  //---------------------------------------------------------------
 
   if (fh.num_entries < 1) {
     EMSG("fnbounds returns no symbols for file %s, (all intervals poisoned)", filename);

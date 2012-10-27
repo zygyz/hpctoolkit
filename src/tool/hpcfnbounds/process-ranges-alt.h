@@ -2,8 +2,8 @@
 
 // * BeginRiceCopyright *****************************************************
 //
-// $HeadURL$
-// $Id$
+// $HeadURL: https://outreach.scidac.gov/svn/hpctoolkit/branches/hpctoolkit-libunw-NEW/src/tool/hpcfnbounds/process-ranges.h $
+// $Id: process-ranges.h 3680 2012-02-25 22:14:00Z krentel $
 //
 // --------------------------------------------------------------------------
 // Part of HPCToolkit (hpctoolkit.org)
@@ -44,49 +44,16 @@
 //
 // ******************************************************* EndRiceCopyright *
 
-// This file defines the API for messages over the pipe between the
-// hpcrun client (hpcrun/fnbounds/fnbounds_client.c) and the new
-// fnbounds server (server.cpp).
-//
-// Note: none of these structs needs to be platform-independent
-// because they're only used between processes within a single node
-// (same for the old server).
+#ifndef process_ranges_hpp
+#define process_ranges_hpp
 
-//***************************************************************************
+#include "code-ranges-alt.h"
 
-#ifndef _SYSERV_MESG_H_
-#define _SYSERV_MESG_H_
+void process_range_init();
 
-#include <stdint.h>
+void process_range(long offset, void *vstart, void *vend,
+		   bool fn_discovery);
 
-#define SYSERV_MAGIC    0x00f8f8f8
-#define FNBOUNDS_MAGIC  0x00f9f9f9
+bool range_contains_control_flow(void *vstart, void *vend);
 
-enum {
-  SYSERV_ACK = 1,
-  SYSERV_QUERY,
-  SYSERV_EXIT,
-  SYSERV_OK,
-  SYSERV_ERR
-};
-
-struct syserv_mesg {
-  int32_t  magic;
-  int32_t  type;
-  int64_t  len;
-};
-
-// also used to carry around fnbounds info inside hpcrun
-// (could be separate)
-
-struct fnbounds_file_header {
-  uint64_t  zero_pad;
-  uint64_t  magic;
-  uint64_t  mmap_size;
-  uint64_t  num_entries;
-  uint64_t  reference_offset;
-  int32_t   is_relocatable;
-  int32_t   status;
-};
-
-#endif  // _SYSERV_MESG_H_
+#endif // process_ranges_hpp

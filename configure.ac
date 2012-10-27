@@ -82,7 +82,7 @@ m4_include(config/hpc-mpiutils.m4)
 # Initialization: 
 #----------------------------------------------------------------------------
 
-AC_INIT([hpctoolkit], [5.3.2],
+AC_INIT([hpctoolkit], [5.3.0],
         [hpctoolkit-forum@rice.edu],
 	[hpctoolkit],
 	[http://hpctoolkit.org/])
@@ -374,6 +374,7 @@ HOST_CPU_PPC=no
 HOST_CPU_X86=no
 HOST_CPU_X86_64=no
 HOST_CPU_X86_FAMILY=no
+HOST_CPU_IA64=no
 
 case "${host}" in
   # Linux
@@ -405,7 +406,10 @@ case "${host}" in
   ia64*-*-linux*)
     # __ia64 && __linux
     HOST_OS="Linux"
-    AC_DEFINE([HOST_OS_LINUX], [1], [HOST OS: Linux])
+    HOST_CPU_IA64=yes
+    UNWINDER=libunw
+    AC_DEFINE([HOST_CPU_IA64], [1], [HOST CPU: ia64 (itanium)])
+    AC_DEFINE([HOST_OS_LINUX], [], [])
     ;;
 
   mips64*-*-linux*)
@@ -493,14 +497,7 @@ AM_CONDITIONAL([HOST_CPU_PPC],    [test "${HOST_CPU_PPC}" = yes])
 AM_CONDITIONAL([HOST_CPU_X86],    [test "${HOST_CPU_X86}" = yes])
 AM_CONDITIONAL([HOST_CPU_X86_64], [test "${HOST_CPU_X86_64}" = yes])
 AM_CONDITIONAL([HOST_CPU_X86_FAMILY], [test "${HOST_CPU_X86_FAMILY}" = yes])
-
-#
-# set up automake choice of unwinder
-#
-
-AM_CONDITIONAL([UNW_X86], [test "$UNWINDER" = x86-family])
-AM_CONDITIONAL([UNW_PPC64], [test "$UNWINDER" = ppc64])
-AM_CONDITIONAL([UNW_MIPS], [test "$UNWINDER" = mips])
+AM_CONDITIONAL([HOST_CPU_IA64], [test "$HOST_CPU_IA64" = yes])
 
 #-------------------------------------------------
 # Host-specific compiler settings
@@ -801,7 +798,7 @@ AC_SUBST([hpc_ext_libs_dir])
 #-------------------------------------------------
 
 # External's minimum svn rev number, or else a fatal error.
-EXTERNALS_MIN_REV=3872
+EXTERNALS_MIN_REV=3646
 
 ext_cc_path=unknown
 ext_cxx_path=unknown
@@ -1127,7 +1124,11 @@ AC_SUBST([LIBMONITOR_WRAP_NAMES])
 # with-libunwind
 #-------------------------------------------------
 
-AC_MSG_CHECKING([whether configured with libunwind])
+#
+# ### FIXME: rationalize this: libunw chosen EITHER when ia64 or when --with-libunwind is set
+# ###        current configure will NOT do the right thing if libunw turned off but arch=ia64
+#
+AC_MSG_CHECKING([whether configured to use libunwind instead of native])
 
 OPT_HAVE_LIBUNWIND=no
 OPT_LIBUNWIND=
@@ -1136,6 +1137,9 @@ OPT_LIBUNWIND_LIBPATH=
 OPT_LIBUNWIND_LDFLAGS=
 OPT_LIBUNWIND_LIBSO=
 OPT_LIBUNWIND_LIBA=
+LIBUNWIND_COPY=no
+LIBUNWIND_RUN_DIR=
+LIBUNWIND_HPCLINK_LIBS=
 
 if test "$use_externals" = yes ; then
   OPT_LIBUNWIND="$ext_libunwind_prefix"
@@ -1147,21 +1151,51 @@ fi
 AC_ARG_WITH([libunwind],
   AS_HELP_STRING([--with-libunwind=PATH],
                  [use given LIBUNWIND installation (absolute path) with hpcrun (default is NO)]),
-  [if test $withval != no; then
-     OPT_HAVE_LIBUNWIND=yes
-     if ( echo "${withval}" | grep -v "^/" >/dev/null 2>&1 ); then
-       AC_MSG_ERROR([--with-libunwind requires absolute path as argument; given '${withval}'])
-     fi
-     OPT_LIBUNWIND=${withval}
-   fi],
+  [case $withval in
+      yes) : ;;
+      /*) OPT_LIBUNWIND=${withval} ;;
+      *) AC_MSG_ERROR([--with-libunwind requires absolute path as argument; given '${withval}']) ;;
+   esac
+   OPT_HAVE_LIBUNWIND=yes
+   UNWINDER=libunw],
   [])
 
 # Check for LIBUNWIND > .9xxx [skip for now]
 
+# Check for libunwind sanity
+if test "${OPT_HAVE_LIBUNWIND}" = "yes"; then
+  if ! test -f "$OPT_LIBUNWIND/include/libunwind.h"; then
+     AC_MSG_ERROR([libunwind required, but specified library path is invalid (no libunwind.h)])
+  fi
+  if test ! \( -f "$OPT_LIBUNWIND/lib/libunwind.so" -o -f "$OPT_LIBUNWIND/lib/libunwind.a" \) ; then
+     AC_MSG_ERROR([libunwind required, but specified library path is invalid (no libunwind.a or libunwind.so)])
+  fi
+fi
+
 if test "${OPT_HAVE_LIBUNWIND}" = "yes"; then 
   AC_MSG_RESULT([yes (${OPT_LIBUNWIND_LIBSO})])
+
+  LIBUNWIND_COPY=yes
+  LIBUNWIND_LIB="$OPT_LIBUNWIND/lib"
+  LIBUNWIND_RUN_DIR="$hpc_ext_libs_dir"
+  OPT_LIBUNWIND_IFLAGS="-I$OPT_LIBUNWIND/include"
+  OPT_LIBUNWIND_LIBPATH="$OPT_LIBUNWIND"
+
+  lib_unw_arch=$host_cpu
+  LIBUNWIND_HPCLINK_LIBS="-lunwind-$lib_unw_arch -lunwind"
+#
+# Attach architecture code to -l on LIBUNWIND_LDFLAGS
+#
+  OPT_LIBUNWIND_LDFLAGS="-L$OPT_LIBUNWIND/lib $LIBUNWIND_HPCLINK_LIBS"
+
 else
   AC_MSG_RESULT([no])
+fi
+
+if test -z "$HPCLINK_LD_FLAGS"; then
+   HPCLINK_LD_FLAGS="$OPT_LIBUNWIND_LDFLAGS"
+else
+   HPCLINK_LD_FLAGS="$HPCLINK_LD_FLAGS $OPT_LIBUNWIND_LDFLAGS"
 fi
 
 AM_CONDITIONAL(OPT_HAVE_LIBUNWIND, test "${OPT_HAVE_LIBUNWIND}" = "yes")
@@ -1170,7 +1204,20 @@ AC_SUBST(OPT_LIBUNWIND_LIBPATH)
 AC_SUBST(OPT_LIBUNWIND_LDFLAGS)
 AC_SUBST(OPT_LIBUNWIND_LIBSO)
 AC_SUBST(OPT_LIBUNWIND_LIBA)
+AC_SUBST(LIBUNWIND_COPY)
+AC_SUBST(LIBUNWIND_LIB)
+AC_SUBST(LIBUNWIND_RUN_DIR)
+AC_SUBST(LIBUNWIND_HPCLINK_LIBS)
 
+#
+# set up automake choice of unwinder
+#
+# -- NOTE: ia64 ALWAYS uses libunw
+#
+AM_CONDITIONAL([UNW_X86], [test "$UNWINDER" = x86-family])
+AM_CONDITIONAL([UNW_PPC64], [test "$UNWINDER" = ppc64])
+AM_CONDITIONAL([UNW_MIPS], [test "$UNWINDER" = mips])
+AM_CONDITIONAL([UNW_LIBUNW], [test "$UNWINDER" = libunw])
 
 #-------------------------------------------------
 # with-monitor
@@ -1664,6 +1711,7 @@ fi
 AC_MSG_RESULT([${OPT_ENABLE_HPCRUN_STATIC}])
 AM_CONDITIONAL(OPT_ENABLE_HPCRUN_STATIC, test "${OPT_ENABLE_HPCRUN_STATIC}" = "yes")
 
+AC_SUBST(HPCLINK_LD_FLAGS)
 
 AC_MSG_CHECKING([whether to build hpcrun for dynamically linked executables])
 
@@ -1881,72 +1929,6 @@ AC_MSG_NOTICE([lush pthreads: $enable_lush_pthreads])
 AM_CONDITIONAL([OPT_ENABLE_LUSH_PTHREADS], [test "$enable_lush_pthreads" = yes])
 
 AC_SUBST([hpclink_extra_wrap_names])
-
-
-#-------------------------------------------------
-# enable-xop: support for AMD XOP instructions
-#-------------------------------------------------
-
-AC_ARG_ENABLE([xop],
-  AS_HELP_STRING([--enable-xop],
-      [include support for decoding AMD XOP instructions, x86-64 only
-      (default no)]),
-  [],
-  [enable_xop=no])
-
-AC_MSG_CHECKING([whether to support AMD XOP instructions])
-AC_MSG_RESULT([$enable_xop])
-
-if test "x$enable_xop" = xyes ; then
-  AC_DEFINE([ENABLE_XOP], [1], [Support for AMD XOP instructions])
-fi
-
-
-#-------------------------------------------------
-# check for POSIX real-time timers
-#-------------------------------------------------
-
-# POSIX timer_create() and CLOCK_REALTIME go back to at least 2001, so
-# they're pretty safe.  But we also need the SIGEV_THREAD_ID notify
-# method, the SYS_gettid syscall and the _sigev_un._tid field in
-# struct sigevent.  These are Linux extensions and may not compile on
-# all systems.
-
-AC_MSG_CHECKING([for CLOCK_REALTIME and SIGEV_THREAD_ID])
-
-AC_LANG_PUSH([C])
-ORIG_LIBS="$LIBS"
-LIBS="-lrt"
-
-AC_LINK_IFELSE([
-#include <sys/syscall.h>
-#include <signal.h>
-#include <time.h>
-#include <unistd.h>
-#ifndef sigev_notify_thread_id
-#define sigev_notify_thread_id _sigev_un._tid
-#endif
-int main()
-{
-  struct sigevent sigev;
-  timer_t timerid;
-  sigev.sigev_notify = SIGEV_THREAD_ID;
-  sigev.sigev_signo = SIGRTMIN + 3;
-  sigev.sigev_value.sival_ptr = &timerid;
-  sigev.sigev_notify_thread_id = syscall(SYS_gettid);
-  return timer_create(CLOCK_REALTIME, &sigev, &timerid);
-}
-], [ans=yes], [ans=no])
-
-LIBS="$ORIG_LIBS"
-AC_LANG_POP
-
-AC_MSG_RESULT([$ans])
-
-if test "$ans" = yes ; then
-  AC_DEFINE([ENABLE_CLOCK_REALTIME], [1],
-            [Support for CLOCK_REALTIME and SIGEV_THREAD_ID])
-fi
 
 
 #-------------------------------------------------

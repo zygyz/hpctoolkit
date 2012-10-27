@@ -212,7 +212,7 @@ hpcrun_unw_get_ip_norm_reg(hpcrun_unw_cursor_t* c, ip_normalized_t* reg_value)
 }
 
 int
-hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, void** reg_value)
+hpcrun_unw_get_ip_unnorm_reg(hpcrun_unw_cursor_t* c, unw_word_t* reg_value)
 {
   return hpcrun_unw_get_unnorm_reg(c, UNW_REG_IP, reg_value);
 }
@@ -289,8 +289,7 @@ hpcrun_unw_step_real(hpcrun_unw_cursor_t* cursor)
   int unw_res;
 
   if (!uw){
-    TMSG(UNW, "unw_step: invalid unw interval for cursor, trolling ...");
-    TMSG(TROLL, "Troll due to Invalid interval for pc %p", pc);
+    TMSG(UNW, "unw_step: STEP_TROLL invalid unw interval for cursor, trolling ...");
     update_cursor_with_troll(cursor, 0);
     return STEP_TROLL;
   }
@@ -591,7 +590,8 @@ unw_step_std(hpcrun_unw_cursor_t* cursor)
       unw_res = unw_step_bp(cursor);
       if (unw_res == STEP_STOP_WEAK) unw_res = STEP_STOP; 
     }
-  } else {
+  }
+  else {
     TMSG(UNW_STRATEGY,"--STD_FRAME: STARTing with BP");
     unw_res = unw_step_bp(cursor);
     if (unw_res == STEP_ERROR || unw_res == STEP_STOP_WEAK) {

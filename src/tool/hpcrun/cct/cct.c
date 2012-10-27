@@ -137,10 +137,7 @@ new_persistent_id()
 {
   // by default, all persistent ids are even; odd ids signify that we need 
   // to retain them as call path ids associated with a trace.
-  // Furthermore, global ids start at 12: 0,1 are special ids, 2-11 are for
-  // users (and conceivably hpcrun).
-  //
-  static long global_persistent_id = 12;
+  static long global_persistent_id = 2;
   uint32_t myid = (int) fetch_and_add(&global_persistent_id, 2); 
   return myid;
 }

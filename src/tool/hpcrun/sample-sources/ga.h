@@ -47,59 +47,33 @@
 #ifndef _HPCRUN_GA_H_
 #define _HPCRUN_GA_H_
 
-//***************************************************************************
-// system includes
-//***************************************************************************
-
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-
-//***************************************************************************
-// local includes
-//***************************************************************************
-
-#include <include/uint.h>
-
-//***************************************************************************
+int hpcrun_ga_metricId_bytesXfr();
+int hpcrun_ga_metricId_onesidedOp();
+int hpcrun_ga_metricId_collectiveOp();
 
 #define GA_DataCentric_Prototype 1
-
-//***************************************************************************
-
-extern uint64_t hpcrun_ga_period;
-
-extern int hpcrun_ga_metricId_onesidedOp;
-extern int hpcrun_ga_metricId_collectiveOp;
-extern int hpcrun_ga_metricId_latency;
-extern int hpcrun_ga_metricId_latencyExcess;
-extern int hpcrun_ga_metricId_bytesXfr;
-
-//***************************************************************************
 
 
 #if (GA_DataCentric_Prototype)
 
-#define hpcrun_ga_metricId_dataTblSz 10
+#define hpcrun_ga_metricId_dataTblSz 20
 #define hpcrun_ga_metricId_dataStrLen 32
 
-extern int hpcrun_ga_metricId_dataTblIdx_next;
-extern int hpcrun_ga_metricId_dataTblIdx_max; // exclusive upper bound
+extern int metricId_dataTblIdx_next;
+extern int metricId_dataTblIdx_max; // exclusive upper bound
 
-typedef struct hpcrun_ga_metricId_dataDesc {
+typedef struct metricId_dataDesc {
   int metricId;
   char name[hpcrun_ga_metricId_dataStrLen];
-} hpcrun_ga_metricId_dataDesc_t;
+} metricId_dataDesc_t;
 
+extern metricId_dataDesc_t hpcrun_ga_metricId_dataTbl[];
 
-extern hpcrun_ga_metricId_dataDesc_t hpcrun_ga_metricId_dataTbl[];
-
-static inline hpcrun_ga_metricId_dataDesc_t*
+static inline metricId_dataDesc_t*
 hpcrun_ga_metricId_dataTbl_find(int idx)
 {
   return &hpcrun_ga_metricId_dataTbl[idx];
 }
-
 
 int
 hpcrun_ga_dataIdx_new(const char* name);
@@ -107,12 +81,11 @@ hpcrun_ga_dataIdx_new(const char* name);
 static inline int
 hpcrun_ga_dataIdx_isValid(int idx)
 {
-  return ((idx >= 0) && (idx < hpcrun_ga_metricId_dataTblIdx_next));
+  return ((idx >= 0) && (idx < metricId_dataTblIdx_next));
 }
 
 #endif // GA_DataCentric_Prototype
 
 
-//***************************************************************************
 
 #endif // _HPCRUN_GA_H_

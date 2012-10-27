@@ -70,11 +70,18 @@
 
 //*************************** Forward Declarations ***************************
 
-const double c_FP_NAN_d = FP_NAN;
+double c_FP_NAN_d;
 
 //****************************************************************************
 
-bool
+void 
+NaN_init()
+{
+  c_FP_NAN_d = FP_NAN;
+}
+
+
+bool 
 c_isnan_d(double x)
 {
   return isnan(x);

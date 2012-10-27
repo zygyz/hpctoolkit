@@ -116,6 +116,8 @@ realmain(int argc, char* const* argv)
 {
   Args args(argc, argv);  // exits if error on command line
 
+  NaN_init();
+
   //-------------------------------------------------------
   // Create metric descriptors (and for conf file, rest of the args)
   //-------------------------------------------------------

@@ -69,10 +69,10 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/hpcfnbounds.in $(top_srcdir)/src/Makeinclude.config \
 	$(top_srcdir)/src/Makeinclude.rules
 pkglibexec_PROGRAMS = hpcfnbounds-bin$(EXEEXT)
-@HOST_CPU_X86_FAMILY_TRUE@am__append_1 = x86-process-ranges.cpp amd-xop.c
+@HOST_CPU_X86_FAMILY_TRUE@am__append_1 = x86-process-ranges.cpp
 @HOST_CPU_X86_FAMILY_TRUE@am__append_2 = -I$(XED2_INC)
 @HOST_CPU_X86_FAMILY_TRUE@am__append_3 = $(XED2_LIB)/libxed.a
-@HOST_CPU_X86_FAMILY_FALSE@am__append_4 = generic-process-ranges.cpp
+@HOST_CPU_X86_FAMILY_FALSE@am__append_4 = $(generic_process_ranges_file)
 subdir = src/tool/hpcfnbounds
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/config/hpc-cxxutils.m4 \
@@ -87,19 +87,26 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(pkglibexecdir)" \
 	"$(DESTDIR)$(pkglibexecdir)"
 PROGRAMS = $(pkglibexec_PROGRAMS)
-am__hpcfnbounds_bin_SOURCES_DIST = main.cpp code-ranges.cpp \
-	function-entries.cpp intervals.cpp server.cpp \
-	x86-process-ranges.cpp amd-xop.c generic-process-ranges.cpp
-am__objects_1 = hpcfnbounds_bin-main.$(OBJEXT) \
-	hpcfnbounds_bin-code-ranges.$(OBJEXT) \
+am__hpcfnbounds_bin_SOURCES_DIST = main.cpp main-alt.cpp \
+	code-ranges.cpp code-ranges-alt.cpp function-entries.cpp \
+	intervals.cpp x86-process-ranges.cpp \
+	generic-process-ranges.cpp process-ranges-alt.cpp
+@HOST_CPU_IA64_FALSE@am__objects_1 = hpcfnbounds_bin-main.$(OBJEXT)
+@HOST_CPU_IA64_TRUE@am__objects_1 =  \
+@HOST_CPU_IA64_TRUE@	hpcfnbounds_bin-main-alt.$(OBJEXT)
+@HOST_CPU_IA64_FALSE@am__objects_2 =  \
+@HOST_CPU_IA64_FALSE@	hpcfnbounds_bin-code-ranges.$(OBJEXT)
+@HOST_CPU_IA64_TRUE@am__objects_2 =  \
+@HOST_CPU_IA64_TRUE@	hpcfnbounds_bin-code-ranges-alt.$(OBJEXT)
+am__objects_3 = $(am__objects_1) $(am__objects_2) \
 	hpcfnbounds_bin-function-entries.$(OBJEXT) \
-	hpcfnbounds_bin-intervals.$(OBJEXT) \
-	hpcfnbounds_bin-server.$(OBJEXT)
-@HOST_CPU_X86_FAMILY_TRUE@am__objects_2 = hpcfnbounds_bin-x86-process-ranges.$(OBJEXT) \
-@HOST_CPU_X86_FAMILY_TRUE@	hpcfnbounds_bin-amd-xop.$(OBJEXT)
-@HOST_CPU_X86_FAMILY_FALSE@am__objects_3 = hpcfnbounds_bin-generic-process-ranges.$(OBJEXT)
-am_hpcfnbounds_bin_OBJECTS = $(am__objects_1) $(am__objects_2) \
-	$(am__objects_3)
+	hpcfnbounds_bin-intervals.$(OBJEXT)
+@HOST_CPU_X86_FAMILY_TRUE@am__objects_4 = hpcfnbounds_bin-x86-process-ranges.$(OBJEXT)
+@HOST_CPU_IA64_FALSE@am__objects_5 = hpcfnbounds_bin-generic-process-ranges.$(OBJEXT)
+@HOST_CPU_IA64_TRUE@am__objects_5 = hpcfnbounds_bin-process-ranges-alt.$(OBJEXT)
+@HOST_CPU_X86_FAMILY_FALSE@am__objects_6 = $(am__objects_5)
+am_hpcfnbounds_bin_OBJECTS = $(am__objects_3) $(am__objects_4) \
+	$(am__objects_6)
 hpcfnbounds_bin_OBJECTS = $(am_hpcfnbounds_bin_OBJECTS)
 hpcfnbounds_bin_LDADD = $(LDADD)
 hpcfnbounds_bin_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
@@ -132,15 +139,6 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/src/include
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
-	$(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -208,6 +206,7 @@ HOST_HPCSTRUCT_LDFLAGS = @HOST_HPCSTRUCT_LDFLAGS@
 HOST_LIBTREPOSITORY = @HOST_LIBTREPOSITORY@
 HOST_LINK_NO_START_FILES = @HOST_LINK_NO_START_FILES@
 HOST_XPROF_LDFLAGS = @HOST_XPROF_LDFLAGS@
+HPCLINK_LD_FLAGS = @HPCLINK_LD_FLAGS@
 HPCPROFMPI_LT_LDFLAGS = @HPCPROFMPI_LT_LDFLAGS@
 HPCRUN_LIBCXX_PATH = @HPCRUN_LIBCXX_PATH@
 HPCTOOLKIT_PLATFORM = @HPCTOOLKIT_PLATFORM@
@@ -243,6 +242,10 @@ LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LIBUNWIND_COPY = @LIBUNWIND_COPY@
+LIBUNWIND_HPCLINK_LIBS = @LIBUNWIND_HPCLINK_LIBS@
+LIBUNWIND_LIB = @LIBUNWIND_LIB@
+LIBUNWIND_RUN_DIR = @LIBUNWIND_RUN_DIR@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -387,12 +390,21 @@ HPCLIB_ISA = $(top_builddir)/src/lib/isa/libHPCisa.la
 HPCLIB_XML = $(top_builddir)/src/lib/xml/libHPCxml.la
 HPCLIB_Support = $(top_builddir)/src/lib/support/libHPCsupport.la
 HPCLIB_SupportLean = $(top_builddir)/src/lib/support-lean/libHPCsupport-lean.la
+@HOST_CPU_IA64_FALSE@main_file = main.cpp
+
+#PROXY_SOURCES = \
+#     main-proxy.cpp
+@HOST_CPU_IA64_TRUE@main_file = main-alt.cpp
+@HOST_CPU_IA64_FALSE@code_ranges_file = code-ranges.cpp
+@HOST_CPU_IA64_TRUE@code_ranges_file = code-ranges-alt.cpp
+@HOST_CPU_IA64_FALSE@generic_process_ranges_file = generic-process-ranges.cpp
+@HOST_CPU_IA64_TRUE@generic_process_ranges_file = process-ranges-alt.cpp
 MYSOURCES = \
-	main.cpp \
-	code-ranges.cpp \
+	$(main_file) \
+	\
+        $(code_ranges_file) \
 	function-entries.cpp \
-	intervals.cpp \
-	server.cpp
+	intervals.cpp
 
 MYCPPFLAGS = $(HPC_IFLAGS) -I$(SYMTABAPI_INC) -I$(LIBELF_INC) -I$(LIBDWARF_INC)
 MYCXXFLAGS = @HOST_CXXFLAGS@
@@ -419,7 +431,7 @@ MYCPPFLAGS_0_CC = $(MYCPPFLAGS_0) $(AM_CFLAGS)   $(CFLAGS)   $(MYCFLAGS)
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .cpp .lo .o .obj
+.SUFFIXES: .cpp .lo .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/src/Makeinclude.config $(top_srcdir)/src/Makeinclude.rules $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -539,49 +551,15 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-amd-xop.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-code-ranges.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-function-entries.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-generic-process-ranges.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-intervals.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-main-alt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-server.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpcfnbounds_bin-x86-process-ranges.Po@am__quote@
-
-.c.o:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c $<
-
-.c.obj:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-.c.lo:
-@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-hpcfnbounds_bin-amd-xop.o: amd-xop.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT hpcfnbounds_bin-amd-xop.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-amd-xop.Tpo -c -o hpcfnbounds_bin-amd-xop.o `test -f 'amd-xop.c' || echo '$(srcdir)/'`amd-xop.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-amd-xop.Tpo $(DEPDIR)/hpcfnbounds_bin-amd-xop.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='amd-xop.c' object='hpcfnbounds_bin-amd-xop.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hpcfnbounds_bin-amd-xop.o `test -f 'amd-xop.c' || echo '$(srcdir)/'`amd-xop.c
-
-hpcfnbounds_bin-amd-xop.obj: amd-xop.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT hpcfnbounds_bin-amd-xop.obj -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-amd-xop.Tpo -c -o hpcfnbounds_bin-amd-xop.obj `if test -f 'amd-xop.c'; then $(CYGPATH_W) 'amd-xop.c'; else $(CYGPATH_W) '$(srcdir)/amd-xop.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-amd-xop.Tpo $(DEPDIR)/hpcfnbounds_bin-amd-xop.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='amd-xop.c' object='hpcfnbounds_bin-amd-xop.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hpcfnbounds_bin-amd-xop.obj `if test -f 'amd-xop.c'; then $(CYGPATH_W) 'amd-xop.c'; else $(CYGPATH_W) '$(srcdir)/amd-xop.c'; fi`
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -618,6 +596,20 @@ hpcfnbounds_bin-main.obj: main.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-main.obj `if test -f 'main.cpp'; then $(CYGPATH_W) 'main.cpp'; else $(CYGPATH_W) '$(srcdir)/main.cpp'; fi`
 
+hpcfnbounds_bin-main-alt.o: main-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-main-alt.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-main-alt.Tpo -c -o hpcfnbounds_bin-main-alt.o `test -f 'main-alt.cpp' || echo '$(srcdir)/'`main-alt.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-main-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-main-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='main-alt.cpp' object='hpcfnbounds_bin-main-alt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-main-alt.o `test -f 'main-alt.cpp' || echo '$(srcdir)/'`main-alt.cpp
+
+hpcfnbounds_bin-main-alt.obj: main-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-main-alt.obj -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-main-alt.Tpo -c -o hpcfnbounds_bin-main-alt.obj `if test -f 'main-alt.cpp'; then $(CYGPATH_W) 'main-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/main-alt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-main-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-main-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='main-alt.cpp' object='hpcfnbounds_bin-main-alt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-main-alt.obj `if test -f 'main-alt.cpp'; then $(CYGPATH_W) 'main-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/main-alt.cpp'; fi`
+
 hpcfnbounds_bin-code-ranges.o: code-ranges.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-code-ranges.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-code-ranges.Tpo -c -o hpcfnbounds_bin-code-ranges.o `test -f 'code-ranges.cpp' || echo '$(srcdir)/'`code-ranges.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-code-ranges.Tpo $(DEPDIR)/hpcfnbounds_bin-code-ranges.Po
@@ -631,6 +623,20 @@ hpcfnbounds_bin-code-ranges.obj: code-ranges.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='code-ranges.cpp' object='hpcfnbounds_bin-code-ranges.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-code-ranges.obj `if test -f 'code-ranges.cpp'; then $(CYGPATH_W) 'code-ranges.cpp'; else $(CYGPATH_W) '$(srcdir)/code-ranges.cpp'; fi`
+
+hpcfnbounds_bin-code-ranges-alt.o: code-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-code-ranges-alt.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Tpo -c -o hpcfnbounds_bin-code-ranges-alt.o `test -f 'code-ranges-alt.cpp' || echo '$(srcdir)/'`code-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='code-ranges-alt.cpp' object='hpcfnbounds_bin-code-ranges-alt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-code-ranges-alt.o `test -f 'code-ranges-alt.cpp' || echo '$(srcdir)/'`code-ranges-alt.cpp
+
+hpcfnbounds_bin-code-ranges-alt.obj: code-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-code-ranges-alt.obj -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Tpo -c -o hpcfnbounds_bin-code-ranges-alt.obj `if test -f 'code-ranges-alt.cpp'; then $(CYGPATH_W) 'code-ranges-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/code-ranges-alt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-code-ranges-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='code-ranges-alt.cpp' object='hpcfnbounds_bin-code-ranges-alt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-code-ranges-alt.obj `if test -f 'code-ranges-alt.cpp'; then $(CYGPATH_W) 'code-ranges-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/code-ranges-alt.cpp'; fi`
 
 hpcfnbounds_bin-function-entries.o: function-entries.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-function-entries.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-function-entries.Tpo -c -o hpcfnbounds_bin-function-entries.o `test -f 'function-entries.cpp' || echo '$(srcdir)/'`function-entries.cpp
@@ -660,20 +666,6 @@ hpcfnbounds_bin-intervals.obj: intervals.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-intervals.obj `if test -f 'intervals.cpp'; then $(CYGPATH_W) 'intervals.cpp'; else $(CYGPATH_W) '$(srcdir)/intervals.cpp'; fi`
 
-hpcfnbounds_bin-server.o: server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-server.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-server.Tpo -c -o hpcfnbounds_bin-server.o `test -f 'server.cpp' || echo '$(srcdir)/'`server.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-server.Tpo $(DEPDIR)/hpcfnbounds_bin-server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='server.cpp' object='hpcfnbounds_bin-server.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-server.o `test -f 'server.cpp' || echo '$(srcdir)/'`server.cpp
-
-hpcfnbounds_bin-server.obj: server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-server.obj -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-server.Tpo -c -o hpcfnbounds_bin-server.obj `if test -f 'server.cpp'; then $(CYGPATH_W) 'server.cpp'; else $(CYGPATH_W) '$(srcdir)/server.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-server.Tpo $(DEPDIR)/hpcfnbounds_bin-server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='server.cpp' object='hpcfnbounds_bin-server.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-server.obj `if test -f 'server.cpp'; then $(CYGPATH_W) 'server.cpp'; else $(CYGPATH_W) '$(srcdir)/server.cpp'; fi`
-
 hpcfnbounds_bin-x86-process-ranges.o: x86-process-ranges.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-x86-process-ranges.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-x86-process-ranges.Tpo -c -o hpcfnbounds_bin-x86-process-ranges.o `test -f 'x86-process-ranges.cpp' || echo '$(srcdir)/'`x86-process-ranges.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-x86-process-ranges.Tpo $(DEPDIR)/hpcfnbounds_bin-x86-process-ranges.Po
@@ -701,6 +693,20 @@ hpcfnbounds_bin-generic-process-ranges.obj: generic-process-ranges.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='generic-process-ranges.cpp' object='hpcfnbounds_bin-generic-process-ranges.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-generic-process-ranges.obj `if test -f 'generic-process-ranges.cpp'; then $(CYGPATH_W) 'generic-process-ranges.cpp'; else $(CYGPATH_W) '$(srcdir)/generic-process-ranges.cpp'; fi`
+
+hpcfnbounds_bin-process-ranges-alt.o: process-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-process-ranges-alt.o -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Tpo -c -o hpcfnbounds_bin-process-ranges-alt.o `test -f 'process-ranges-alt.cpp' || echo '$(srcdir)/'`process-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='process-ranges-alt.cpp' object='hpcfnbounds_bin-process-ranges-alt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-process-ranges-alt.o `test -f 'process-ranges-alt.cpp' || echo '$(srcdir)/'`process-ranges-alt.cpp
+
+hpcfnbounds_bin-process-ranges-alt.obj: process-ranges-alt.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -MT hpcfnbounds_bin-process-ranges-alt.obj -MD -MP -MF $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Tpo -c -o hpcfnbounds_bin-process-ranges-alt.obj `if test -f 'process-ranges-alt.cpp'; then $(CYGPATH_W) 'process-ranges-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/process-ranges-alt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Tpo $(DEPDIR)/hpcfnbounds_bin-process-ranges-alt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='process-ranges-alt.cpp' object='hpcfnbounds_bin-process-ranges-alt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(hpcfnbounds_bin_CPPFLAGS) $(CPPFLAGS) $(hpcfnbounds_bin_CXXFLAGS) $(CXXFLAGS) -c -o hpcfnbounds_bin-process-ranges-alt.obj `if test -f 'process-ranges-alt.cpp'; then $(CYGPATH_W) 'process-ranges-alt.cpp'; else $(CYGPATH_W) '$(srcdir)/process-ranges-alt.cpp'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

@@ -151,9 +151,12 @@ if HOST_CPU_PPC
   PLUGIN_CONFIG_FILES += ibm-xlomp
 endif
 
-UNW_COMMON_FILES = \
+UNW_UNIV_FILES = \
 	unwind/common/backtrace.c	\
-        unwind/common/unw-throw.c       \
+        unwind/common/unw-throw.c
+
+UNW_COMMON_FILES = \
+        $(UNW_UNIV_FILES)               \
 	unwind/common/splay.c		\
 	unwind/common/stack_troll.c	\
 	unwind/common/ui_tree.c
@@ -161,8 +164,7 @@ UNW_COMMON_FILES = \
 UNW_X86_FILES = \
        $(UNW_COMMON_FILES) \
 	unwind/x86-family/x86-all.c			\
-	unwind/x86-family/amd-xop.c                     \
- 	unwind/x86-family/x86-cold-path.c		\
+	unwind/x86-family/x86-cold-path.c		\
 	unwind/x86-family/x86-validate-retn-addr.c	\
 	unwind/x86-family/x86-unwind-interval.c		\
 	unwind/x86-family/x86-unwind-interval-fixup.c	\
@@ -170,7 +172,6 @@ UNW_X86_FILES = \
 	unwind/x86-family/x86-unwind-support.c		\
 	unwind/x86-family/manual-intervals/x86-linux-dlresolver.c \
 	unwind/x86-family/manual-intervals/x86-intel11-f90main.c \
-	unwind/x86-family/manual-intervals/x86-intel-composer2013-mic.c \
 	unwind/x86-family/manual-intervals/x86-32bit-main.c \
 	unwind/x86-family/manual-intervals/x86-32bit-icc-variant.c \
 	unwind/x86-family/manual-intervals/x86-pgi-mp_pexit.c
@@ -192,6 +193,23 @@ UNW_PPC64_INCLUDE_DIRS = \
         -I$(srcdir)/unwind/ppc64
 
 UNW_PPC64_LD_FLAGS =
+
+# generic libunwind uwinder
+# NOTE: the unwinder code is specific to the
+#  unwind implementation (which wraps libunwind)
+# The IFLAGS and LDFLAGS related to the libunwind
+# library component are handled via the LIBUNWIND
+# configuration
+
+UNW_LIBUNW_FILES = \
+       $(UNW_UNIV_FILES) \
+       unwind/generic-libunwind/libunw-unwind.c \
+       unwind/common/default_validation_summary.c
+
+UNW_LIBUNW_INCLUDE_DIRS = \
+       -I$(srcdir)/unwind/generic-libunwind
+
+UNW_LIBUNW_LD_FLAGS = 
 
 UNW_MIPS_FILES = \
         $(UNW_COMMON_FILES) \
@@ -281,7 +299,6 @@ endif
 
 
 MY_DYNAMIC_FILES = 			\
-	fnbounds/fnbounds_client.c	\
 	fnbounds/fnbounds_dynamic.c	\
 	monitor-exts/openmp.c		\
 	hpcrun_dlfns.c                  \
@@ -309,6 +326,10 @@ MY_X86_FILES = \
         \
         utilities/arch/x86-family/x86-context-pc.c
 
+MY_IA64_FILES = \
+        trampoline/ia64/ia64-tramp.s \
+        utilities/arch/ia64/ia64-context-pc.c
+
 MY_PAPI_FILES = 			\
 	sample-sources/papi.c
 
@@ -329,6 +350,7 @@ MY_INCLUDE_DIRS =			\
 	-I$(srcdir)/unwind/common	\
 	-I$(srcdir)/utilities		\
 	$(HPC_IFLAGS)			\
+	$(OPT_LIBUNWIND_IFLAGS)         \
 	-I$(HPCFNBOUNDS_INC)		\
 	-I$(LIBMONITOR_INC)		\
 	-I$(SYMTABAPI_INC)
@@ -344,6 +366,8 @@ MY_PPC_INCLUDE_DIRS = 		\
 MY_X86_INCLUDE_DIRS =		\
         -I$(srcdir)/utilities/arch/x86-family
 
+MY_IA64_INCLUDE_DIRS =         \
+        -I$(srcdir)/utilities/arch/ia64
 
 libhpcrun_la_SOURCES = 			\
 	$(MY_BASE_FILES)		\
@@ -478,7 +502,8 @@ libhpcrun_la_LIBADD = $(HPCLIB_ProfLean) $(HPCLIB_SupportLean)
 libhpcrun_o_LDADD   = $(HPCLIB_ProfLean) $(HPCLIB_SupportLean)
 
 libhpcrun_la_LDFLAGS = -Wl,-Bsymbolic 	\
-	-L$(LIBMONITOR_LIB) -lmonitor -lpthread -lrt
+	-L$(LIBMONITOR_LIB) -lmonitor -lpthread -lrt \
+        $(OPT_LIBUNWIND_LDFLAGS)
 
 libhpcrun_ga_la_LDFLAGS = -Wl,-Bsymbolic	\
 	-Wl,--strip-debug
@@ -492,7 +517,7 @@ libhpcrun_memleak_la_LDFLAGS = -Wl,-Bsymbolic 	\
 libhpcrun_mpi_la_LDFLAGS = -Wl,-Bsymbolic 	\
 	-Wl,--strip-debug
 
-libhpcrun_o_LDFLAGS =
+libhpcrun_o_LDFLAGS = $(OPT_LIBUNWIND_LDFLAGS)
 
 
 #-----------------------------------------------------------
@@ -560,6 +585,20 @@ if HOST_CPU_X86_FAMILY
   MY_AGENT_INCLUDE_DIRS += $(MY_X86_INCLUDE_DIRS)
 endif
 
+if HOST_CPU_IA64
+  libhpcrun_la_SOURCES  += $(MY_IA64_FILES)
+  libhpcrun_o_SOURCES   += $(MY_IA64_FILES)
+  libhpcrun_la_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_o_CPPFLAGS  += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_ga_la_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_ga_wrap_a_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_io_la_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_io_wrap_a_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_memleak_la_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_memleak_wrap_a_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+  libhpcrun_mpi_la_CPPFLAGS += $(MY_IA64_INCLUDE_DIRS)
+endif
+
 if OPT_PAPI_DYNAMIC
   libhpcrun_la_SOURCES  += $(MY_PAPI_FILES)
   libhpcrun_la_CPPFLAGS += $(PAPI_INC_FLGS)
@@ -600,6 +639,12 @@ if UNW_PPC64
   UNW_SOURCE_FILES = $(UNW_PPC64_FILES)
   UNW_INCLUDE_DIRS = $(UNW_PPC64_INCLUDE_DIRS)
   UNW_LD_FLAGS     = $(UNW_PPC64_LD_FLAGS)
+endif
+
+if UNW_LIBUNW
+    UNW_SOURCE_FILES = $(UNW_LIBUNW_FILES)
+    UNW_INCLUDE_DIRS = $(UNW_LIBUNW_INCLUDE_DIRS)
+    UNW_LD_FLAGS     = $(UNW_LIBUNW_LD_FLAGS)
 endif
 
 libhpcrun_la_SOURCES  +=  $(UNW_SOURCE_FILES)

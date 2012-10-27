@@ -309,21 +309,6 @@ private:
 namespace ParallelAnalysis {
 
 // ------------------------------------------------------------------------
-// mergeNonLocal: merge profile on rank_y into profile on rank_x
-// ------------------------------------------------------------------------
-
-void
-mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
-	      int myRank, MPI_Comm comm = MPI_COMM_WORLD);
-
-void
-mergeNonLocal(std::pair<Prof::CallPath::Profile*,
-                        ParallelAnalysis::PackedMetrics*> data,
-	      int rank_x, int rank_y, int myRank,
-	      MPI_Comm comm = MPI_COMM_WORLD);
-
-
-// ------------------------------------------------------------------------
 // reduce: Uses a tree-based reduction to reduce the profile at every
 // rank into a canonical profile at the tree's root, rank 0.  Assumes
 // 0-based ranks.  Uses lg(maxRank) barriers, one at each level of the
@@ -373,20 +358,30 @@ broadcast(Prof::CallPath::Profile*& profile, int myRank, int maxRank,
 
 
 // ------------------------------------------------------------------------
-// pack/unpack a profile to/from a buffer
+// mergeNonLocal: merge profile on rank_y into profile on rank_x
 // ------------------------------------------------------------------------
+
+void
+mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
+	      int myRank, MPI_Comm comm = MPI_COMM_WORLD);
+
 void
 packProfile(const Prof::CallPath::Profile& profile,
 	    uint8_t** buffer, size_t* bufferSz);
-
 
 Prof::CallPath::Profile*
 unpackProfile(uint8_t* buffer, size_t bufferSz);
 
 
 // ------------------------------------------------------------------------
-// pack/unpack a metrics from/to a profile
+// mergeNonLocal: 
 // ------------------------------------------------------------------------
+
+void
+mergeNonLocal(std::pair<Prof::CallPath::Profile*,
+                        ParallelAnalysis::PackedMetrics*> data,
+	      int rank_x, int rank_y, int myRank,
+	      MPI_Comm comm = MPI_COMM_WORLD);
 
 // packMetrics: pack the given metric values from 'profile' into
 // 'packedMetrics'

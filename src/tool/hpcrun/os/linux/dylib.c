@@ -130,7 +130,6 @@ dylib_map_open_dsos()
 //------------------------------------------------------------------
 // ensure bounds information computed for the executable
 //------------------------------------------------------------------
-
 void 
 dylib_map_executable()
 {

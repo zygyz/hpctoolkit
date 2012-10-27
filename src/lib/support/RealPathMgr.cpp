@@ -130,7 +130,7 @@ RealPathMgr::realpath(string& pathNm) const
     // -------------------------------------------------------
     string pathNm_orig = pathNm;
 
-    pathNm = PathReplacementMgr::singleton().replace(pathNm);
+    pathNm = PathReplacementMgr::singleton().getReplacedPath(pathNm);
     it = m_cache.find(pathNm);
 
     if (it != m_cache.end()) {

@@ -85,6 +85,3 @@ fnbounds_release_lock(void);
 int
 fnbounds_table_lookup(void **table, int length, void *ip,
 		      void **start, void **end);
-
-
-#include "fnbounds_table_interface.h"
