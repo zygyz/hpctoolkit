@@ -1,21 +1,17 @@
 #!/bin/sh
-# set -x
-#
-@copyright_hash@
-#
-# $Id$
 #
 # Wrapper script for hpcfnbounds-bin.  Other than setting
 # LD_LIBRARY_PATH, all this script does is process the -v option
 # for internal debugging.
 #
-#------------------------------------------------------------
-# Values from configure
-#------------------------------------------------------------
+# Run this script with -h for usage message.
+#
+# $Id$
+#
 
 # If this script can't find its own install prefix, or if the script
 # is moved elsewhere, then set HPCTOOLKIT here.
-# HPCTOOLKIT='@prefix@'
+# HPCTOOLKIT=/path/to/install/prefix
 
 # Relative paths are relative to HPCTOOLKIT.
 ext_libs_dir='@hpc_ext_libs_dir@'
@@ -24,9 +20,7 @@ hpcfnbounds_dir='libexec/hpctoolkit'
 # Should be absolute path.
 libcxx_path='@HPCRUN_LIBCXX_PATH@'
 
-#------------------------------------------------------------
-# Find path to this script
-#------------------------------------------------------------
+################################################################
 
 hpc_path_to_root=../..
 @export_hpctoolkit@
@@ -41,10 +35,7 @@ case "$hpcfnbounds_dir" in
     * )  hpcfnbounds_dir="${HPCTOOLKIT}/${hpcfnbounds_dir}" ;;
 esac
 
-#------------------------------------------------------------
-# Process options
-#------------------------------------------------------------
-
+#
 # If -v is one of the options, then print extra info about what files
 # hpcfnbounds is run on, whether it succeeds, etc, to go in hpcrun
 # logfile.
@@ -72,7 +63,7 @@ done
 # FIXME: integrate server and verbose.
 
 if test "$server" = yes ; then
-    export LD_LIBRARY_PATH="${ext_libs_dir}:${libcxx_path}:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${ext_libs_dir}:${libcxx_path}"
     exec "${hpcfnbounds_dir}/hpcfnbounds-bin" "$@"
 fi
 
@@ -84,7 +75,7 @@ if test "x$dir" != x && test ! -d "$dir" ; then
     mkdir -p "$dir"
 fi
 
-LD_LIBRARY_PATH="${ext_libs_dir}:${libcxx_path}:${LD_LIBRARY_PATH}" \
+LD_LIBRARY_PATH="${ext_libs_dir}:${libcxx_path}" \
     "${hpcfnbounds_dir}/hpcfnbounds-bin" "$@"
 
 ret=$?

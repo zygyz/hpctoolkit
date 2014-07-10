@@ -101,6 +101,7 @@
 
 #include "sample_event.h"
 #include <sample-sources/none.h>
+#include <sample-sources/itimer.h>
 
 #ifdef ENABLE_CUDA
 #  include <sample-sources/gpu_ctxt_actions.h>
@@ -201,11 +202,6 @@ static bool safe_to_sync_sample = false;
 static void* main_addr = NULL;
 static void* main_lower = NULL;
 static void* main_upper = (void*) (intptr_t) -1;
-#ifndef HPCRUN_STATIC_LINK
-static void* main_addr_dl = NULL;
-static void* main_lower_dl = NULL;
-static void* main_upper_dl = (void*) (intptr_t) -1;
-#endif
 static spinlock_t hpcrun_aux_cleanup_lock = SPINLOCK_UNLOCKED;
 static hpcrun_aux_cleanup_t * hpcrun_aux_cleanup_list_head = NULL;
 static hpcrun_aux_cleanup_t * hpcrun_aux_cleanup_free_list_head = NULL;
@@ -220,35 +216,12 @@ static char execname[PATH_MAX] = {'\0'};
 static void
 setup_main_bounds_check(void* main_addr)
 {
-  // record bound information for the symbol main statically linked 
-  // into an executable, or a PLT stub named main and the function
-  // to which it will be dynamically bound. these function bounds will
-  // later be used to validate unwinds in the main thread by the function 
-  // hpcrun_inbounds_main.
-
-  load_module_t* lm = NULL;
-
-  // record bound information about the function bounds of the 'main'
-  // function passed into libc_start_main as real_main. this might be
-  // a trampoline in the PLT.
-  if (main_addr) {
+  if (! main_addr) return;
 #if defined(__PPC64__) || defined(HOST_CPU_IA64)
-    main_addr = *((void**) main_addr);
+  main_addr = *((void**) main_addr);
 #endif
-    fnbounds_enclosing_addr(main_addr, &main_lower, &main_upper, &lm);
-  }
-
-#ifndef HPCRUN_STATIC_LINK
-  // record bound information about the function bounds of a global
-  // dynamic symbol named 'main' (if any).
-  // passed into libc_start_main as real_main. this might be a
-  // trampoline in the PLT.
-  dlerror();
-  main_addr_dl = dlsym(RTLD_NEXT,"main");
-  if (main_addr_dl) {
-    fnbounds_enclosing_addr(main_addr_dl, &main_lower_dl, &main_upper_dl, &lm);
-  }
-#endif
+  load_module_t* lm = NULL;
+  fnbounds_enclosing_addr(main_addr, &main_lower, &main_upper, &lm);
 }
 
 //
@@ -284,17 +257,7 @@ hpcrun_get_addr_main(void)
 bool
 hpcrun_inbounds_main(void* addr)
 {
-  // address is in a main routine statically linked into the executable
-  int in_static_main = (main_lower <= addr) & (addr <= main_upper);
-  int in_main = in_static_main;
-
-#ifndef HPCRUN_STATIC_LINK
-  // address is in a main routine dynamically linked into the executable
-  int in_dynamic_main = (main_lower_dl <= addr) & (addr <= main_upper_dl);
-  in_main |= in_dynamic_main;
-#endif
-
-  return in_main;
+  return (main_lower <= addr) && (addr <= main_upper);
 }
 
 //
@@ -523,6 +486,10 @@ hpcrun_init_internal(bool is_child)
 
   hpcrun_enable_sampling();
   hpcrun_set_safe_to_sync();
+
+  // release the wallclock handler -for this thread-
+  hpcrun_itimer_wallclock_ok(true);
+
   // NOTE: hack to ensure that sample source start can be delayed until mpi_init
   if (hpctoolkit_sampling_is_active() && ! getenv("HPCRUN_MPI_ONLY")) {
       SAMPLE_SOURCES(start);
@@ -706,6 +673,8 @@ hpcrun_thread_init(int id, local_thread_data_t* local_thread_data) // cct_ctxt_t
   // sample sources take thread specific action prior to start (often is a 'registration' action);
   SAMPLE_SOURCES(thread_init_action);
 
+  // release the wallclock handler -for this thread-
+  hpcrun_itimer_wallclock_ok(true);
   // start the sample sources
   SAMPLE_SOURCES(start);
 

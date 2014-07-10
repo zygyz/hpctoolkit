@@ -59,6 +59,8 @@
 
 //************************* System Include Files ****************************
 
+#include <limits.h>
+
 #include <iostream>
 using std::cout;
 using std::cerr;
@@ -98,6 +100,7 @@ using std::string;
 #include "OAInterface.hpp"
 
 #include <lib/prof/Struct-Tree.hpp>
+#include <lib/prof/Struct-TreeIterator.hpp>
 using namespace Prof;
 
 #include <lib/binutils/LM.hpp>
@@ -113,6 +116,8 @@ using namespace Prof;
 #ifdef BANAL_USE_SYMTAB
 #include "Struct-Inline.hpp"
 #endif
+
+#define FULL_STRUCT_DEBUG 0
 
 //*************************** Forward Declarations ***************************
 
@@ -151,20 +156,15 @@ buildProcLoopNests(Prof::Struct::Proc* pStrct, BinUtil::Proc* p,
 static int
 buildStmts(Struct::LocationMgr& locMgr,
 	   Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
-	   OA::OA_ptr<OA::CFG::NodeInterface> bb, ProcNameMgr* procNmMgr);
+	   OA::OA_ptr<OA::CFG::NodeInterface> bb, ProcNameMgr* procNmMgr,
+	   std::list<Prof::Struct::ACodeNode *> &insertions, int targetScopeID);
 
 
 static void
 findLoopBegLineInfo(/*Struct::ACodeNode* procCtxt,*/ BinUtil::Proc* p,
 		    OA::OA_ptr<OA::CFG::NodeInterface> headBB,
-		    string& begFilenm, string& begProcnm, SrcFile::ln& begLn);
+		    string& begFilenm, string& begProcnm, SrcFile::ln& begLn, VMA &loop_vma);
 
-#if 0
-static Struct::Stmt*
-demandStmtNode(std::map<SrcFile::ln, Struct::Stmt*>& stmtMap,
-	       Prof::Struct::ACodeNode* enclosingStrct, SrcFile::ln line,
-	       VMAInterval& vmaint);
-#endif
 
 // Cannot make this a local class because it is used as a template
 // argument! Sigh.
@@ -547,11 +547,230 @@ buildProcLoopNests(Prof::Struct::Proc* enclosingProc, BinUtil::Proc* p,
 
 static Prof::Struct::ACodeNode*
 buildLoopAndStmts(Struct::LocationMgr& locMgr,
-		  Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
-		  OA::OA_ptr<OA::NestedSCR> tarj,
+		  Prof::Struct::ACodeNode* topScope, Prof::Struct::ACodeNode* enclosingScope, 
+	  	  BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 		  OA::OA_ptr<OA::CFG::CFGInterface> cfg,
 		  OA::RIFG::NodeId fgNode,
 		  bool isIrrIvalLoop, ProcNameMgr* procNmMgr);
+
+
+
+static bool
+AlienScopeFilter(const Prof::Struct::ANode& x, long GCC_ATTR_UNUSED type)
+{
+  return (x.type() == Prof::Struct::ANode::TyAlien);
+}
+
+
+#if DEBUG_COMPARE
+static int debug_compare = 0;
+#define retval_line 1
+#define retval_proc 2
+#define retval_file 3
+#define MAINTAIN_REASON(x) x
+#else
+#define MAINTAIN_REASON(x) 
+#endif
+
+
+class AlienCompare {
+public:
+  bool operator()(const Prof::Struct::Alien* a1,  const Prof::Struct::Alien* a2) const {
+    bool retval = false;
+    MAINTAIN_REASON(int reason = 0);
+    if (a1->begLine() == a2->begLine()) {
+      int result_dn = strcmp(a1->displayName().c_str(), a2->displayName().c_str());
+      if (result_dn == 0) {
+        int result_fn = strcmp(a1->fileName().c_str(), a2->fileName().c_str());
+        if (result_fn == 0) {
+          retval = false;
+        } else {
+          retval = (result_fn < 0) ? true : false;
+          MAINTAIN_REASON(reason = retval_file);
+        }
+      } else {
+        retval = (result_dn < 0) ? true : false;
+        MAINTAIN_REASON(reason = retval_proc);
+      }
+    } else {
+      retval = (a1->begLine() < a2->begLine()) ? true : false;
+      MAINTAIN_REASON(reason = retval_line);
+    } 
+#if DEBUG_COMPARE
+    if (debug_compare) {
+      std::cout << "compare(" << a1 << ", " << a2 << ") = " 
+                << retval << " reason =" << reason << std::endl;
+      std::cout << "  " << a1 << "=[" << a1->begLine() << "," 
+                << a1->displayName() << "," << a1->fileName() << "]" << std::endl;
+      std::cout << "  " << a2 << "=[" << a2->begLine() << "," 
+                << a2->displayName() << "," << a2->fileName() << "]" << std::endl;
+    }
+#endif
+    return retval;
+  } 
+};
+
+
+static bool
+inlinedProceduresFilter(const Prof::Struct::ANode& x, long GCC_ATTR_UNUSED type)
+{
+  if (x.type() != Prof::Struct::ANode::TyAlien) return false;
+  Prof::Struct::Alien* alien = (Prof::Struct::Alien*) &x;
+  return (alien->begLine() == 0);
+}
+
+
+// iterate over all nodes that represent inlined procedure scopes. compute an approximate
+// beginning line based on the minimum line number in scopes directly within.
+static void
+renumberAlienScopes(Prof::Struct::ANode* node)
+{
+  // use a filter that selects scopes that represent inlined procedures (not call sites)
+  Prof::Struct::ANodeFilter inlinesOnly(inlinedProceduresFilter, "inlinedProceduresFilter", 0);
+  
+  // iterate over scopes that represent inlined procedures
+  for(Prof::Struct::ANodeIterator inlines(node, &inlinesOnly); inlines.Current(); inlines++) {
+    Prof::Struct::Alien* inlinedProcedure = dynamic_cast<Prof::Struct::Alien*>(inlines.Current());
+    int minLine = INT_MAX;
+    int maxLine = 0;
+
+    //---------------------------------------------------------------------
+    // iterate over the immediate child scopes of an inlined procedure
+    //---------------------------------------------------------------------
+    for(NonUniformDegreeTreeNodeChildIterator kids(inlinedProcedure); 
+        kids.Current(); kids++) {
+      Prof::Struct::ACodeNode* child = 
+         dynamic_cast<Prof::Struct::ACodeNode*>(kids.Current());
+      int childLine = child->begLine();
+      if (childLine > 0) {
+        if (childLine < minLine) {
+          minLine = childLine;
+        }
+        if (childLine > maxLine) {
+          maxLine = childLine;
+        }
+      }
+    }
+    if (maxLine != 0) {
+	inlinedProcedure->thawLine();
+	inlinedProcedure->setLineRange(minLine,maxLine);
+	inlinedProcedure->freezeLine();
+    }
+  }
+}
+
+
+//----------------------------------------------------------------------------
+// because of how alien contexts are entered into the tree, there may be many
+// duplicates. if there are duplicates among the immediate children of node, 
+// coalesce them. then, apply this coalescing to the subtree rooted at 
+// each of the remaining (unique) children of node.
+//----------------------------------------------------------------------------
+typedef std::list<Prof::Struct::Alien*> AlienList;
+typedef std::map<Prof::Struct::Alien*, AlienList *, AlienCompare> AlienMap;
+
+void dumpMap(AlienMap &alienMap)
+{
+    std::cout << "map " << &alienMap << 
+                 " (" << alienMap.size() << " items)" << std::endl;
+
+    for(AlienMap::iterator pairs = alienMap.begin(); 
+        pairs != alienMap.end(); pairs++) {
+        std::cout << "  [" << pairs->first << "] = {"; 
+        AlienList *alienList = pairs->second;
+        for(AlienList::iterator duplicates = alienList->begin(); 
+            duplicates != alienList->end(); duplicates++) {
+            std::cout << " " << *duplicates << " "; 
+	}
+        std::cout << "}" << std::endl; 
+    }
+}
+
+static void
+coalesceAlienChildren(Prof::Struct::ANode* node)
+{
+  AlienMap alienMap; 
+  bool duplicates = false;
+
+  //----------------------------------------------------------------------------
+  // enter all alien children into a map. values in the map will be lists of 
+  // equivalent alien children.
+  //----------------------------------------------------------------------------
+  Prof::Struct::ANodeFilter aliensOnly(AlienScopeFilter, "AlienScopeFilter", 0);
+  for(Prof::Struct::ANodeChildIterator it(node, &aliensOnly); it.Current(); it++) {
+    Prof::Struct::Alien* alien = dynamic_cast<Prof::Struct::Alien*>(it.Current());
+    AlienMap::iterator found = alienMap.find(alien);
+    if (found == alienMap.end()) {
+      alienMap[alien] = new AlienList;
+    } else {
+      found->second->push_back(alien);
+      duplicates = true;
+    }
+  }
+
+  //----------------------------------------------------------------------------
+  // coalesce equivalent alien children by merging all alien children in a list 
+  // into the first element. free duplicate aliens after unlinking them from the 
+  // tree.
+  //----------------------------------------------------------------------------
+  if (duplicates) {
+    for (AlienMap::iterator sets = alienMap.begin(); 
+       sets != alienMap.end(); sets++) {
+
+      //------------------------------------------------------------------------
+      // for each list of equivalent aliens, have the first alien adopt children 
+      // of all the rest unlink and delete all but the first of the list of 
+      // aliens.
+      //------------------------------------------------------------------------
+      AlienList *alienList =  sets->second;
+      Prof::Struct::Alien* first = sets->first;
+
+      // for each of the elements in the list of duplicate aliens
+      for (AlienList::iterator duplicates = alienList->begin();
+           duplicates != alienList->end(); duplicates++)  {
+         Prof::Struct::Alien* duplicate = *duplicates;
+
+         //---------------------------------------------------------------------
+	 // accumulate a list of the children of the duplicate alien 
+         //---------------------------------------------------------------------
+	 std::list<Prof::Struct::ANode*> kidsList;
+         for(NonUniformDegreeTreeNodeChildIterator kids(duplicate); 
+             kids.Current(); kids++) {
+           Prof::Struct::ANode* kid = 
+             dynamic_cast<Prof::Struct::ANode*>(kids.Current());
+	   kidsList.push_back(kid);
+	 }
+
+         //---------------------------------------------------------------------
+	 // walk through the list of the children of duplicate and reparent them
+         // under first - an equivalent alien that will adopt all children of 
+         // duplicate.
+         //---------------------------------------------------------------------
+         for (std::list<Prof::Struct::ANode*>::iterator kids = kidsList.begin();
+           kids != kidsList.end(); kids++)  {
+           Prof::Struct::ANode* kid = *kids;
+           kid->unlink();
+           kid->link(first);
+         }
+         duplicate->unlink();
+         delete duplicate;
+      }
+      alienList->clear(); // done with this list. discard its contents.
+    }
+  }
+
+  alienMap.clear(); // done with the map. discard its contents.
+
+  //----------------------------------------------------------------------------
+  // recursively apply coalescing to the subtree rooted at each child of node
+  //----------------------------------------------------------------------------
+  for(NonUniformDegreeTreeNodeChildIterator kids(node); kids.Current(); kids++) {
+    Prof::Struct::ANode* kid = dynamic_cast<Prof::Struct::ANode*>(kids.Current());
+    if (typeid(*kid) != typeid(Prof::Struct::Stmt)) {
+      coalesceAlienChildren(kid);
+    }
+  }
+}
 
 
 // buildProcStructure: Complete the representation for 'pStrct' given the
@@ -568,12 +787,69 @@ buildProcStructure(Prof::Struct::Proc* pStrct, BinUtil::Proc* p,
     //uint dbgId = p->id();
     isDbg = FileUtil::fnmatch(dbgProcGlob, p->name().c_str());
   }
+#if FULL_STRUCT_DEBUG
+  // heavy handed knob for full debug output, left in place for convenience
+  isDbg = true;
+#endif
   
   buildProcLoopNests(pStrct, p, isIrrIvalLoop, isFwdSubst, procNmMgr, isDbg);
+  coalesceAlienChildren(pStrct);
+  renumberAlienScopes(pStrct);
   
   return pStrct;
 }
 
+
+void
+debugCFGInfo(BinUtil::Proc* p)
+{
+  static const int sepWidth = 77;
+
+  using std::setfill;
+  using std::setw;
+  using BAnal::OAInterface;
+    
+  OA::OA_ptr<OAInterface> irIF; irIF = new OAInterface(p);
+    
+  OA::OA_ptr<OA::CFG::ManagerCFGStandard> cfgmanstd;
+  cfgmanstd = new OA::CFG::ManagerCFGStandard(irIF);
+
+  OA::OA_ptr<OA::CFG::CFG> cfg =
+    cfgmanstd->performAnalysis(TY_TO_IRHNDL(p, OA::ProcHandle));
+    
+  OA::OA_ptr<OA::RIFG> rifg; 
+  rifg = new OA::RIFG(cfg, cfg->getEntry(), cfg->getExit());
+
+  OA::OA_ptr<OA::NestedSCR> tarj;
+  tarj = new OA::NestedSCR(rifg);
+    
+  cerr << setfill('=') << setw(sepWidth) << "=" << endl;
+  cerr << "Procedure: " << p->name() << endl << endl;
+
+  OA::OA_ptr<OA::OutputBuilder> ob1, ob2;
+  ob1 = new OA::OutputBuilderText(cerr);
+  ob2 = new OA::OutputBuilderDOT(cerr);
+
+  cerr << setfill('-') << setw(sepWidth) << "-" << endl;
+  cerr << "*** CFG Text: [nodes, edges: "
+       << cfg->getNumNodes() << ", " << cfg->getNumEdges() << "]\n";
+  cfg->configOutput(ob1);
+  cfg->output(*irIF);
+
+  cerr << setfill('-') << setw(sepWidth) << "-" << endl;
+  cerr << "*** CFG DOT:\n";
+  cfg->configOutput(ob2);
+  cfg->output(*irIF);
+  cerr << endl;
+
+  cerr << setfill('-') << setw(sepWidth) << "-" << endl;
+  cerr << "*** Nested SCR (Tarjan) Tree\n";
+  tarj->dump(cerr);
+  cerr << endl;
+
+  cerr << setfill('-') << setw(sepWidth) << "-" << endl;
+  cerr << endl << flush;
+}
 
 // buildProcLoopNests: Build procedure structure by traversing
 // the Nested SCR (Tarjan tree) to create loop nests and statement
@@ -604,32 +880,7 @@ buildProcLoopNests(Prof::Struct::Proc* pStrct, BinUtil::Proc* p,
     OA::RIFG::NodeId fgRoot = rifg->getSource();
 
     if (isDbg) {
-      cerr << setfill('=') << setw(sepWidth) << "=" << endl;
-      cerr << "Procedure: " << p->name() << endl << endl;
-
-      OA::OA_ptr<OA::OutputBuilder> ob1, ob2;
-      ob1 = new OA::OutputBuilderText(cerr);
-      ob2 = new OA::OutputBuilderDOT(cerr);
-
-      cerr << setfill('-') << setw(sepWidth) << "-" << endl;
-      cerr << "*** CFG Text: [nodes, edges: "
-	   << cfg->getNumNodes() << ", " << cfg->getNumEdges() << "]\n";
-      cfg->configOutput(ob1);
-      cfg->output(*irIF);
-
-      cerr << setfill('-') << setw(sepWidth) << "-" << endl;
-      cerr << "*** CFG DOT:\n";
-      cfg->configOutput(ob2);
-      cfg->output(*irIF);
-      cerr << endl;
-
-      cerr << setfill('-') << setw(sepWidth) << "-" << endl;
-      cerr << "*** Nested SCR (Tarjan) Tree\n";
-      tarj->dump(cerr);
-      cerr << endl;
-
-      cerr << setfill('-') << setw(sepWidth) << "-" << endl;
-      cerr << endl << flush;
+      debugCFGInfo(p);
     }
 
     int r = buildProcLoopNests(pStrct, p, tarj, cfg, fgRoot,
@@ -649,11 +900,163 @@ buildProcLoopNests(Prof::Struct::Proc* pStrct, BinUtil::Proc* p,
 }
 
 
-// buildProcLoopNests: Visit the object code loops in pre-order and
-// create source code representations.  Technically we choose to visit
-// in BFS order, which in a better world would would allow us to check
-// sibling loop boundaries.  Note that the resulting source coded
-// loops are UNNORMALIZED.
+static Prof::Struct::ANode * 
+getVisibleAncestor(Prof::Struct::ANode *node)
+{
+  for (;;) {
+    node = node->parent();
+    if (node == 0 || node->isVisible()) return node;
+  }
+}
+
+
+#if FULL_STRUCT_DEBUG
+static int
+willBeCycle()
+{
+  return 1;
+}
+ 
+
+static int
+checkCycle(Prof::Struct::ANode *node, Prof::Struct::ANode *loop)
+{
+  Prof::Struct::ANode *n = loop;
+  while (n) {
+    if (n == node) {
+      return willBeCycle();
+    }
+    n = n->parent();
+  }
+  return 0;
+}
+
+
+static int
+ancestorIsLoop(Prof::Struct::ANode *node)
+{
+  Prof::Struct::ANode *n = node;
+  while ((n = n->parent())) {
+    if (n->type() == Prof::Struct::ANode::TyLoop) 
+      return 1;
+  }
+  return 0;
+}
+#endif
+
+
+static void
+reparentNode(Prof::Struct::ANode *kid, Prof::Struct::ANode *loop, 
+             Prof::Struct::ANode *loopParent, Struct::LocationMgr& locMgr)
+{
+  Prof::Struct::ANode *node = kid;
+
+  for(;;) {
+    if (node == 0) {
+      // kid must be an ancestor of loop that needs to be reparented
+      // into the loop. move kid directly.
+      node = kid; 
+      break;
+    }
+    Prof::Struct::ANode *parent = getVisibleAncestor(node);
+    if (parent == loop) {
+      // kid is in a subtree of node, which is already a descendant of
+      // loop. no further action needed.
+      return;
+    }
+    if (parent == loopParent) {
+      // kid is in a subtree of node, which is currently a sibling of
+      // loop. move node into loop.
+      break;
+    }
+    node = parent;
+  }
+#if FULL_STRUCT_DEBUG
+  // heavyhanded debugging
+  if (checkCycle(node, loop) == 0) 
+#endif
+  {
+    if (typeid(*node) == typeid(Prof::Struct::Alien)) {
+      // if reparenting an alien node, make sure that we are not 
+      // caching its old parent in the alien cache
+      locMgr.evictAlien((Prof::Struct::ACodeNode *)node->parent(), 
+			(Prof::Struct::Alien *)node);
+    }
+    node->unlink();
+    node->link(loop);
+  }
+}
+
+
+static void
+processInterval(BinUtil::Proc* p,
+		Prof::Struct::ACodeNode* topScope,
+		Prof::Struct::ACodeNode* enclosingScope,
+		OA::OA_ptr<OA::CFG::CFGInterface> cfg,
+		OA::OA_ptr<OA::NestedSCR> tarj,
+		OA::RIFG::NodeId flowGraphNodeId,
+		std::vector<bool> &isNodeProcessed,
+		Struct::LocationMgr &locMgr,
+		bool isIrrIvalLoop, bool isFwdSubst,
+		ProcNameMgr* procNmMgr, int &nLoops, bool isDbg)
+{
+  Prof::Struct::ACodeNode* currentScope;
+
+  // --------------------------------------------------------------
+  // build the scope tree representation for statements in the current
+  // interval in the flowgraph. if the interval is a loop, the scope
+  // returned from buildLoopAndStmts will be a loop scope. this loop
+  // scope will be correctly positioned in the scope tree relative to
+  // alien contexts from inlined code; however it will not yet be
+  // nested inside the loops created by an outer call to
+  // processInterval. we correct that at the end after processing
+  // nested scopes.
+  // --------------------------------------------------------------
+  currentScope = 
+    buildLoopAndStmts(locMgr, topScope, enclosingScope, p, tarj, cfg, flowGraphNodeId, 
+		      isIrrIvalLoop, procNmMgr);
+
+  isNodeProcessed[flowGraphNodeId] = true;
+    
+  // --------------------------------------------------------------
+  // build the scope tree representation for nested intervals in the
+  // flowgraph
+  // --------------------------------------------------------------
+  for(OA::RIFG::NodeId flowGraphKidId = tarj->getInners(flowGraphNodeId); 
+      flowGraphKidId != OA::RIFG::NIL; 
+      flowGraphKidId = tarj->getNext(flowGraphKidId)) { 
+
+    processInterval(p, topScope, currentScope, cfg, tarj, flowGraphKidId,
+		    isNodeProcessed, locMgr, isIrrIvalLoop, isFwdSubst,
+		    procNmMgr, nLoops, isDbg);
+  }
+
+  if (currentScope != enclosingScope) {
+    // --------------------------------------------------------------
+    // if my enclosing scope is a loop ...
+    // --------------------------------------------------------------
+    if (enclosingScope->type() == Prof::Struct::ANode::TyLoop) {
+      // --------------------------------------------------------------
+      // find a visible ancestor of enclosingScope. this should be the
+      // least common ancestor (lca) of currentScope and
+      // enclosingScope. all of the nodes along the path from
+      // currentScope to the lca belong nested enclosingScope.
+      // --------------------------------------------------------------
+      Prof::Struct::ANode* lca = getVisibleAncestor(enclosingScope);
+
+      // --------------------------------------------------------------
+      // adjust my location in the scope tree so that it is inside 
+      // my enclosing scope. 
+      // --------------------------------------------------------------
+      reparentNode(currentScope, enclosingScope, lca, locMgr);
+    }
+    nLoops++;
+  }
+}
+
+
+// buildProcLoopNests: Visit the object code loops using DFS and create 
+// source code representations. The resulting loops are UNNORMALIZED.
 static int
 buildProcLoopNests(Prof::Struct::Proc* enclosingProc, BinUtil::Proc* p,
 		   OA::OA_ptr<OA::NestedSCR> tarj,
@@ -662,8 +1065,6 @@ buildProcLoopNests(Prof::Struct::Proc* enclosingProc, BinUtil::Proc* p,
 		   bool isIrrIvalLoop, bool isFwdSubst,
 		   ProcNameMgr* procNmMgr, bool isDbg)
 {
-  typedef std::list<QNode> MyQueue;
-
   int nLoops = 0;
 
   std::vector<bool> isNodeProcessed(tarj->getRIFG()->getHighWaterMarkNodeId() + 1);
@@ -675,117 +1076,28 @@ buildProcLoopNests(Prof::Struct::Proc* enclosingProc, BinUtil::Proc* p,
 
   locMgr.begSeq(enclosingProc, isFwdSubst);
   
-  // -------------------------------------------------------
-  // Process the Nested SCR (Tarjan tree) in preorder
-  // -------------------------------------------------------
-
-  // NOTE: The reason for this generality is that we experimented with
-  // a "split" BFS search in a futile attempt to recover the inlining
-  // tree.
-
-  // Queue INVARIANTs.  The queue has two sections to support general searches:
-  //
-  //             BFS sec.      TODO sec.
-  //   queue: [ e_i ... e_j | e_k ... e_l ]
-  //            ^             ^
-  //            begin()       q_todo
-  //
-  //  1.  Nodes in BFS section have already been processed.
-  //  1a. Processed nodes have non-NULL child-scopes
-  //  2.  Nodes in TODO section have *not* been processed.
-  //  2a. Non-processed nodes have NULL child-scopes
-  //  3.  No node's children has been processed
-  MyQueue theQueue;
-  theQueue.push_back(QNode(fgRoot, enclosingProc, NULL));
-  MyQueue::iterator q_todo = theQueue.begin();
-
-  while (!theQueue.empty()) {
-    // -------------------------------------------------------
-    // 1. pop the front element, adjusting q_todo if necessary
-    // -------------------------------------------------------
-    bool isTODO = (q_todo == theQueue.begin());
-    if (isTODO) {
-      q_todo++;
-    }
-    QNode qnode = theQueue.front();
-    theQueue.pop_front();
-
-    // -------------------------------------------------------
-    // 2. process the element, if necessary
-    // -------------------------------------------------------
-    if (isTODO) {
-      // Note that if this call closes an alien context, invariants
-      // below ensure that this context has been fully explored.
-      Prof::Struct::ACodeNode* myScope;
-      myScope = buildLoopAndStmts(locMgr, qnode.enclosingStrct, p,
-				  tarj, cfg, qnode.fgNode, isIrrIvalLoop,
-				  procNmMgr);
-      isNodeProcessed[qnode.fgNode] = true;
-      qnode.scope = myScope;
-      if (typeid(*myScope) == typeid(Prof::Struct::Loop)) {
-	nLoops++;
-      }
-    }
-    
-    // -------------------------------------------------------
-    // 3. process children within this context in BFS fashion
-    //    (Note: WasCtxtClosed() always false -> BFS)
-    // -------------------------------------------------------
-    OA::RIFG::NodeId kid = tarj->getInners(qnode.fgNode);
-    if (kid == OA::RIFG::NIL) {
-      continue;
-    }
-    
-    do {
-      Prof::Struct::ACodeNode* myScope;
-      myScope = buildLoopAndStmts(locMgr, qnode.scope, p,
-				  tarj, cfg, kid, isIrrIvalLoop, procNmMgr);
-      isNodeProcessed[kid] = true;
-      if (typeid(*myScope) == typeid(Prof::Struct::Loop)) {
-	nLoops++;
-      }
-      
-      // Insert to BFS section (inserts before)
-      theQueue.insert(q_todo, QNode(kid, qnode.scope, myScope));
-      kid = tarj->getNext(kid);
-    }
-    while (kid != OA::RIFG::NIL /* && !WasCtxtClosed(qnode.scope, locMgr) */);
-
-    // NOTE: *If* we knew the loop was correctly parented in a
-    // procedure context, we could check sibling boundaries.  However,
-    // there are cases where an initial loop nesting must be
-    // corrected.
-
-    // -------------------------------------------------------
-    // 4. place rest of children in queue's TODO section
-    // -------------------------------------------------------
-    for ( ; kid != OA::RIFG::NIL; kid = tarj->getNext(kid)) {
-      theQueue.push_back(QNode(kid, qnode.scope, NULL));
-
-      // ensure 'q_todo' points to the beginning of TODO section
-      if (q_todo == theQueue.end()) {
-	q_todo--;
-      }
-    }
-  }
+  // ----------------------------------------------------------
+  // Process the Nested SCR (Tarjan tree) in depth first order
+  // ----------------------------------------------------------
+  processInterval(p, enclosingProc, enclosingProc, cfg,
+		  tarj, fgRoot, isNodeProcessed, locMgr,
+		  isIrrIvalLoop, isFwdSubst, procNmMgr, nLoops, isDbg);
 
   // -------------------------------------------------------
-  // Process nodes that we have not visited.
+  // Process any nodes that we have not already visited.
   //
   // This may occur if the CFG is disconnected.  E.g., we do not
   // correctly handle jump tables.  Note that we cannot be sure of the
   // location of these statements within procedure structure.
   // -------------------------------------------------------
-
   for (uint i = 1; i < isNodeProcessed.size(); ++i) {
     if (!isNodeProcessed[i]) {
       // INVARIANT: return value is never a Struct::Loop
-      buildLoopAndStmts(locMgr, enclosingProc, p, tarj, cfg, i, isIrrIvalLoop,
+      buildLoopAndStmts(locMgr, enclosingProc, enclosingProc, p, tarj, cfg, i, isIrrIvalLoop,
 			procNmMgr);
     }
   }
 
-  
   locMgr.endSeq();
 
   return nLoops;
@@ -796,8 +1108,8 @@ buildProcLoopNests(Prof::Struct::Proc* enclosingProc, BinUtil::Proc* p,
 // scope for children of 'fgNode', e.g. loop or proc.
 static Prof::Struct::ACodeNode*
 buildLoopAndStmts(Struct::LocationMgr& locMgr,
-		  Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
-		  OA::OA_ptr<OA::NestedSCR> tarj,
+		  Prof::Struct::ACodeNode* topScope, Prof::Struct::ACodeNode* enclosingScope,
+		  BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 		  OA::OA_ptr<OA::CFG::CFGInterface> GCC_ATTR_UNUSED cfg,
 		  OA::RIFG::NodeId fgNode,
 		  bool isIrrIvalLoop, ProcNameMgr* procNmMgr)
@@ -807,49 +1119,69 @@ buildLoopAndStmts(Struct::LocationMgr& locMgr,
     rifg->getNode(fgNode).convert<OA::CFG::NodeInterface>();
   BinUtil::Insn* insn = BAnal::OA_CFG_getBegInsn(bb);
   VMA begVMA = (insn) ? insn->opVMA() : 0;
+  Prof::Struct::Loop* loop = NULL;
+
+  string fnm, pnm;
+  SrcFile::ln line;
+  VMA loop_vma;
   
-  DIAG_DevMsg(10, "buildLoopAndStmts: " << bb << " [id: " << bb->getId() << "] " << hex << begVMA << " --> " << enclosingStrct << dec << " " << enclosingStrct->toString_id());
+  DIAG_DevMsg(10, "buildLoopAndStmts: " << bb << " [id: " << bb->getId() << "] " 
+	      << hex << begVMA << " --> " << enclosingScope << dec 
+	      << " " << enclosingScope->toString_id());
 
-  Prof::Struct::ACodeNode* childScope = enclosingStrct;
-
+  Prof::Struct::ACodeNode* targetScope = enclosingScope;
   OA::NestedSCR::Node_t ity = tarj->getNodeType(fgNode);
+
   if (ity == OA::NestedSCR::NODE_ACYCLIC
       || ity == OA::NestedSCR::NODE_NOTHING) {
     // -----------------------------------------------------
     // ACYCLIC: No loops
     // -----------------------------------------------------
-  }
-  else if (ity == OA::NestedSCR::NODE_INTERVAL ||
+  } else if (ity == OA::NestedSCR::NODE_INTERVAL ||
 	   (isIrrIvalLoop && ity == OA::NestedSCR::NODE_IRREDUCIBLE)) {
     // -----------------------------------------------------
     // INTERVAL or IRREDUCIBLE as a loop: Loop head
     // -----------------------------------------------------
     //Struct::ACodeNode* procCtxt = enclosingStrct->ancestorProcCtxt();
-    string fnm, pnm;
-    SrcFile::ln line;
-    findLoopBegLineInfo(/*procCtxt,*/ p, bb, fnm, pnm, line);
+    findLoopBegLineInfo(/*procCtxt,*/ p, bb, fnm, pnm, line, loop_vma);
     pnm = BinUtil::canonicalizeProcName(pnm, procNmMgr);
     
-    Prof::Struct::Loop* loop = new Prof::Struct::Loop(NULL, line, line);
-    loop->vmaSet().insert(begVMA, begVMA + 1); // a loop id
-    locMgr.locate(loop, enclosingStrct, fnm, pnm, line);
-    childScope = loop;
-  }
-  else if (!isIrrIvalLoop && ity == OA::NestedSCR::NODE_IRREDUCIBLE) {
+    loop = new Prof::Struct::Loop(NULL, fnm, line, line);
+    loop->vmaSet().insert(loop_vma, loop_vma + 1); // a loop id
+    targetScope = loop;
+  } else if (!isIrrIvalLoop && ity == OA::NestedSCR::NODE_IRREDUCIBLE) {
     // -----------------------------------------------------
     // IRREDUCIBLE as no loop: May contain loops
     // -----------------------------------------------------
-  }
-  else {
+  } else {
     DIAG_Die("Should never reach!");
   }
 
   // -----------------------------------------------------
   // Process instructions within BB
   // -----------------------------------------------------
-  buildStmts(locMgr, childScope, p, bb, procNmMgr);
+  std::list<Prof::Struct::ACodeNode *> kids;
+  buildStmts(locMgr, topScope, p, bb, procNmMgr, kids, targetScope->id());
+  
+  if (loop) { 
+    locMgr.locate(loop, topScope, fnm, pnm, line, targetScope->id());
+#if FULL_STRUCT_DEBUG
+    if (ancestorIsLoop(loop)) willBeCycle();
+#endif
+  }
 
-  return childScope;
+  if (typeid(*targetScope) == typeid(Prof::Struct::Loop)) {
+    // -----------------------------------------------------
+    // reparent statements into the target loop 
+    // -----------------------------------------------------
+    Prof::Struct::ANode *targetScopeParent = getVisibleAncestor(targetScope); 
+    for (std::list<Prof::Struct::ACodeNode *>::iterator kid = kids.begin(); 
+	 kid != kids.end(); ++kid) {
+      reparentNode(*kid, targetScope, targetScopeParent, locMgr);
+    }
+  }
+
+  return targetScope;
 }
 
 
@@ -859,7 +1191,8 @@ buildLoopAndStmts(Struct::LocationMgr& locMgr,
 static int
 buildStmts(Struct::LocationMgr& locMgr,
 	   Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
-	   OA::OA_ptr<OA::CFG::NodeInterface> bb, ProcNameMgr* procNmMgr)
+	   OA::OA_ptr<OA::CFG::NodeInterface> bb, ProcNameMgr* procNmMgr, 
+	   std::list<Prof::Struct::ACodeNode *> &insertions, int targetScopeID)
 {
   static int call_sortId = 0;
 
@@ -902,84 +1235,11 @@ buildStmts(Struct::LocationMgr& locMgr,
     if (idesc.isSubr()) {
       stmt->sortId(--call_sortId);
     }
-    locMgr.locate(stmt, enclosingStrct, filenm, procnm, line);
+    insertions.push_back(stmt);
+    locMgr.locate(stmt, enclosingStrct, filenm, procnm, line, targetScopeID);
   }
   return 0;
 }
-
-
-#if 0 // FIXME: Deprecated
-// buildProcLoopNests: Recursively build loops using Nested SCR
-// (Tarjan interval) analysis and returns the number of loops created.
-// 
-// We visit the interval tree in DFS order which is equivalent to
-// visiting each basic block in VMA order.
-//
-// Note that these loops are UNNORMALIZED.
-static int
-buildProcLoopNests(Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
-		   OA::OA_ptr<OA::NestedSCR> tarj,
-		   OA::OA_ptr<OA::CFG::Interface> cfg,
-		   OA::RIFG::NodeId fgNode,
-		   int addStmts, bool isIrrIvalLoop)
-{
-  int localLoops = 0;
-  OA::OA_ptr<OA::RIFG> rifg = tarj->getRIFG();
-  OA::OA_ptr<OA::CFG::Interface::Node> bb =
-    rifg->getNode(fgNode).convert<OA::CFG::Interface::Node>();
-  
-  DIAG_DevMsg(50, "buildProcLoopNests: " << bb <<  " --> "  << hex << enclosingStrct << dec << " " << enclosingStrct->toString_id());
-
-  if (addStmts) {
-    // mp->push_back(make_pair(bb, enclosingStrct));
-  }
-  
-  // -------------------------------------------------------
-  // Recursively traverse the Nested SCR (Tarjan tree), building loop nests
-  // -------------------------------------------------------
-  for (int kid = tarj->getInners(fgNode); kid != OA::RIFG::NIL;
-       kid = tarj->getNext(kid) ) {
-    OA::OA_ptr<OA::CFG::Interface::Node> bb1 =
-      rifg->getNode(kid).convert<OA::CFG::Interface::Node>();
-    OA::NestedSCR::Node_t ity = tarj->getNodeType(kid);
-
-    if (ity == OA::NestedSCR::NODE_ACYCLIC) {
-      // -----------------------------------------------------
-      // ACYCLIC: No loops
-      // -----------------------------------------------------
-      if (addStmts) {
-	//mp->push_back(make_pair(bb1, enclosingStrct));
-      }
-    }
-    else if (ity == OA::NestedSCR::NODE_INTERVAL ||
-	     (isIrrIvalLoop && ity == OA::NestedSCR::NODE_IRREDUCIBLE)) {
-      // -----------------------------------------------------
-      // INTERVAL or IRREDUCIBLE as a loop: Loop head
-      // -----------------------------------------------------
-
-      // add alien context if necessary....
-      Prof::Struct::Loop* lScope =
-	new Prof::Struct::Loop(enclosingStrct, line, line);
-      int num = buildProcLoopNests(lScope, p, tarj, cfg, kid, mp,
-				   1, isIrrIvalLoop);
-      localLoops += (num + 1);
-    }
-    else if (!isIrrIvalLoop && ity == OA::NestedSCR::NODE_IRREDUCIBLE) {
-      // -----------------------------------------------------
-      // IRREDUCIBLE as no loop: May contain loops
-      // -----------------------------------------------------
-      int num = buildProcLoopNests(enclosingStrct, p, tarj, cfg, kid, mp,
-				   addStmts, isIrrIvalLoop);
-      localLoops += num;
-    }
-    else {
-      DIAG_Die("Should never reach!");
-    }
-  }
-  
-  return localLoops;
-}
-#endif
 
 
 //****************************************************************************
@@ -1000,7 +1260,7 @@ buildProcLoopNests(Prof::Struct::ACodeNode* enclosingStrct, BinUtil::Proc* p,
 static void
 findLoopBegLineInfo(/* Prof::Struct::ACodeNode* procCtxt,*/ BinUtil::Proc* p,
 		    OA::OA_ptr<OA::CFG::NodeInterface> headBB,
-		    string& begFileNm, string& begProcNm, SrcFile::ln& begLn)
+		    string& begFileNm, string& begProcNm, SrcFile::ln& begLn, VMA &loop_vma)
 {
   using namespace OA::CFG;
 
@@ -1042,6 +1302,7 @@ findLoopBegLineInfo(/* Prof::Struct::ACodeNode* procCtxt,*/ BinUtil::Proc* p,
 	begLn = line;
 	begFileNm = filenm;
 	begProcNm = procnm;
+	loop_vma = vma;
       }
     }
   }
@@ -1052,6 +1313,7 @@ findLoopBegLineInfo(/* Prof::Struct::ACodeNode* procCtxt,*/ BinUtil::Proc* p,
   if (!SrcFile::isValid(begLn)) {
     // Fall through: consult the first instruction in the loop
     p->findSrcCodeInfo(headVMA, headOpIdx, begProcNm, begFileNm, begLn);
+    loop_vma = headVMA;
   }
 
 #if 0
@@ -1083,28 +1345,6 @@ findLoopBegLineInfo(/* Prof::Struct::ACodeNode* procCtxt,*/ BinUtil::Proc* p,
 #endif
 }
 
-
-
-#if 0
-// demandStmtNode: Build a Struct::Stmt.  Unlike LocateStmt,
-// assumes that procedure boundaries do not need to be expanded.
-static Prof::Struct::Stmt*
-demandStmtNode(std::map<SrcFile::ln, Prof::Struct::Stmt*>& stmtMap,
-	       Prof::Struct::ACodeNode* enclosingStrct, SrcFile::ln line,
-	       VMAInterval& vmaint)
-{
-  Prof::Struct::Stmt* stmt = stmtMap[line];
-  if (!stmt) {
-    stmt = new Prof::Struct::Stmt(enclosingStrct, line, line,
-				  vmaint.beg(), vmaint.end());
-    stmtMap.insert(make_pair(line, stmt));
-  }
-  else {
-    stmt->vmaSet().insert(vmaint); // expand VMA range
-  }
-  return stmt;
-}
-#endif
 
 } // namespace Struct
 

@@ -70,12 +70,6 @@
 #define EMSG           hpcrun_emsg
 #define AMSG           hpcrun_amsg
 
-#ifdef COMPILE_IN
-#define CTMSG(...) TMSG(__VA_ARGS__)
-#else
-#define CTMSG(...)
-#endif // COMPILE_IN
-
 #ifdef NO_HPCRUN_MSGS
 #define STDERR_MSG(...)
 #define EEMSG(...)      

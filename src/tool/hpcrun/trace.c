@@ -115,7 +115,6 @@ hpcrun_trace_init()
 {
   if (getenv(HPCRUN_TRACE)) {
       tracing = 1;
-      TMSG(TRACE, "Tracing is ON");
   }
 }
 
@@ -128,12 +127,10 @@ hpcrun_trace_open(core_profile_trace_data_t * cptd)
     return;
   }
 
-  TMSG(TRACE, "Trace open called");
   // With fractional sampling, if this process is inactive, then don't
   // open an output file, not even /dev/null.
   if (tracing && hpcrun_sample_prob_active()) {
 	
-    TMSG(TRACE, "Hit active portion");
     int fd, ret;
 
     // I think unlocked is ok here (we don't overlap any system
@@ -162,7 +159,6 @@ hpcrun_trace_open(core_profile_trace_data_t * cptd)
                                  + (((uint64_t)tv.tv_sec) * 1000000));
     }
   }
-  TMSG(TRACE, "Trace open done");
 }
 
 
@@ -193,10 +189,8 @@ hpcrun_trace_append(core_profile_trace_data_t *cptd, uint call_path_id, uint met
 void
 hpcrun_trace_close(core_profile_trace_data_t * cptd)
 {
-  TMSG(TRACE, "Trace close called");
   if (tracing && hpcrun_sample_prob_active()) {
 
-    TMSG(TRACE, "Trace active close code");
     int ret = hpcio_outbuf_close(&cptd->trace_outbuf);
     if (ret != HPCFMT_OK) {
       EMSG("unable to flush and close trace file");
@@ -207,7 +201,6 @@ hpcrun_trace_close(core_profile_trace_data_t * cptd)
       hpcrun_rename_trace_file(rank, cptd->id);
     }
   }
-  TMSG(TRACE, "trace close done");
 }
 
 

@@ -98,19 +98,17 @@ MYLDADD = \
 	$(HPCLIB_XML) \
 	$(HPCLIB_Support) \
 	$(HPCLIB_SupportLean) \
-	$(MY_LIB_Symtab) \
 	@OA_LDFLAGS@ \
 	@GNUBINUTILS_LDLIBS@ \
 	@HOST_HPCSTRUCT_LDFLAGS@
 
 if OPT_ENABLE_BANAL_WITH_SYMTAB
 MY_LIB_Banal = $(HPCLIB_Banal_Symtab)
-MY_LIB_Symtab = -L$(SYMTABAPI_LIB) $(SYMTABAPI_LIB_LIST) \
+MYLDFLAGS += -L$(SYMTABAPI_LIB) $(SYMTABAPI_LIB_LIST) \
 	-L$(LIBDWARF_LIB) -ldwarf \
 	-L$(LIBELF_LIB) -lelf
 else
 MY_LIB_Banal = $(HPCLIB_Banal)
-MY_LIB_Symtab =
 endif
 
 if HOST_CPU_X86_FAMILY
