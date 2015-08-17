@@ -1,0 +1,1 @@
+HPCToolkit contains tools for measuring the performance of optimized binaries of parallel programs and correlating the results with program structure in order to identify performance bottlenecks in systems ranging from desktops to supercomputers.
