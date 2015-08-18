@@ -1776,7 +1776,7 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 //
 // Remaining TO-DO items:
 //
-// 3. findLoopBegin() -- look at entry blocks, back edges and line
+// 3. findLoopHeader() -- look at entry blocks, back edges and line
 // numbers and make an intelligent decision for where a loop begins in
 // the source code.
 // ---> partially done, need more advanced heuristics
@@ -1844,7 +1844,7 @@ doBlock(ProcInfo, BlockSet &, Block *, TreeNode *,
 	StringTable &, ProcNameMgr *);
 
 static VMA
-findLoopBegin(ProcInfo, Loop *, const string &);
+findLoopHeader(ProcInfo, Loop *, const string &);
 
 static void
 reparentInlineLoop(TreeNode *, TreeNode *, FLPSeqn &);
@@ -1854,7 +1854,7 @@ makeScopeTree(Prof::Struct::ACodeNode *, ScopeInfo, TreeNode *,
 	      StringTable &, ProcNameMgr *);
 
 static void
-debugLoop(Loop *, const string &, vector <Edge *> &, HeaderList &);
+debugLoop(ProcInfo, Loop *, const string &, vector <Edge *> &, HeaderList &);
 
 static void
 debugInlineTree(TreeNode *, LoopInfo *, StringTable &, int);
@@ -1862,14 +1862,20 @@ debugInlineTree(TreeNode *, LoopInfo *, StringTable &, int);
 // Info on candidates for loop header.
 class HeaderInfo {
 public:
+  Block * block;
   bool  is_src;
+  bool  is_targ;
+  bool  is_cond;
   bool  in_incl;
   bool  in_excl;
   int   depth;
 
-  HeaderInfo(bool src = false)
+  HeaderInfo(Block * blk = NULL)
   {
-    is_src = src;
+    block = blk;
+    is_src = false;
+    is_targ = false;
+    is_cond = false;
     in_incl = false;
     in_excl = false;
     depth = 0;
@@ -2091,7 +2097,7 @@ doLoopLate(ProcInfo pinfo, BlockSet & visited, TreeNode * root,
   // select the loop header vma and insert into the tree.  for some
   // irreducible loops, the header is not contained in one of the
   // exclusive blocks.
-  VMA loop_vma = findLoopBegin(pinfo, loop, loopName);
+  VMA loop_vma = findLoopHeader(pinfo, loop, loopName);
   string filenm;
   string procnm;
   SrcFile::ln line;
@@ -2130,6 +2136,14 @@ doLoopLate(ProcInfo pinfo, BlockSet & visited, TreeNode * root,
   if (node->stmtMap.find(loop_vma) == node->stmtMap.end()) {
     DIAG_Die("doLoopLate: unable to find loop header in inline tree");
   }
+
+#if DEBUG_CFG_SOURCE
+  cout << "\nun-reparented inline tree:  " << loopName
+       << "  '" << pinfo.proc_parse->name() << "'\n\n";
+  debugInlineTree(root, NULL, strTab, 0);
+  cout << "\nend loop:  " << loopName
+       << "  '" << pinfo.proc_parse->name() << "'\n";
+#endif
 
   // reparent the tree and return as LoopInfo format.
   reparentInlineLoop(root, node, path);
@@ -2183,9 +2197,36 @@ doBlock(ProcInfo pinfo, BlockSet & visited, Block * block,
 }
 
 
-// Select the vma to represent the loop header.  Candidates are the
-// source and target of all back edges.  Select the best candidate
-// based the following order:
+// Returns: true if 'block' has outgoing edges to blocks both inside
+// and outside 'loop', so it acts as a loop exit condition.
+//
+static bool
+isLoopCond(Loop * loop, Block * block)
+{
+  const Block::edgelist & outEdges = block->targets();
+  bool in_loop = false;
+  bool out_loop = false;
+
+  for (auto eit = outEdges.begin(); eit != outEdges.end(); ++eit) {
+    Block *dest = (*eit)->trg();
+
+    if (loop->hasBlockExclusive(dest)) {
+      in_loop = true;
+    }
+    if (! loop->hasBlock(dest)) {
+      out_loop = true;
+    }
+  }
+
+  return in_loop && out_loop;
+}
+
+
+// Select the vma to represent the loop header.
+//
+// Candidates are the source and target of all back edges and
+// conditional branches that go to both inside and outside the loop.
+// Partial heuristics:
 //
 //  1. must be within the loop's exclusive blocks.
 //  2. prefer most shallow inline depth.
@@ -2194,7 +2235,7 @@ doBlock(ProcInfo pinfo, BlockSet & visited, Block * block,
 // FIXME: need to add more advanced heuristics for irreducible loops.
 //
 static VMA
-findLoopBegin(ProcInfo pinfo, Loop * loop, const string & loopName)
+findLoopHeader(ProcInfo pinfo, Loop * loop, const string & loopName)
 {
   string procName = pinfo.proc_parse->name();
 
@@ -2212,20 +2253,41 @@ findLoopBegin(ProcInfo pinfo, Loop * loop, const string & loopName)
   HeaderList copy;
 
   for (auto eit = backEdges.begin(); eit != backEdges.end(); ++eit) {
-    VMA src_vma = (*eit)->src()->last();
-    VMA targ_vma = (*eit)->trg()->start();
+    Block * source = (*eit)->src();
+    Block * target = (*eit)->trg();
+    VMA src_vma = source->last();
+    VMA targ_vma = target->start();
 
     auto cit = clist.find(src_vma);
     if (cit == clist.end()) {
-      clist[src_vma] = HeaderInfo(true);
+      clist[src_vma] = HeaderInfo(source);
+      cit = clist.find(src_vma);
     }
-    else {
-      cit->second.is_src = true;
-    }
+    cit->second.is_src = true;
 
     cit = clist.find(targ_vma);
     if (cit == clist.end()) {
-      clist[targ_vma] = HeaderInfo(false);
+      clist[targ_vma] = HeaderInfo(target);
+      cit = clist.find(targ_vma);
+    }
+    cit->second.is_targ = true;
+  }
+
+  // add conditional branches in/out of loop.
+  vector <Block *> exclBlocks;
+  loop->getLoopBasicBlocksExclusive(exclBlocks);
+
+  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
+    Block * block = *bit;
+    VMA vma = block->last();
+
+    if (isLoopCond(loop, block)) {
+      auto cit = clist.find(vma);
+      if (cit == clist.end()) {
+	clist[vma] = HeaderInfo(block);
+	cit = clist.find(vma);
+      }
+      cit->second.is_cond = true;
     }
   }
 
@@ -2241,15 +2303,20 @@ findLoopBegin(ProcInfo pinfo, Loop * loop, const string & loopName)
   }
 
 #if DEBUG_CFG_SOURCE
-  debugLoop(loop, loopName, backEdges, clist);
+  debugLoop(pinfo, loop, loopName, backEdges, clist);
 #endif
 
   // Step 2 -- eliminate any candidates not in the loop.
+  int min_depth = INT_MAX;
   copy = clist;
   for (auto cit = clist.begin(); cit != clist.end(); ) {
+    HeaderInfo * info = &(cit->second);
     auto next_it = cit;  next_it++;
 
-    if (! (cit->second.in_incl && cit->second.in_excl)) {
+    if (info->in_incl && info->in_excl) {
+      min_depth = std::min(min_depth, info->depth);
+    }
+    else {
       clist.erase(cit);
     }
     cit = next_it;
@@ -2263,8 +2330,37 @@ findLoopBegin(ProcInfo pinfo, Loop * loop, const string & loopName)
     clist = copy;
   }
 
+  // Step 2.5 -- if there exists a candidate that is back edge source,
+  // loop condition and in exclusive block, then use it (with min
+  // inline depth).
+  //
+  VMA ans_vma = 0;
+  int ans_depth = INT_MAX;
+  bool found = false;
+  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
+    HeaderInfo * info = &(cit->second);
+
+    if (info->is_src && info->is_cond && info->in_excl && info->depth < ans_depth) {
+      ans_vma = cit->first;
+      ans_depth = info->depth;
+      found = true;
+    }
+  }
+
+#if DEBUG_CFG_SOURCE
+  string rating;
+  if (found && ans_depth == min_depth) { rating = "excellent (src,cond,depth)"; }
+  else if (found) { rating = "good (src,cond)"; }
+  else { rating = "fair"; }
+  cout << "\nconfidence: " << rating << "\n";
+#endif
+
+  if (found) {
+    return ans_vma;
+  }
+
   // Step 3 -- sort by inline depth (most shallow).
-  int min_depth = INT_MAX;
+  min_depth = INT_MAX;
   for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
     min_depth = std::min(min_depth, cit->second.depth);
   }
@@ -2276,6 +2372,13 @@ findLoopBegin(ProcInfo pinfo, Loop * loop, const string & loopName)
       clist.erase(cit);
     }
     cit = next_it;
+  }
+
+  // Step 3.5 -- prefer loop condition.
+  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
+    if (cit->second.is_cond) {
+      return cit->first;
+    }
   }
 
   // Step 4 -- prefer source over target.
@@ -2480,7 +2583,7 @@ namespace Struct {
 
 #ifdef BANAL_USE_PARSEAPI
 static void
-debugLoop(Loop * loop, const string & loopName,
+debugLoop(ProcInfo pinfo, Loop * loop, const string & loopName,
 	  vector <Edge *> & backEdges, HeaderList & clist)
 {
   vector <Block *> entBlocks;
@@ -2504,13 +2607,41 @@ debugLoop(Loop * loop, const string & loopName,
     cout << "  0x" << (*eit)->trg()->start();
   }
 
+  vector <Block *> exclBlocks;
+  loop->getLoopBasicBlocksExclusive(exclBlocks);
+
+  cout << "\nloop conditions:  ";
+  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
+    if (isLoopCond(loop, *bit)) {
+      cout << "  0x" << (*bit)->last();
+    }
+  }
+
   cout << "\n\ncandidates:\n";
   for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    cout << "0x" << hex << cit->first << dec
-	 << "  incl: " << cit->second.in_incl
-	 << "  excl: " << cit->second.in_excl
-	 << "  depth: " << cit->second.depth << "  "
-	 << ((cit->second.is_src) ? "src" : "targ") << "\n";
+    VMA vma = cit->first;
+    HeaderInfo * info = &(cit->second);
+    SrcFile::ln line;
+    string filenm, procnm, label;
+
+    pinfo.proc_bin->findSrcCodeInfo(vma, 0, procnm, filenm, line);
+
+    if (info->is_src) { label = "src "; }
+    else if (info->is_targ) { label = "targ"; }
+    else if (info->is_cond) { label = "cond"; }
+    else { label = "??? "; }
+
+    cout << "0x" << hex << vma << dec
+	 << "  " << label
+	 << "  excl: " << info->in_excl
+	 << "  cond: " << info->is_cond
+	 << "  depth: " << info->depth
+	 << "  l=" << line
+	 << "  f='" << filenm << "'";
+    if (info->in_excl && info->is_cond && info->is_src) {
+      cout << "  (src,cond)";
+    }
+    cout << "\n";
   }
 }
 
