@@ -26,9 +26,9 @@ Note: these directions are for this branch only and will break with
 trunk.  So, DO NOT commit anything back to externals (and don't branch
 externals either).
 
-Note: use dyninst from git after about Aug 1, 2015 or else the
-soon-to-be-released dyninst 9.0.  Before then, some of the patches and
-config parameters are different.
+Note: use dyninst from git sometime after Aug 21, 2015 (v9.0.1 tag or
+later).  Do not use release 9.0.0, it contains some unfortunate bugs
+that break the build.
 
 1. Clone a recent dyninst.  This should checkout the branch 'master'
 automatically, but if not, then checkout master.  It's simplest to
@@ -47,8 +47,8 @@ exclude the .git subdirectory from the tar file.
 tar cf dyninst-8.2.tar --exclude .git  dyninst-8.2
 gzip dyninst-8.2.tar
 
-Excluding the .git subdirectory, the tar file is about 19 Meg
-uncompressed and about 6.5 Meg compressed.
+Excluding the .git subdirectory, the tar file is about 23 Meg
+uncompressed and about 9 Meg compressed.
 
 3. Checkout externals as usual and replace 'dyninst-8.2.tar.gz' in
 externals/distfiles with this new one.

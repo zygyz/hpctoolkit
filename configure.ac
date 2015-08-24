@@ -82,9 +82,9 @@ m4_include(config/hpc-mpiutils.m4)
 # Initialization: 
 #----------------------------------------------------------------------------
 
-AC_INIT([hpctoolkit], [5.3.2],
+AC_INIT([hpctoolkit], [5.4.0],
         [hpctoolkit-forum@rice.edu],
-	[hpctoolkit],
+	[hpctoolkit-parseapi],
 	[http://hpctoolkit.org/])
 AC_CONFIG_SRCDIR([src/include/hpctoolkit-config.h.in])
 AC_CONFIG_AUX_DIR([config])
@@ -140,38 +140,8 @@ libdir='${exec_prefix}/lib'
 # SVN version
 #-------------------------------------------------
 
-# Append svn revision to PACKAGE_VERSION.
-#
-# If this directory is an svn sandbox, then use svn info (and store
-# the result in a file), else expect the answer to be in the file.
-# Note: svn update changes the revision number, so svn info must take
-# precedence over the file.
-#
-# *** N.B.: since PACKAGE_VERSION is also used in the 'dist' tarball,
-# it is better not to use spaces or special characters ***
-
-version_file="${srcdir}/.svn-revision"
-
-AC_MSG_CHECKING([for svn revision])
-
-svn_revision=`svn info $srcdir 2>/dev/null | grep -e '^Revision' | awk '{ print $2 }'`
-if test -n "${svn_revision}" ; then
-  PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
-  rm -f "$version_file"
-  echo "$svn_revision" > "$version_file"
-elif test -f "$version_file" ; then
-  svn_revision=`cat $version_file`
-  PACKAGE_VERSION="${PACKAGE_VERSION}-r${svn_revision}"
-else
-  svn_revision=0
-fi
-
-AC_MSG_RESULT([$svn_revision])
-
-if test "$svn_revision" = 0 ; then
-  AC_MSG_WARN([unable to find svn revision])
-fi
-
+# Git does not provide linear rev numbers, so we can't append this to
+# the package version (sigh).
 
 AC_DEFINE_UNQUOTED([HPCTOOLKIT_VERSION],
 	  ["${PACKAGE_VERSION}"],
@@ -815,9 +785,9 @@ fi
 #-------------------------------------------------
 
 # Find a CXX flag for standard C++11 and add to CXXFLAGS if needed.
-# We use some C++11 features (auto and constexpr) in the parseAPI code
-# in src/lib/banal.  Unfortunately, due to include files, we pretty
-# much need this everywhere for C++ code.
+# We use some C++11 features (auto) in the parseAPI code in
+# src/lib/banal.  Unfortunately, due to include files, we pretty much
+# need this everywhere for C++ code.
 
 AC_ARG_VAR([CXX11_FLAG],
   [CXX flag for C++11 standard, normally only needed for non-GNU CXX])
@@ -843,10 +813,9 @@ do
 #include <list>
 int mylen(std::list <int> lst)
 {
-  static constexpr int incr = 2;
   int ans = 0;
   for (auto it = lst.begin(); it != lst.end(); it++) {
-    ans += incr;
+    ans += 1;
   }
   return ans;
 }
@@ -1053,9 +1022,6 @@ AC_SUBST([hpc_ext_libs_dir])
 # pass them all to configure.
 #-------------------------------------------------
 
-# External's minimum svn rev number, or else a fatal error.
-EXTERNALS_MIN_REV=4009
-
 ext_cc_path=unknown
 ext_cxx_path=unknown
 ext_wordsize=unknown
@@ -1078,19 +1044,10 @@ if test "${with_externals}" != "no"; then
   AC_MSG_NOTICE([using externals tree: $with_externals])
   externals_root=`( cd "$with_externals" && pwd )`
   . "$ext_file"
-  AC_MSG_NOTICE([externals svn revision: $ext_version])
-  if test "$ext_version" -eq 0 ; then
-    AC_MSG_WARN([missing externals svn revision number])
-    ext_warning=' (warning: missing externals svn revision)'
-  elif test "$ext_version" -lt "$EXTERNALS_MIN_REV" ; then
-    AC_MSG_ERROR([externals tree too old, update to revision $EXTERNALS_MIN_REV or later])
-  fi
   use_externals=yes
-  externals_mesg="${ext_version}${ext_warning}"
 else
   AC_MSG_WARN([not using --with-externals])
   use_externals=no
-  externals_mesg=no
   warn_no_externals=yes
 fi
 
@@ -3193,7 +3150,6 @@ AC_MSG_NOTICE([-------------------])
 AC_MSG_NOTICE([HPCToolkit summary])
 AC_MSG_NOTICE([-------------------])
 AC_MSG_NOTICE([  HPCToolkit version: ${PACKAGE_VERSION}])
-AC_MSG_NOTICE([  Externals revision: ${externals_mesg}])
 AC_MSG_NOTICE([])
 AC_MSG_NOTICE([  prefix: $prefix])
 AC_MSG_NOTICE([  build:  $build])
@@ -3263,8 +3219,8 @@ if test "$warn_no_externals" = yes ; then
   AC_MSG_NOTICE([])
   AC_MSG_WARN([Not using hpctoolkit-externals.])
   AC_MSG_WARN([Unless you're building hpctoolkit only for docs or make dist,])
-  AC_MSG_WARN([this is probably an error.  First, svn checkout, configure])
-  AC_MSG_WARN([and build externals and then reconfigure hpctoolkit with:])
+  AC_MSG_WARN([this is probably an error.  First, checkout, configure and])
+  AC_MSG_WARN([build externals and then reconfigure hpctoolkit with:])
   AC_MSG_WARN([--with-externals=/path/to/externals/install/directory])
 fi
 
