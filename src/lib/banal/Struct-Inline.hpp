@@ -209,6 +209,9 @@ public:
   StmtInfo *header;
   FLPSeqn   path;
   std::string  name;
+  VMA   vma;
+  long  file_index;
+  long  line_num;
 
   LoopInfo(TreeNode *nd, StmtInfo *hd, FLPSeqn &pt, const std::string &nm)
   {
@@ -216,6 +219,9 @@ public:
     header = hd;
     path = pt;
     name = nm;
+    vma = 0;
+    file_index = 0;
+    line_num = 0;
   }
 
   // delete the subtree 'node' in ~TreeNode(), not here.

@@ -73,6 +73,7 @@
 
 //************************* System Include Files ****************************
 
+#include <sys/types.h>
 #include <limits.h>
 
 #include <iostream>
@@ -233,6 +234,12 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 #if DEBUG_CFG_SOURCE
 static void
 debugStmt(Prof::Struct::Stmt *, VMA, string &, string &, SrcFile::ln);
+
+#define DEBUG_MESG(expr)  std::cout << expr
+
+#else
+
+#define DEBUG_MESG(expr)
 
 #endif  // DEBUG_CFG_SOURCE
 
@@ -1835,16 +1842,17 @@ static TreeNode *
 doLoopEarly(ProcInfo, BlockSet &, Loop *, const string &,
 	    StringTable &, ProcNameMgr *);
 
-static LoopInfo *
-doLoopLate(ProcInfo, BlockSet &, TreeNode *,
-	   Loop *, const string &, StringTable &, ProcNameMgr *);
+static TreeNode *
+doLoopLate(ProcInfo, BlockSet &, Loop *, const string &,
+	   StringTable &, ProcNameMgr *);
 
 static void
 doBlock(ProcInfo, BlockSet &, Block *, TreeNode *,
 	StringTable &, ProcNameMgr *);
 
-static VMA
-findLoopHeader(ProcInfo, Loop *, const string &);
+static LoopInfo *
+findLoopHeader(ProcInfo, TreeNode *, Loop *, const string &,
+	       StringTable &, ProcNameMgr *);
 
 static void
 reparentInlineLoop(TreeNode *, TreeNode *, FLPSeqn &);
@@ -1853,11 +1861,14 @@ static void
 makeScopeTree(Prof::Struct::ACodeNode *, ScopeInfo, TreeNode *,
 	      StringTable &, ProcNameMgr *);
 
+static string
+debugPrettyName(const string &);
+
 static void
 debugLoop(ProcInfo, Loop *, const string &, vector <Edge *> &, HeaderList &);
 
 static void
-debugInlineTree(TreeNode *, LoopInfo *, StringTable &, int);
+debugInlineTree(TreeNode *, LoopInfo *, StringTable &, int, bool);
 
 // Info on candidates for loop header.
 class HeaderInfo {
@@ -1950,7 +1961,7 @@ buildProcStructure(ProcInfo pinfo, bool isIrrIvalLoop, bool isFwdSubst,
 
 #if DEBUG_CFG_SOURCE
   cout << "\nfinal inline tree:  '" << func->name() << "'\n\n";
-  debugInlineTree(&root, NULL, strTab, 0);
+  debugInlineTree(&root, NULL, strTab, 0, true);
   cout << "\nend proc:  '" << func->name() << "'\n";
 #endif
 
@@ -1978,20 +1989,11 @@ doLoopTree(ProcInfo pinfo, BlockSet & visited, LoopTreeNode * ltnode,
 	   StringTable & strTab, ProcNameMgr * nameMgr)
 {
   LoopList * myList = new LoopList;
-  TreeNode * myLoop = NULL;
 
   if (ltnode == NULL) {
     return myList;
   }
-
-  // insert the exclusive blocks for this loop, if it exists.
   Loop *loop = ltnode->loop;
-  string loopName;
-
-  if (loop != NULL) {
-    loopName = ltnode->name();
-    myLoop = doLoopEarly(pinfo, visited, loop, loopName, strTab, nameMgr);
-  }
 
   // process the children of the loop tree
   vector <LoopTreeNode *> clist = ltnode->children;
@@ -2013,11 +2015,17 @@ doLoopTree(ProcInfo pinfo, BlockSet & visited, LoopTreeNode * ltnode,
 
   // otherwise, finish this loop, put into LoopInfo format, insert the
   // subloops and return a list of one.
-  LoopInfo *myInfo = doLoopLate(pinfo, visited, myLoop, loop, loopName, strTab, nameMgr);
+  string loopName = ltnode->name();
+  FLPSeqn empty;
+
+  TreeNode * myLoop = doLoopLate(pinfo, visited, loop, loopName, strTab, nameMgr);
 
   for (auto it = myList->begin(); it != myList->end(); ++it) {
-    mergeInlineLoop(myInfo->node, myInfo->path, *it);
+    mergeInlineLoop(myLoop, empty, *it);
   }
+
+  // reparent the tree and put into LoopInfo format
+  LoopInfo * myInfo = findLoopHeader(pinfo, myLoop, loop, loopName, strTab, nameMgr);
 
   myList->clear();
   myList->push_back(myInfo);
@@ -2026,6 +2034,7 @@ doLoopTree(ProcInfo pinfo, BlockSet & visited, LoopTreeNode * ltnode,
 }
 
 
+#if 0
 // Pre-order process for one loop, before the subloops.  Create the
 // inline tree and add the entry and exclusive blocks.
 //
@@ -2064,6 +2073,7 @@ doLoopEarly(ProcInfo pinfo, BlockSet & visited,
 
   return root;
 }
+#endif
 
 
 // Post-order process for one loop, after the subloops.  Add any
@@ -2071,20 +2081,18 @@ doLoopEarly(ProcInfo pinfo, BlockSet & visited,
 // needed, remove the top inline spine, and put into the LoopInfo
 // format.
 //
-// Returns: the final LoopInfo format for this loop.
+// Returns: the raw inline tree for this loop.
 //
-static LoopInfo *
-doLoopLate(ProcInfo pinfo, BlockSet & visited, TreeNode * root,
-	   Loop * loop, const string & loopName,
+static TreeNode *
+doLoopLate(ProcInfo pinfo, BlockSet & visited, Loop * loop, const string & loopName,
 	   StringTable & strTab, ProcNameMgr * nameMgr)
 {
-#if DEBUG_CFG_SOURCE
-  cout << "\nmiddle loop:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n";
-#endif
+  TreeNode * root = new TreeNode;
 
-  // add any inclusive blocks not contained in a subloop (probably
-  // never happens).
+  DEBUG_MESG("\nbegin loop:  " << loopName << "  '"
+	     << pinfo.proc_parse->name() << "'\n");
+
+  // add the inclusive blocks not contained in a subloop
   vector <Block *> blist;
   loop->getLoopBasicBlocks(blist);
 
@@ -2094,70 +2102,7 @@ doLoopLate(ProcInfo pinfo, BlockSet & visited, TreeNode * root,
     }
   }
 
-  // select the loop header vma and insert into the tree.  for some
-  // irreducible loops, the header is not contained in one of the
-  // exclusive blocks.
-  VMA loop_vma = findLoopHeader(pinfo, loop, loopName);
-  string filenm;
-  string procnm;
-  SrcFile::ln line;
-
-  // FIXME: need to find end vma for loop header
-
-  pinfo.proc_bin->findSrcCodeInfo(loop_vma, 0, procnm, filenm, line);
-  procnm = BinUtil::canonicalizeProcName(procnm, nameMgr);
-
-  StmtInfo *sinfo =
-    addStmtToTree(root, strTab, loop_vma, 1, filenm, line, procnm);
-
-#if DEBUG_CFG_SOURCE
-  cout << "\nheader:  0x" << hex << loop_vma << dec
-       << "\nl=" << line << "  f='" << filenm
-       << "'  p='" << procnm << "'\n";
-#endif
-
-  // find loop node and flp path to loop header.
-  InlineSeqn seqn;
-  FLPSeqn path;
-  TreeNode *node = root;
-
-  analyzeAddr(seqn, loop_vma);
-  for (auto sit = seqn.begin(); sit != seqn.end(); ++sit) {
-    FLPIndex flp(strTab, *sit);
-    auto nit = node->nodeMap.find(flp);
-
-    if (nit == node->nodeMap.end()) {
-      DIAG_Die("doLoopLate: unable to follow inline seqn to loop header");
-    }
-    path.push_back(flp);
-    node = nit->second;
-  }
-
-  if (node->stmtMap.find(loop_vma) == node->stmtMap.end()) {
-    DIAG_Die("doLoopLate: unable to find loop header in inline tree");
-  }
-
-#if DEBUG_CFG_SOURCE
-  cout << "\nun-reparented inline tree:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n\n";
-  debugInlineTree(root, NULL, strTab, 0);
-  cout << "\nend loop:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n";
-#endif
-
-  // reparent the tree and return as LoopInfo format.
-  reparentInlineLoop(root, node, path);
-  LoopInfo *info = new LoopInfo(node, sinfo, path, loopName);
-
-#if DEBUG_CFG_SOURCE
-  cout << "\nreparented inline tree:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n\n";
-  debugInlineTree(node, info, strTab, 0);
-  cout << "\nend loop:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n";
-#endif
-
-  return info;
+  return root;
 }
 
 
@@ -2222,6 +2167,211 @@ isLoopCond(Loop * loop, Block * block)
 }
 
 
+// New heuristic for identifying loop header inside inline tree.
+//
+static LoopInfo *
+findLoopHeader(ProcInfo pinfo, TreeNode * root, Loop * loop, const string & loopName,
+	       StringTable & strTab, ProcNameMgr * nameMgr)
+{
+  string procName = pinfo.proc_parse->name();
+
+  vector <Edge *> backEdges;
+  loop->getBackEdges(backEdges);
+
+  // all loops must have at least one back edge.
+  if (backEdges.empty()) {
+    DIAG_Die("loop '" << loopName << "' in function '" << procName
+	     << "' has no back edge");
+  }
+
+  // Step 1 -- build the list of candidates.
+  HeaderList clist;
+
+  for (auto eit = backEdges.begin(); eit != backEdges.end(); ++eit) {
+    Block * source = (*eit)->src();
+    Block * target = (*eit)->trg();
+    VMA src_vma = source->last();
+    VMA targ_vma = target->start();
+
+    auto cit = clist.find(src_vma);
+    if (cit == clist.end()) {
+      clist[src_vma] = HeaderInfo(source);
+      cit = clist.find(src_vma);
+    }
+    cit->second.is_src = true;
+
+    cit = clist.find(targ_vma);
+    if (cit == clist.end()) {
+      clist[targ_vma] = HeaderInfo(target);
+      cit = clist.find(targ_vma);
+    }
+    cit->second.is_targ = true;
+  }
+
+  // add conditional branches in/out of loop.
+  vector <Block *> exclBlocks;
+  loop->getLoopBasicBlocksExclusive(exclBlocks);
+
+  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
+    Block * block = *bit;
+    VMA vma = block->last();
+
+    if (isLoopCond(loop, block)) {
+      auto cit = clist.find(vma);
+      if (cit == clist.end()) {
+	clist[vma] = HeaderInfo(block);
+	cit = clist.find(vma);
+      }
+      cit->second.is_cond = true;
+    }
+  }
+
+  // add inline depth and incl/excl inside loop.
+  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
+    VMA vma = cit->first;
+    InlineSeqn seqn;
+
+    analyzeAddr(seqn, vma);
+    cit->second.in_incl = loop->containsAddressInclusive(vma);
+    cit->second.in_excl = loop->containsAddress(vma);
+    cit->second.depth = seqn.size();
+  }
+
+#if DEBUG_CFG_SOURCE
+  cout << "\nraw inline tree:  " << loopName
+       << "  '" << pinfo.proc_parse->name() << "'\n\n";
+  debugInlineTree(root, NULL, strTab, 0, false);
+  debugLoop(pinfo, loop, loopName, backEdges, clist);
+  cout << "\nsearching inline tree:  " << loopName << "'\n";
+#endif
+
+  // Step 2 -- find the right inline depth
+  FLPSeqn   path;
+  StmtMap  stmts;
+
+  while (root->nodeMap.size() == 1 && root->loopList.size() == 0) {
+    FLPIndex flp = root->nodeMap.begin()->first;
+    TreeNode *node = root->nodeMap.begin()->second;
+
+    // look for loop cond at this level
+    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+      if (sit->second->file_index == flp.file_index) {
+	auto it = clist.find(sit->first);
+
+	if (it != clist.end() && it->second.is_cond) {
+	  goto found_level;
+	}
+      }
+    }
+
+    for (auto sit = stmts.begin(); sit != stmts.end(); ++sit) {
+      if (sit->second->file_index == flp.file_index) {
+	auto it = clist.find(sit->first);
+
+	if (it != clist.end() && it->second.is_cond) {
+	  goto found_level;
+	}
+      }
+    }
+
+    // reparent the stmts and proceed to the next level
+    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+      stmts[sit->first] = sit->second;
+    }
+    root->nodeMap.clear();
+    root->stmtMap.clear();
+    root->loopList.clear();
+    delete root;
+    root = node;
+    path.push_back(flp);
+
+#if DEBUG_CFG_SOURCE
+    cout << "tree node: flp=(" << flp.file_index << ","
+         << flp.line_num << "," << flp.proc_index << ")\n";
+#endif
+  }
+found_level:
+
+  // Step 3 -- reattach stmts into this level
+  for (auto sit = stmts.begin(); sit != stmts.end(); ++sit) {
+    root->stmtMap[sit->first] = sit->second;
+  }
+  stmts.clear();
+
+  // Step 4 -- choose a loop header vma at this level
+  StmtInfo *sinfo = NULL;
+
+  for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+    auto cit = clist.find(sit->first);
+
+    if (cit != clist.end() && cit->second.is_cond) {
+      sinfo = sit->second;
+      break;
+    }
+  }
+
+  if (sinfo == NULL) {
+    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+      auto cit = clist.find(sit->first);
+
+      if (cit != clist.end() && cit->second.is_src) {
+	sinfo = sit->second;
+	break;
+      }
+    }
+  }
+
+  if (sinfo == NULL) {
+    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+      auto cit = clist.find(sit->first);
+
+      if (cit != clist.end() && cit->second.is_targ) {
+	sinfo = sit->second;
+	break;
+      }
+    }
+  }
+
+  if (sinfo == NULL && root->stmtMap.begin() != root->stmtMap.end()) {
+    sinfo = root->stmtMap.begin()->second;
+  }
+
+  if (sinfo == NULL) {
+    // fixme: what to do in this case ??
+
+    VMA vma = (*backEdges.begin())->trg()->start();
+    string filenm;
+    string procnm;
+    SrcFile::ln line;
+
+    pinfo.proc_bin->findSrcCodeInfo(vma, 0, procnm, filenm, line);
+
+    sinfo = new StmtInfo(strTab, vma, 1, filenm, line, procnm);
+  }
+
+#if DEBUG_CFG_SOURCE
+  cout << "\nheader:  0x" << hex << sinfo->vma << dec
+       << "\nl=" << sinfo->line_num
+       << "  f='" << strTab.index2str(sinfo->file_index) << "\n";
+#endif
+
+  LoopInfo *info = new LoopInfo(root, NULL, path, loopName);
+
+  info->vma = sinfo->vma;
+  info->file_index = sinfo->file_index;
+  info->line_num = sinfo->line_num;
+
+#if DEBUG_CFG_SOURCE
+  cout << "\nreparented inline tree:  " << loopName
+       << "  '" << pinfo.proc_parse->name() << "'\n\n";
+  debugInlineTree(root, info, strTab, 0, false);
+#endif
+
+  return info;
+}
+
+
+#if 0
 // Select the vma to represent the loop header.
 //
 // Candidates are the source and target of all back edges and
@@ -2391,6 +2541,7 @@ findLoopHeader(ProcInfo pinfo, Loop * loop, const string & loopName)
   // Step 5 -- take anything left over.
   return clist.begin()->first;
 }
+#endif
 
 
 // Move any statements or nodes in the inline tree for a loop that are
@@ -2516,12 +2667,11 @@ makeScopeTree(Prof::Struct::ACodeNode * enclScope, ScopeInfo scinfo,
   // not match the enclosing scope, then add a single guard alien.
   //
   for (auto lit = tree->loopList.begin(); lit != tree->loopList.end(); ++lit) {
-    StmtInfo *info = (*lit)->header;
-    VMA vma = info->vma;
-    long myfile = info->file_index;
+    VMA vma = (*lit)->vma;
+    long myfile = (*lit)->file_index;
     string filenm = strTab.index2str(myfile);
-    SrcFile::ln line = info->line_num;
-    long proc = (scinfo.is_alien) ? scinfo.proc_index : info->proc_index;
+    SrcFile::ln line = (*lit)->line_num;
+    long proc = (scinfo.is_alien) ? scinfo.proc_index : strTab.str2index("");
     scope = enclScope;
 
     if (scinfo.is_alien || myfile != scinfo.file_index) {
@@ -2580,6 +2730,72 @@ makeScopeTree(Prof::Struct::ACodeNode * enclScope, ScopeInfo scinfo,
 
 namespace BAnal {
 namespace Struct {
+
+// Cleanup and shorten the proc name: demangle plus collapse nested
+// <...> and (...) to just <> and ().  For example:
+//
+//   std::map<int,long>::myfunc(int) --> std::map<>::myfunc()
+//
+// This is only for more compact debug output.  Internal decisions are
+// always made on the full string.
+//
+static string
+debugPrettyName(const string & procnm)
+{
+  string str = BinUtil::demangleProcName(procnm);
+  string ans = "";
+  size_t str_len = str.size();
+  size_t pos = 0;
+
+  while (pos < str_len) {
+    size_t next = str.find_first_of("<(", pos);
+    char open, close;
+
+    if (next == string::npos) {
+      ans += str.substr(pos);
+      break;
+    }
+    if (str[next] == '<') { open = '<';  close = '>'; }
+    else { open = '(';  close = ')'; }
+
+    ans += str.substr(pos, next - pos) + open + close;
+
+    int depth = 1;
+    for (pos = next + 1; pos < str_len && depth > 0; pos++) {
+      if (str[pos] == open) { depth++; }
+      else if (str[pos] == close) { depth--; }
+    }
+  }
+
+  return ans;
+}
+
+
+static void
+debugStmt(Prof::Struct::Stmt * stmt, VMA vma,
+	  string & filenm, string & procnm, SrcFile::ln line)
+{
+  cout << INDENT << "stmt:";
+
+  if (stmt != NULL) {
+    cout << " (n=" << stmt->id() << ")";
+  }
+  cout << "  0x" << hex << vma << dec
+       << "  l=" << line << "  f='" << filenm << "'\n";
+
+#ifdef BANAL_USE_SYMTAB
+  Inline::InlineSeqn nodeList;
+  Inline::analyzeAddr(nodeList, vma);
+
+  // list is outermost to innermost
+  for (auto nit = nodeList.begin(); nit != nodeList.end(); ++nit) {
+    cout << INDENT << INDENT << "inline:  l=" << nit->getLineNum()
+	 << "  f='" << nit->getFileName()
+	 << "'  p='" << debugPrettyName(nit->getProcName()) << "'\n";
+  }
+#endif
+}
+
 
 #ifdef BANAL_USE_PARSEAPI
 static void
@@ -2651,8 +2867,8 @@ debugLoop(ProcInfo pinfo, Loop * loop, const string & loopName,
 // the tree.
 //
 void
-debugInlineTree(TreeNode * node, LoopInfo * info,
-		StringTable & strTab, int depth)
+debugInlineTree(TreeNode * node, LoopInfo * info, StringTable & strTab,
+		int depth, bool expand_loops)
 {
   // treat node as a detached loop with FLP seqn above it.
   if (info != NULL) {
@@ -2663,11 +2879,10 @@ debugInlineTree(TreeNode * node, LoopInfo * info,
       }
       FLPIndex flp = *pit;
 
-      cout << "inline:  flp=(" << flp.file_index << ","
-	   << flp.line_num << "," << flp.proc_index << ")"
-	   << "  l=" << flp.line_num
-	   << "  f='"  << strTab.index2str(flp.file_index)
-	   << "'  p='" << strTab.index2str(flp.proc_index) << "'\n";
+      cout << "inline:  l=" << flp.line_num
+	   << "  f='" << strTab.index2str(flp.file_index)
+	   << "'  p='" << debugPrettyName(strTab.index2str(flp.proc_index))
+	   << "'\n";
       depth++;
     }
 
@@ -2675,7 +2890,8 @@ debugInlineTree(TreeNode * node, LoopInfo * info,
       cout << INDENT;
     }
     cout << "loop:  " << info->name
-	 << "  0x" << hex << info->header->vma << dec << "\n";
+	 << "  l=" << info->line_num
+	 << "  f='" << strTab.index2str(info->file_index) << "'\n";
     depth++;
   }
 
@@ -2688,8 +2904,7 @@ debugInlineTree(TreeNode * node, LoopInfo * info,
     }
     cout << "stmt:  0x" << hex << sinfo->vma << dec
 	 << "  l=" << sinfo->line_num
-	 << "  f='" << strTab.index2str(sinfo->file_index)
-	 << "'  p='" << strTab.index2str(sinfo->proc_index) << "'\n";
+	 << "  f='" << strTab.index2str(sinfo->file_index) << "'\n";
   }
 
   // recur on the subtrees
@@ -2699,13 +2914,12 @@ debugInlineTree(TreeNode * node, LoopInfo * info,
     for (int i = 1; i <= depth; i++) {
       cout << INDENT;
     }
-    cout << "inline:  flp=(" << flp.file_index << ","
-	 << flp.line_num << "," << flp.proc_index << ")"
-	 << "  l=" << flp.line_num
+    cout << "inline:  l=" << flp.line_num
 	 << "  f='"  << strTab.index2str(flp.file_index)
-	 << "'  p='" << strTab.index2str(flp.proc_index) << "'\n";
+	 << "'  p='" << debugPrettyName(strTab.index2str(flp.proc_index))
+	 << "'\n";
 
-    debugInlineTree(nit->second, NULL, strTab, depth + 1);
+    debugInlineTree(nit->second, NULL, strTab, depth + 1, expand_loops);
   }
 
   // recur on the loops
@@ -2715,38 +2929,17 @@ debugInlineTree(TreeNode * node, LoopInfo * info,
     for (int i = 1; i <= depth; i++) {
       cout << INDENT;
     }
-    cout << "loop:  " << info->name
-	 << "  0x" << hex << info->header->vma << dec << "\n";
 
-    debugInlineTree(info->node, NULL, strTab, depth + 1);
+    cout << "loop:  " << info->name
+	 << "  l=" << info->line_num
+	 << "  f='" << strTab.index2str(info->file_index) << "'\n";
+
+    if (expand_loops) {
+      debugInlineTree(info->node, NULL, strTab, depth + 1, expand_loops);
+    }
   }
 }
 #endif  // parseAPI
-
-
-static void
-debugStmt(Prof::Struct::Stmt * stmt, VMA vma,
-	  string & filenm, string & procnm, SrcFile::ln line)
-{
-  cout << INDENT << "stmt:";
-
-  if (stmt != NULL) {
-    cout << " (n=" << stmt->id() << ")";
-  }
-  cout << "  0x" << hex << vma << dec
-       << "  l=" << line << "  f='" << filenm << "'  p='" << procnm << "'\n";
-
-#ifdef BANAL_USE_SYMTAB
-  Inline::InlineSeqn nodeList;
-  Inline::analyzeAddr(nodeList, vma);
-
-  // list is outermost to innermost
-  for (auto nit = nodeList.begin(); nit != nodeList.end(); ++nit) {
-    cout << INDENT << INDENT << "inline:  l=" << nit->getLineNum()
-	 << "  f='" << nit->getFileName() << "'  p='" << nit->getProcName() << "'\n";
-  }
-#endif
-}
 
 }  // namespace Struct
 }  // namespace BAnal
