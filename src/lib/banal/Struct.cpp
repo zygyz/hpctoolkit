@@ -90,6 +90,7 @@ using std::string;
 
 #include <map>
 #include <list>
+#include <set>
 #include <vector>
 #include <typeinfo>
 #include <algorithm>
@@ -1773,6 +1774,11 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // manager and make sure they don't work at cross purposes.
 // ---> don't use the location manager
 //
+// 3. findLoopHeader() -- look at entry blocks, back edges and line
+// numbers and make an intelligent decision for where a loop begins in
+// the source code.
+// ---> mostly done, need to fine-tune heuristics, reparenting
+//
 // 8. Demangle proc names for the hpcstruct file.
 // ---> added the binutils version, may need parseapi names
 //
@@ -1782,11 +1788,6 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // --------------------------------------------------
 //
 // Remaining TO-DO items:
-//
-// 3. findLoopHeader() -- look at entry blocks, back edges and line
-// numbers and make an intelligent decision for where a loop begins in
-// the source code.
-// ---> partially done, need more advanced heuristics
 //
 // 4. Irreducible loops -- study entry blocks, loop header, adjacent
 // nested loops.  Some nested irreducible loops share entry blocks and
@@ -1880,6 +1881,7 @@ public:
   bool  in_incl;
   bool  in_excl;
   int   depth;
+  int   score;
 
   HeaderInfo(Block * blk = NULL)
   {
@@ -1890,6 +1892,7 @@ public:
     in_incl = false;
     in_excl = false;
     depth = 0;
+    score = 0;
   }
 };
 
@@ -2142,6 +2145,7 @@ doBlock(ProcInfo pinfo, BlockSet & visited, Block * block,
 }
 
 
+#if 0
 // Returns: true if 'block' has outgoing edges to blocks both inside
 // and outside 'loop', so it acts as a loop exit condition.
 //
@@ -2165,76 +2169,65 @@ isLoopCond(Loop * loop, Block * block)
 
   return in_loop && out_loop;
 }
+#endif
 
 
 // New heuristic for identifying loop header inside inline tree.
 //
 static LoopInfo *
-findLoopHeader(ProcInfo pinfo, TreeNode * root, Loop * loop, const string & loopName,
+findLoopHeader(ProcInfo pinfo, TreeNode * root,
+	       Loop * loop, const string & loopName,
 	       StringTable & strTab, ProcNameMgr * nameMgr)
 {
   string procName = pinfo.proc_parse->name();
 
+  //------------------------------------------------------------
+  // Step 1 -- build the list of loop exit conditions
+  //------------------------------------------------------------
+
+  vector <Block *> inclBlocks;
+  set <Block *> bset;
+  HeaderList clist;
+
+  loop->getLoopBasicBlocks(inclBlocks);
+  for (auto bit = inclBlocks.begin(); bit != inclBlocks.end(); ++bit) {
+    bset.insert(*bit);
+  }
+
+  // a stmt is a loop exit condition if it has outgoing edges to
+  // blocks both inside and outside the loop.
+  //
+  for (auto bit = inclBlocks.begin(); bit != inclBlocks.end(); ++bit) {
+    const Block::edgelist & outEdges = (*bit)->targets();
+    VMA src_vma = (*bit)->last();
+    bool in_loop = false, out_loop = false;
+
+    for (auto eit = outEdges.begin(); eit != outEdges.end(); ++eit) {
+      Block *dest = (*eit)->trg();
+
+      if (bset.find(dest) != bset.end()) { in_loop = true; }
+      else { out_loop = true; }
+    }
+
+    if (in_loop && out_loop) {
+      clist[src_vma] = HeaderInfo(*bit);
+      clist[src_vma].is_cond = true;
+      clist[src_vma].score = 2;
+    }
+  }
+
+  // add bonus points if the stmt is also a back edge source
   vector <Edge *> backEdges;
   loop->getBackEdges(backEdges);
 
-  // all loops must have at least one back edge.
-  if (backEdges.empty()) {
-    DIAG_Die("loop '" << loopName << "' in function '" << procName
-	     << "' has no back edge");
-  }
-
-  // Step 1 -- build the list of candidates.
-  HeaderList clist;
-
   for (auto eit = backEdges.begin(); eit != backEdges.end(); ++eit) {
-    Block * source = (*eit)->src();
-    Block * target = (*eit)->trg();
-    VMA src_vma = source->last();
-    VMA targ_vma = target->start();
+    VMA src_vma = (*eit)->src()->last();
 
-    auto cit = clist.find(src_vma);
-    if (cit == clist.end()) {
-      clist[src_vma] = HeaderInfo(source);
-      cit = clist.find(src_vma);
+    auto it = clist.find(src_vma);
+    if (it != clist.end()) {
+      it->second.is_src = true;
+      it->second.score += 1;
     }
-    cit->second.is_src = true;
-
-    cit = clist.find(targ_vma);
-    if (cit == clist.end()) {
-      clist[targ_vma] = HeaderInfo(target);
-      cit = clist.find(targ_vma);
-    }
-    cit->second.is_targ = true;
-  }
-
-  // add conditional branches in/out of loop.
-  vector <Block *> exclBlocks;
-  loop->getLoopBasicBlocksExclusive(exclBlocks);
-
-  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
-    Block * block = *bit;
-    VMA vma = block->last();
-
-    if (isLoopCond(loop, block)) {
-      auto cit = clist.find(vma);
-      if (cit == clist.end()) {
-	clist[vma] = HeaderInfo(block);
-	cit = clist.find(vma);
-      }
-      cit->second.is_cond = true;
-    }
-  }
-
-  // add inline depth and incl/excl inside loop.
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    VMA vma = cit->first;
-    InlineSeqn seqn;
-
-    analyzeAddr(seqn, vma);
-    cit->second.in_incl = loop->containsAddressInclusive(vma);
-    cit->second.in_excl = loop->containsAddress(vma);
-    cit->second.depth = seqn.size();
   }
 
 #if DEBUG_CFG_SOURCE
@@ -2242,16 +2235,25 @@ findLoopHeader(ProcInfo pinfo, TreeNode * root, Loop * loop, const string & loop
        << "  '" << pinfo.proc_parse->name() << "'\n\n";
   debugInlineTree(root, NULL, strTab, 0, false);
   debugLoop(pinfo, loop, loopName, backEdges, clist);
-  cout << "\nsearching inline tree:  " << loopName << "'\n";
+  cout << "\nsearching inline tree:\n";
 #endif
 
+  //------------------------------------------------------------
   // Step 2 -- find the right inline depth
-  FLPSeqn   path;
+  //------------------------------------------------------------
+
+  // start at the root, descend the inline tree and try to find the
+  // right level for the loop.  an inline branch or subloop is an
+  // absolute stopping point.  the hard case is one inline subtree
+  // plus statements.  we stop if there is a loop condition, else
+  // continue and reparent the stmts.  always reparent any stmt in a
+  // different file from the inline callsite.
+
+  FLPSeqn  path;
   StmtMap  stmts;
 
   while (root->nodeMap.size() == 1 && root->loopList.size() == 0) {
     FLPIndex flp = root->nodeMap.begin()->first;
-    TreeNode *node = root->nodeMap.begin()->second;
 
     // look for loop cond at this level
     for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
@@ -2278,88 +2280,122 @@ findLoopHeader(ProcInfo pinfo, TreeNode * root, Loop * loop, const string & loop
     for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
       stmts[sit->first] = sit->second;
     }
-    root->nodeMap.clear();
     root->stmtMap.clear();
-    root->loopList.clear();
+
+    TreeNode *subtree = root->nodeMap.begin()->second;
+    root->nodeMap.clear();
     delete root;
-    root = node;
+    root = subtree;
     path.push_back(flp);
 
-#if DEBUG_CFG_SOURCE
-    cout << "tree node: flp=(" << flp.file_index << ","
-         << flp.line_num << "," << flp.proc_index << ")\n";
-#endif
+    DEBUG_MESG("inline:  l=" << flp.line_num
+	       << "  f='" << strTab.index2str(flp.file_index)
+	       << "'  p='" << debugPrettyName(strTab.index2str(flp.proc_index))
+	       << "'\n");
   }
 found_level:
 
+  //------------------------------------------------------------
   // Step 3 -- reattach stmts into this level
+  //------------------------------------------------------------
+
+  // fixme: want to attach some stmts below this level
+
   for (auto sit = stmts.begin(); sit != stmts.end(); ++sit) {
     root->stmtMap[sit->first] = sit->second;
   }
   stmts.clear();
 
-  // Step 4 -- choose a loop header vma at this level
+  //------------------------------------------------------------
+  // Step 4 -- choose a loop header file/line at this level
+  //------------------------------------------------------------
+
   StmtInfo *sinfo = NULL;
+  long file_ans, line_ans;
 
-  for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
-    auto cit = clist.find(sit->first);
+  if (root->nodeMap.size() > 0 || root->loopList.size() > 0) {
+    //
+    // if there is an inline callsite or subloop, then use that file
+    // name and the minimum line number among all callsites, subloops
+    // and loop conditions with the same file.
+    //
+    if (root->nodeMap.size() > 0) {
+      FLPIndex flp = root->nodeMap.begin()->first;
+      file_ans = flp.file_index;
+      line_ans = flp.line_num;
+    }
+    else {
+      LoopInfo *info = *(root->loopList.begin());
+      file_ans = info->file_index;
+      line_ans = info->line_num;
+    }
 
-    if (cit != clist.end() && cit->second.is_cond) {
-      sinfo = sit->second;
-      break;
+    // min of inline callsites
+    for (auto nit = root->nodeMap.begin(); nit != root->nodeMap.end(); ++nit) {
+      FLPIndex flp = nit->first;
+
+      if (flp.file_index == file_ans && flp.line_num < line_ans) {
+	line_ans = flp.line_num;
+      }
+    }
+
+    // min of subloops
+    for (auto lit = root->loopList.begin(); lit != root->loopList.end(); ++lit) {
+      LoopInfo *info = *lit;
+
+      if (info->file_index == file_ans && info->line_num < line_ans) {
+	line_ans = info->line_num;
+      }
+    }
+
+    // min of loop cond stmts
+    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
+      VMA vma = sit->first;
+      StmtInfo *info = sit->second;
+
+      if (info->file_index == file_ans && info->line_num < line_ans
+	  && clist.find(vma) != clist.end()) {
+	line_ans = info->line_num;
+      }
     }
   }
+  else {
+    //
+    // if there are only terminal stmts, then select the file name of
+    // the best candidate (loop cond + back edge source, loop cond,
+    // then any stmt) and then the min line number.
+    //
+    int max_score = -1;
 
-  if (sinfo == NULL) {
     for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
-      auto cit = clist.find(sit->first);
+      VMA vma = sit->first;
+      StmtInfo *info = sit->second;
+      auto it = clist.find(vma);
+      int score = (it != clist.end()) ? it->second.score : 0;
 
-      if (cit != clist.end() && cit->second.is_src) {
-	sinfo = sit->second;
-	break;
+      if (score > max_score) {
+	max_score = score;
+	file_ans = info->file_index;
+	line_ans = info->line_num;
+      }
+      else if (score == max_score && info->file_index == file_ans
+	       && info->line_num < line_ans) {
+	line_ans = info->line_num;
       }
     }
   }
 
-  if (sinfo == NULL) {
-    for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
-      auto cit = clist.find(sit->first);
+  DEBUG_MESG("header:  l=" << line_ans << "  f='"
+	     << strTab.index2str(file_ans) << "'\n");
 
-      if (cit != clist.end() && cit->second.is_targ) {
-	sinfo = sit->second;
-	break;
-      }
-    }
-  }
-
-  if (sinfo == NULL && root->stmtMap.begin() != root->stmtMap.end()) {
-    sinfo = root->stmtMap.begin()->second;
-  }
-
-  if (sinfo == NULL) {
-    // fixme: what to do in this case ??
-
-    VMA vma = (*backEdges.begin())->trg()->start();
-    string filenm;
-    string procnm;
-    SrcFile::ln line;
-
-    pinfo.proc_bin->findSrcCodeInfo(vma, 0, procnm, filenm, line);
-
-    sinfo = new StmtInfo(strTab, vma, 1, filenm, line, procnm);
-  }
-
-#if DEBUG_CFG_SOURCE
-  cout << "\nheader:  0x" << hex << sinfo->vma << dec
-       << "\nl=" << sinfo->line_num
-       << "  f='" << strTab.index2str(sinfo->file_index) << "\n";
-#endif
+  vector <Block *> entryBlocks;
+  loop->getLoopEntries(entryBlocks);
 
   LoopInfo *info = new LoopInfo(root, NULL, path, loopName);
 
-  info->vma = sinfo->vma;
-  info->file_index = sinfo->file_index;
-  info->line_num = sinfo->line_num;
+  info->vma = (*(entryBlocks.begin()))->start();
+  info->file_index = file_ans;
+  info->line_num = line_ans;
 
 #if DEBUG_CFG_SOURCE
   cout << "\nreparented inline tree:  " << loopName
@@ -2544,6 +2580,7 @@ findLoopHeader(ProcInfo pinfo, Loop * loop, const string & loopName)
 #endif
 
 
+#if 0
 // Move any statements or nodes in the inline tree for a loop that are
 // not within the subtree of the loop's header to inside that subtree.
 // Delete the nodes on the path from root that are above loopNode.
@@ -2587,6 +2624,7 @@ reparentInlineLoop(TreeNode * root, TreeNode * loopNode, FLPSeqn & path)
     pit++;
   }
 }
+#endif
 
 
 // Find the alien node in 'alienMap' that matches 'file_index'.
@@ -2805,8 +2843,9 @@ debugLoop(ProcInfo pinfo, Loop * loop, const string & loopName,
   vector <Block *> entBlocks;
   int num_ents = loop->getLoopEntries(entBlocks);
 
-  cout << "\nloop:  " << loopName
-       << ((num_ents == 1) ? "  (reducible)" : "  (irreducible)") << "\n";
+  cout << "\nheader info:  " << loopName
+       << ((num_ents == 1) ? "  (reducible)" : "  (irreducible)")
+       << "  '" << pinfo.proc_parse->name() << "'\n\n";
 
   cout << "entry blocks:" << hex;
   for (auto bit = entBlocks.begin(); bit != entBlocks.end(); ++bit) {
@@ -2823,24 +2862,16 @@ debugLoop(ProcInfo pinfo, Loop * loop, const string & loopName,
     cout << "  0x" << (*eit)->trg()->start();
   }
 
-  vector <Block *> exclBlocks;
-  loop->getLoopBasicBlocksExclusive(exclBlocks);
-
-  cout << "\nloop conditions:  ";
-  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
-    if (isLoopCond(loop, *bit)) {
-      cout << "  0x" << (*bit)->last();
-    }
-  }
-
-  cout << "\n\ncandidates:\n";
+  cout << "\n\nexit conditions:\n";
   for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
     VMA vma = cit->first;
     HeaderInfo * info = &(cit->second);
     SrcFile::ln line;
     string filenm, procnm, label;
+    InlineSeqn seqn;
 
     pinfo.proc_bin->findSrcCodeInfo(vma, 0, procnm, filenm, line);
+    analyzeAddr(seqn, vma);
 
     if (info->is_src) { label = "src "; }
     else if (info->is_targ) { label = "targ"; }
@@ -2849,15 +2880,11 @@ debugLoop(ProcInfo pinfo, Loop * loop, const string & loopName,
 
     cout << "0x" << hex << vma << dec
 	 << "  " << label
-	 << "  excl: " << info->in_excl
+	 << "  excl: " << loop->hasBlockExclusive(info->block)
 	 << "  cond: " << info->is_cond
-	 << "  depth: " << info->depth
+	 << "  depth: " << seqn.size()
 	 << "  l=" << line
-	 << "  f='" << filenm << "'";
-    if (info->in_excl && info->is_cond && info->is_src) {
-      cout << "  (src,cond)";
-    }
-    cout << "\n";
+	 << "  f='" << filenm << "'\n";
   }
 }
 
