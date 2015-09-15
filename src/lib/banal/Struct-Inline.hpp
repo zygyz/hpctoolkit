@@ -71,6 +71,7 @@
 #include <map>
 
 #include <lib/isa/ISATypes.hpp>
+#include <lib/support/FileUtil.hpp>
 #include <lib/support/SrcFile.hpp>
 #include <lib/support/StringTable.hpp>
 
@@ -121,13 +122,15 @@ public:
 class FLPIndex {
 public:
   long  file_index;
+  long  base_index;
   long  line_num;
   long  proc_index;
 
   // constructor by index
-  FLPIndex(long file, long line, long proc)
+  FLPIndex(long file, long base, long line, long proc)
   {
     file_index = file;
+    base_index = base;
     line_num = line;
     proc_index = proc;
   }
@@ -135,7 +138,10 @@ public:
   // constructor by InlineNode strings
   FLPIndex(StringTable & strTab, InlineNode & node)
   {
-    file_index = strTab.str2index(node.getFileName());
+    string & fname = node.getFileName();
+
+    file_index = strTab.str2index(fname);
+    base_index = strTab.str2index(FileUtil::basename(fname.c_str()));
     line_num = (long) node.getLineNum();
     proc_index = strTab.str2index(node.getProcName());
   }
@@ -175,15 +181,17 @@ public:
   VMA   vma;
   int   len;
   long  file_index;
+  long  base_index;
   long  line_num;
   long  proc_index;
 
   // constructor by index
-  StmtInfo(VMA vm, int ln, long file, long line, long proc)
+  StmtInfo(VMA vm, int ln, long file, long base, long line, long proc)
   {
     vma = vm;
     len = ln;
     file_index = file;
+    base_index = base;
     line_num = line;
     proc_index = proc;
   }
@@ -195,6 +203,7 @@ public:
     vma = vm;
     len = ln;
     file_index = strTab.str2index(filenm);
+    base_index = strTab.str2index(FileUtil::basename(filenm.c_str()));
     line_num = line;
     proc_index = strTab.str2index(procnm);
   }
@@ -211,6 +220,7 @@ public:
   std::string  name;
   VMA   vma;
   long  file_index;
+  long  base_index;
   long  line_num;
 
   LoopInfo(TreeNode *nd, StmtInfo *hd, FLPSeqn &pt, const std::string &nm)
@@ -221,6 +231,7 @@ public:
     name = nm;
     vma = 0;
     file_index = 0;
+    base_index = 0;
     line_num = 0;
   }
 

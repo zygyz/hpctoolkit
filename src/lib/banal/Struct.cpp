@@ -2257,7 +2257,7 @@ findLoopHeader(ProcInfo pinfo, TreeNode * root,
 
     // look for loop cond at this level
     for (auto sit = root->stmtMap.begin(); sit != root->stmtMap.end(); ++sit) {
-      if (sit->second->file_index == flp.file_index) {
+      if (sit->second->base_index == flp.base_index) {
 	auto it = clist.find(sit->first);
 
 	if (it != clist.end() && it->second.is_cond) {
@@ -2267,7 +2267,7 @@ findLoopHeader(ProcInfo pinfo, TreeNode * root,
     }
 
     for (auto sit = stmts.begin(); sit != stmts.end(); ++sit) {
-      if (sit->second->file_index == flp.file_index) {
+      if (sit->second->base_index == flp.base_index) {
 	auto it = clist.find(sit->first);
 
 	if (it != clist.end() && it->second.is_cond) {
@@ -2311,7 +2311,7 @@ found_level:
   //------------------------------------------------------------
 
   StmtInfo *sinfo = NULL;
-  long file_ans, line_ans;
+  long file_ans, base_ans, line_ans;
 
   if (root->nodeMap.size() > 0 || root->loopList.size() > 0) {
     //
@@ -2322,11 +2322,13 @@ found_level:
     if (root->nodeMap.size() > 0) {
       FLPIndex flp = root->nodeMap.begin()->first;
       file_ans = flp.file_index;
+      base_ans = flp.base_index;
       line_ans = flp.line_num;
     }
     else {
       LoopInfo *info = *(root->loopList.begin());
       file_ans = info->file_index;
+      base_ans = info->base_index;
       line_ans = info->line_num;
     }
 
@@ -2334,7 +2336,7 @@ found_level:
     for (auto nit = root->nodeMap.begin(); nit != root->nodeMap.end(); ++nit) {
       FLPIndex flp = nit->first;
 
-      if (flp.file_index == file_ans && flp.line_num < line_ans) {
+      if (flp.base_index == base_ans && flp.line_num < line_ans) {
 	line_ans = flp.line_num;
       }
     }
@@ -2343,7 +2345,7 @@ found_level:
     for (auto lit = root->loopList.begin(); lit != root->loopList.end(); ++lit) {
       LoopInfo *info = *lit;
 
-      if (info->file_index == file_ans && info->line_num < line_ans) {
+      if (info->base_index == base_ans && info->line_num < line_ans) {
 	line_ans = info->line_num;
       }
     }
@@ -2353,7 +2355,7 @@ found_level:
       VMA vma = sit->first;
       StmtInfo *info = sit->second;
 
-      if (info->file_index == file_ans && info->line_num < line_ans
+      if (info->base_index == base_ans && info->line_num < line_ans
 	  && clist.find(vma) != clist.end()) {
 	line_ans = info->line_num;
       }
@@ -2376,9 +2378,10 @@ found_level:
       if (score > max_score) {
 	max_score = score;
 	file_ans = info->file_index;
+	base_ans = info->base_index;
 	line_ans = info->line_num;
       }
-      else if (score == max_score && info->file_index == file_ans
+      else if (score == max_score && info->base_index == base_ans
 	       && info->line_num < line_ans) {
 	line_ans = info->line_num;
       }
@@ -2395,6 +2398,7 @@ found_level:
 
   info->vma = (*(entryBlocks.begin()))->start();
   info->file_index = file_ans;
+  info->base_index = base_ans;
   info->line_num = line_ans;
 
 #if DEBUG_CFG_SOURCE
