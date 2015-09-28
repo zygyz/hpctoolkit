@@ -1785,6 +1785,9 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // 11. Add address ranges to buildLMSkeleton().
 // ---> use LM->findProc() to lookup BinUtils proc
 //
+// 13. Demangle names in the Open Analysis case.
+// ---> now using __cxa_demangle() in BinUtils.cpp.
+//
 // --------------------------------------------------
 //
 // Remaining TO-DO items:
@@ -1810,8 +1813,6 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // functions.
 //
 // 12. Add call_sortId from buildStmts() to doBlock().
-//
-// 13. Demangle names in the Open Analysis case.
 //
 // 14. Import fix for duplicate proc names (pretty vs. typed/mangled).
 //
