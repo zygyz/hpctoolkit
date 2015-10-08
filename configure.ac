@@ -720,6 +720,18 @@ HOST_HPCPROF_LDFLAGS="${HOST_HPCPROF_LDFLAGS} ${my_demangle_ldflags}"
 HOST_XPROF_LDFLAGS="${HOST_XPROF_LDFLAGS} ${my_demangle_ldflags}"
 
 
+# FIXME: Boost >= 1.55 misreads the features of the g++ k1om compiler,
+# so we add these flags as a workaround.  But this should be a compile
+# test for the CXX compiler.
+
+case "$host" in
+  *k1om* )
+      HOST_CXXFLAGS="$HOST_CXXFLAGS -DBOOST_NO_CXX11_ALLOCATOR"
+      HOST_CXXFLAGS="$HOST_CXXFLAGS -DBOOST_NO_CXX11_VARIADIC_TEMPLATES"
+      ;;
+esac
+
+
 #-------------------------------------------------
 # Big or little endian and byteswap
 #-------------------------------------------------
