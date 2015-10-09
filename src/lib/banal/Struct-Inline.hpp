@@ -215,24 +215,23 @@ public:
 class LoopInfo {
 public:
   TreeNode *node;
-  StmtInfo *header;
   FLPSeqn   path;
   std::string  name;
-  VMA   vma;
+  VMA   entry_vma;
   long  file_index;
   long  base_index;
   long  line_num;
 
-  LoopInfo(TreeNode *nd, StmtInfo *hd, FLPSeqn &pt, const std::string &nm)
+  LoopInfo(TreeNode *nd, FLPSeqn &pth, const std::string &nm, VMA vma,
+	   long file, long base, long line)
   {
     node = nd;
-    header = hd;
-    path = pt;
+    path = pth;
     name = nm;
-    vma = 0;
-    file_index = 0;
-    base_index = 0;
-    line_num = 0;
+    entry_vma = vma;
+    file_index = file;
+    base_index = base;
+    line_num = line;
   }
 
   // delete the subtree 'node' in ~TreeNode(), not here.

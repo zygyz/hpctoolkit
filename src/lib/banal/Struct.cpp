@@ -1782,8 +1782,15 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // 8. Demangle proc names for the hpcstruct file.
 // ---> added the binutils version, may need parseapi names
 //
+// 9. Improve scope info and alien map in makeScopeTree().
+// ---> partially done, open ended on how to handle cases where
+// ---> inline info does match parseapi tree
+//
 // 11. Add address ranges to buildLMSkeleton().
 // ---> use LM->findProc() to lookup BinUtils proc
+//
+// 12. Add call_sortId from buildStmts() to doBlock().
+// ---> probably don't need this
 //
 // 13. Demangle names in the Open Analysis case.
 // ---> now using __cxa_demangle() in BinUtils.cpp.
@@ -1805,14 +1812,8 @@ findLoopBegLineInfo(BinUtil::Proc* p, OA::OA_ptr<OA::NestedSCR> tarj,
 // 7. Maybe write our own functions for coalescing statements and
 // aliens and normalizing source code transforms.
 //
-// 9. Improve scope info and alien map in makeScopeTree().
-// ---> partially done, open ended on how to handle cases where
-// ---> inline info does match parseapi tree
-//
 // 10. Decide how to handle basic blocks that belong to multiple
 // functions.
-//
-// 12. Add call_sortId from buildStmts() to doBlock().
 //
 // 14. Import fix for duplicate proc names (pretty vs. typed/mangled).
 //
@@ -1841,10 +1842,6 @@ doLoopTree(ProcInfo, BlockSet &, LoopTreeNode *,
 	   StringTable &, ProcNameMgr *);
 
 static TreeNode *
-doLoopEarly(ProcInfo, BlockSet &, Loop *, const string &,
-	    StringTable &, ProcNameMgr *);
-
-static TreeNode *
 doLoopLate(ProcInfo, BlockSet &, Loop *, const string &,
 	   StringTable &, ProcNameMgr *);
 
@@ -1857,12 +1854,10 @@ findLoopHeader(ProcInfo, TreeNode *, Loop *, const string &,
 	       StringTable &, ProcNameMgr *);
 
 static void
-reparentInlineLoop(TreeNode *, TreeNode *, FLPSeqn &);
-
-static void
 makeScopeTree(Prof::Struct::ACodeNode *, ScopeInfo, TreeNode *,
 	      StringTable &, ProcNameMgr *);
 
+#if DEBUG_CFG_SOURCE
 static string
 debugPrettyName(const string &);
 
@@ -1871,6 +1866,7 @@ debugLoop(ProcInfo, Loop *, const string &, vector <Edge *> &, HeaderList &);
 
 static void
 debugInlineTree(TreeNode *, LoopInfo *, StringTable &, int, bool);
+#endif
 
 // Info on candidates for loop header.
 class HeaderInfo {
@@ -2038,48 +2034,6 @@ doLoopTree(ProcInfo pinfo, BlockSet & visited, LoopTreeNode * ltnode,
 }
 
 
-#if 0
-// Pre-order process for one loop, before the subloops.  Create the
-// inline tree and add the entry and exclusive blocks.
-//
-// Returns: the raw inline tree for this loop.
-//
-static TreeNode *
-doLoopEarly(ProcInfo pinfo, BlockSet & visited,
-	    Loop * loop, const string & loopName,
-	    StringTable & strTab, ProcNameMgr * nameMgr)
-{
-  // inline tree for this loop
-  TreeNode *root = new TreeNode;
-
-#if DEBUG_CFG_SOURCE
-  cout << "\nbegin loop:  " << loopName
-       << "  '" << pinfo.proc_parse->name() << "'\n";
-#endif
-
-  // insert the loop's entry blocks.  FIXME: some entry blocks in
-  // irreducible loops don't belong to the loop, so maybe we shouldn't
-  // add these.
-  vector <Block *> blist;
-  loop->getLoopEntries(blist);
-
-  for (uint i = 0; i < blist.size(); i++) {
-    doBlock(pinfo, visited, blist[i], root, strTab, nameMgr);
-  }
-
-  // insert the loop's exclusive blocks
-  blist.clear();
-  loop->getLoopBasicBlocksExclusive(blist);
-
-  for (uint i = 0; i < blist.size(); i++) {
-    doBlock(pinfo, visited, blist[i], root, strTab, nameMgr);
-  }
-
-  return root;
-}
-#endif
-
-
 // Post-order process for one loop, after the subloops.  Add any
 // leftover inclusive blocks, select the loop header, reparent as
 // needed, remove the top inline spine, and put into the LoopInfo
@@ -2110,6 +2064,8 @@ doLoopLate(ProcInfo pinfo, BlockSet & visited, Loop * loop, const string & loopN
 }
 
 
+// Process one basic block.
+//
 static void
 doBlock(ProcInfo pinfo, BlockSet & visited, Block * block,
 	TreeNode * root, StringTable & strTab, ProcNameMgr * nameMgr)
@@ -2146,34 +2102,16 @@ doBlock(ProcInfo pinfo, BlockSet & visited, Block * block,
 }
 
 
-#if 0
-// Returns: true if 'block' has outgoing edges to blocks both inside
-// and outside 'loop', so it acts as a loop exit condition.
-//
-static bool
-isLoopCond(Loop * loop, Block * block)
-{
-  const Block::edgelist & outEdges = block->targets();
-  bool in_loop = false;
-  bool out_loop = false;
-
-  for (auto eit = outEdges.begin(); eit != outEdges.end(); ++eit) {
-    Block *dest = (*eit)->trg();
-
-    if (loop->hasBlockExclusive(dest)) {
-      in_loop = true;
-    }
-    if (! loop->hasBlock(dest)) {
-      out_loop = true;
-    }
-  }
-
-  return in_loop && out_loop;
-}
-#endif
-
-
 // New heuristic for identifying loop header inside inline tree.
+// Start at the root, descend the inline tree and try to find where
+// the loop begins.  This is the central problem of all hpcstruct:
+// where to locate a loop inside an inline sequence.
+//
+// Note: loop "headers" are no longer tied to a specific VMA and
+// machine instruction.  They are strictly file and line number.
+// (For some loops, there is no right VMA.)
+//
+// Returns: detached LoopInfo object.
 //
 static LoopInfo *
 findLoopHeader(ProcInfo pinfo, TreeNode * root,
@@ -2311,8 +2249,9 @@ found_level:
   // Step 4 -- choose a loop header file/line at this level
   //------------------------------------------------------------
 
-  StmtInfo *sinfo = NULL;
-  long file_ans, base_ans, line_ans;
+  long file_ans = 0;
+  long base_ans = 0;
+  long line_ans = 0;
 
   if (root->nodeMap.size() > 0 || root->loopList.size() > 0) {
     //
@@ -2394,13 +2333,10 @@ found_level:
 
   vector <Block *> entryBlocks;
   loop->getLoopEntries(entryBlocks);
+  VMA entry_vma = (*(entryBlocks.begin()))->start();
 
-  LoopInfo *info = new LoopInfo(root, NULL, path, loopName);
-
-  info->vma = (*(entryBlocks.begin()))->start();
-  info->file_index = file_ans;
-  info->base_index = base_ans;
-  info->line_num = line_ans;
+  LoopInfo *info = new LoopInfo(root, path, loopName, entry_vma,
+				file_ans, base_ans, line_ans);
 
 #if DEBUG_CFG_SOURCE
   cout << "\nreparented inline tree:  " << loopName
@@ -2410,226 +2346,6 @@ found_level:
 
   return info;
 }
-
-
-#if 0
-// Select the vma to represent the loop header.
-//
-// Candidates are the source and target of all back edges and
-// conditional branches that go to both inside and outside the loop.
-// Partial heuristics:
-//
-//  1. must be within the loop's exclusive blocks.
-//  2. prefer most shallow inline depth.
-//  3. prefer source over target.
-//
-// FIXME: need to add more advanced heuristics for irreducible loops.
-//
-static VMA
-findLoopHeader(ProcInfo pinfo, Loop * loop, const string & loopName)
-{
-  string procName = pinfo.proc_parse->name();
-
-  vector <Edge *> backEdges;
-  loop->getBackEdges(backEdges);
-
-  // all loops must have at least one back edge.
-  if (backEdges.empty()) {
-    DIAG_Die("loop '" << loopName << "' in function '" << procName
-	     << "' has no back edge");
-  }
-
-  // Step 1 -- build the list of candidates.
-  HeaderList clist;
-  HeaderList copy;
-
-  for (auto eit = backEdges.begin(); eit != backEdges.end(); ++eit) {
-    Block * source = (*eit)->src();
-    Block * target = (*eit)->trg();
-    VMA src_vma = source->last();
-    VMA targ_vma = target->start();
-
-    auto cit = clist.find(src_vma);
-    if (cit == clist.end()) {
-      clist[src_vma] = HeaderInfo(source);
-      cit = clist.find(src_vma);
-    }
-    cit->second.is_src = true;
-
-    cit = clist.find(targ_vma);
-    if (cit == clist.end()) {
-      clist[targ_vma] = HeaderInfo(target);
-      cit = clist.find(targ_vma);
-    }
-    cit->second.is_targ = true;
-  }
-
-  // add conditional branches in/out of loop.
-  vector <Block *> exclBlocks;
-  loop->getLoopBasicBlocksExclusive(exclBlocks);
-
-  for (auto bit = exclBlocks.begin(); bit != exclBlocks.end(); ++bit) {
-    Block * block = *bit;
-    VMA vma = block->last();
-
-    if (isLoopCond(loop, block)) {
-      auto cit = clist.find(vma);
-      if (cit == clist.end()) {
-	clist[vma] = HeaderInfo(block);
-	cit = clist.find(vma);
-      }
-      cit->second.is_cond = true;
-    }
-  }
-
-  // add inline depth and incl/excl inside loop.
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    VMA vma = cit->first;
-    InlineSeqn seqn;
-
-    analyzeAddr(seqn, vma);
-    cit->second.in_incl = loop->containsAddressInclusive(vma);
-    cit->second.in_excl = loop->containsAddress(vma);
-    cit->second.depth = seqn.size();
-  }
-
-#if DEBUG_CFG_SOURCE
-  debugLoop(pinfo, loop, loopName, backEdges, clist);
-#endif
-
-  // Step 2 -- eliminate any candidates not in the loop.
-  int min_depth = INT_MAX;
-  copy = clist;
-  for (auto cit = clist.begin(); cit != clist.end(); ) {
-    HeaderInfo * info = &(cit->second);
-    auto next_it = cit;  next_it++;
-
-    if (info->in_incl && info->in_excl) {
-      min_depth = std::min(min_depth, info->depth);
-    }
-    else {
-      clist.erase(cit);
-    }
-    cit = next_it;
-  }
-
-  // something wrong if no back edge is inside the loop.
-  if (clist.empty()) {
-    DIAG_WMsgIf(1, "loop '" << loopName << "' in function '" << procName
-		<< "' near addr 0x" << hex << copy.begin()->first << dec
-		<< " has no back edge inside the loop");
-    clist = copy;
-  }
-
-  // Step 2.5 -- if there exists a candidate that is back edge source,
-  // loop condition and in exclusive block, then use it (with min
-  // inline depth).
-  //
-  VMA ans_vma = 0;
-  int ans_depth = INT_MAX;
-  bool found = false;
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    HeaderInfo * info = &(cit->second);
-
-    if (info->is_src && info->is_cond && info->in_excl && info->depth < ans_depth) {
-      ans_vma = cit->first;
-      ans_depth = info->depth;
-      found = true;
-    }
-  }
-
-#if DEBUG_CFG_SOURCE
-  string rating;
-  if (found && ans_depth == min_depth) { rating = "excellent (src,cond,depth)"; }
-  else if (found) { rating = "good (src,cond)"; }
-  else { rating = "fair"; }
-  cout << "\nconfidence: " << rating << "\n";
-#endif
-
-  if (found) {
-    return ans_vma;
-  }
-
-  // Step 3 -- sort by inline depth (most shallow).
-  min_depth = INT_MAX;
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    min_depth = std::min(min_depth, cit->second.depth);
-  }
-
-  for (auto cit = clist.begin(); cit != clist.end(); ) {
-    auto next_it = cit;  next_it++;
-
-    if (cit->second.depth > min_depth) {
-      clist.erase(cit);
-    }
-    cit = next_it;
-  }
-
-  // Step 3.5 -- prefer loop condition.
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    if (cit->second.is_cond) {
-      return cit->first;
-    }
-  }
-
-  // Step 4 -- prefer source over target.
-  for (auto cit = clist.begin(); cit != clist.end(); ++cit) {
-    if (cit->second.is_src) {
-      return cit->first;
-    }
-  }
-
-  // Step 5 -- take anything left over.
-  return clist.begin()->first;
-}
-#endif
-
-
-#if 0
-// Move any statements or nodes in the inline tree for a loop that are
-// not within the subtree of the loop's header to inside that subtree.
-// Delete the nodes on the path from root that are above loopNode.
-// There should be no subloops in the tree at this point.
-//
-// This happens when the inline info does not match up with the
-// ParseAPI loop tree.
-//
-// Note: after reparenting, the root node is no longer valid.
-//
-static void
-reparentInlineLoop(TreeNode * root, TreeNode * loopNode, FLPSeqn & path)
-{
-  // reparent all stmts and edges not on path to loop node
-  TreeNode *node = root;
-  auto pit = path.begin();
-
-  while (node != loopNode) {
-    mergeInlineStmts(loopNode, node);
-    TreeNode *next_node = NULL;
-
-    for (auto nit = node->nodeMap.begin(); nit != node->nodeMap.end(); ++nit) {
-      FLPIndex flp = nit->first;
-      TreeNode *subtree = nit->second;
-
-      if (flp == *pit) {
-	next_node = subtree;
-      }
-      else {
-	mergeInlineEdge(loopNode, flp, subtree);
-      }
-    }
-    node->nodeMap.clear();
-    delete node;
-
-    if (next_node == NULL) {
-      DIAG_Die("reparentInlineLoop: unable to follow flp path");
-    }
-
-    node = next_node;
-    pit++;
-  }
-}
-#endif
 
 
 // Find the alien node in 'alienMap' that matches 'file_index'.
@@ -2710,7 +2426,7 @@ makeScopeTree(Prof::Struct::ACodeNode * enclScope, ScopeInfo scinfo,
   // not match the enclosing scope, then add a single guard alien.
   //
   for (auto lit = tree->loopList.begin(); lit != tree->loopList.end(); ++lit) {
-    VMA vma = (*lit)->vma;
+    VMA vma = (*lit)->entry_vma;
     long myfile = (*lit)->file_index;
     string filenm = strTab.index2str(myfile);
     SrcFile::ln line = (*lit)->line_num;
