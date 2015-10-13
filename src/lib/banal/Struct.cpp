@@ -1969,7 +1969,7 @@ buildProcStructure(ProcInfo pinfo, bool isIrrIvalLoop, bool isFwdSubst,
   makeScopeTree(procScope, ScopeInfo(file_index), &root, strTab, nameMgr);
 
   // fixme: may or may not use these
-#if 1
+#if 0
   coalesceAlienChildren(procScope);
   renumberAlienScopes(procScope);
 #endif
