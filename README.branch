@@ -12,12 +12,18 @@ NOT branch externals.  There are incompatible changes in dyninst
 between 8.2-release and git head and things will break.  At some
 point, I'll write config tests and #ifdefs, but not yet.
 
+Merged back into trunk on Oct 15, 2015.  Do not use this branch
+anymore, use hpctoolkit master instead.
+
 origin: 2015-04-05 from trunk rev 4732
 
 sync: 2015-06-05 with trunk rev 4757
 sync: 2015-08-12 with trunk rev 4807
 
 ------------------------------------------------------------
+
+The special externals is no longer necessary.  Use current
+hpctoolkit-externals as of Oct 7, 2015 or later.
 
 Building a special externals with symtabAPI + parseAPI for this
 branch.
@@ -26,9 +32,9 @@ Note: these directions are for this branch only and will break with
 trunk.  So, DO NOT commit anything back to externals (and don't branch
 externals either).
 
-Note: use dyninst from git sometime after Aug 21, 2015 (v9.0.1 tag or
-later).  Do not use release 9.0.0, it contains some unfortunate bugs
-that break the build.
+Note: use dyninst from git sometime after Aug 26, 2015 (v9.0.3 tag or
+later).  Do not use release 9.0.2 or earlier, they contain some
+unfortunate bugs that break the build.
 
 1. Clone a recent dyninst.  This should checkout the branch 'master'
 automatically, but if not, then checkout master.  It's simplest to
