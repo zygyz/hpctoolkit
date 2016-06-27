@@ -270,6 +270,7 @@ MY_BASE_FILES =				\
 	sample-sources/io.c 		\
 	sample-sources/itimer.c		\
 	sample-sources/idle.c		\
+	sample-sources/linux_perf.c	\
 	sample-sources/memleak.c	\
 	sample-sources/pthread-blame.c  \
 	sample-sources/none.c           \
