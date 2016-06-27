@@ -302,7 +302,7 @@ add_kernel_callchain(cct_node_t *leaf)
     (struct perf_event_callchain *) (pcc_v + (perf_mmap->data_tail % pagesize));
 
   cct_node_t *parent = leaf;
-  for (int i = pcc->nr - 1; i >= 0; i--) {
+  for (int i = pcc->nr - 1; i > 0; i--) {
     ip_normalized_t npc = { .lm_id = perf_kernel_lm_id, .lm_ip = pcc->ips[i] };
     cct_addr_t frm = { .ip_norm = npc };
     cct_node_t *child = hpcrun_cct_insert_addr(parent, &frm);
