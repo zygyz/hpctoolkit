@@ -14,6 +14,7 @@
 // local include files
 //******************************************************************************
 
+#include <include/linux_info.h>
 #include "KernelSymbols.hpp"
 
 
@@ -89,7 +90,7 @@ KernelSymbols::KernelSymbols()
 bool
 KernelSymbols::parseLinuxKernelSymbols()
 {
-  FILE *fp = fopen("/proc/kallsyms", "r");
+  FILE *fp = fopen(LINUX_KERNEL_SYMBOL_FILE, "r");
 
   if (fp) {
     for(;;) {

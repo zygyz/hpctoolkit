@@ -489,9 +489,6 @@ hpcrun_fmt_doRetainId(uint32_t id)
 
 #define HPCRUN_FMT_LMId_NULL (0)
 
-#define HPCRUN_FMT_KERNEL_SYMBOLS "/proc/kallsyms"
-#define HPCRUN_FMT_KERNEL         "vmlinux"
-
 #define HPCRUN_FMT_LMIp_NULL  (0)
 #define HPCRUN_FMT_LMIp_Flag1 (1)
 

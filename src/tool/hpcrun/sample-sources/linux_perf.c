@@ -97,7 +97,7 @@
 #include <hpcrun/utilities/tokenize.h>
 #include <hpcrun/utilities/arch/context-pc.h>
 
-#include <lib/prof-lean/hpcrun-fmt.h>
+#include <include/linux_info.h> 
 
 
 
@@ -362,7 +362,7 @@ perf_read_uint64_t(
 static bool
 perf_kernel_syms_avail()
 {
-  FILE *ksyms = fopen(HPCRUN_FMT_KERNEL_SYMBOLS, "r");
+  FILE *ksyms = fopen(LINUX_KERNEL_SYMBOL_FILE, "r");
   bool success = (ksyms != NULL);
   if (success) fclose(ksyms);
   return success;
@@ -411,7 +411,7 @@ perf_init()
   if (perf_ksyms_avail) {
     hpcrun_kernel_callpath_register(perf_add_kernel_callchain);
     perf_kernel_lm_id = 
-      hpcrun_loadModule_add(HPCRUN_FMT_KERNEL);
+      hpcrun_loadModule_add(LINUX_KERNEL_NAME);
   }
  
   monitor_sigaction(PERF_SIGNAL, &perf_event_handler, 0, NULL);
