@@ -138,6 +138,21 @@
 #define PERF_EVENT_AVAILABLE_NO      1
 #define PERF_EVENT_AVAILABLE_YES     2
 
+#define mp_none { }
+#define mp_cycles { .cycles = 1 }
+
+#define ETABLE_ENTRY(type, name, properties, value_format) \
+    { type, #name, name, properties, value_format}
+
+#define ETABLE_ENTRY_HW(name) \
+   ETABLE_ENTRY(PERF_TYPE_HARDWARE, name, mp_none, MetricFlags_ValFmt_Int)
+
+#define ETABLE_ENTRY_HW_CYC(name) \
+   ETABLE_ENTRY(PERF_TYPE_HARDWARE, name, mp_cycles, \
+					MetricFlags_ValFmt_Int)
+
+#define ETABLE_ENTRY_SW(name) \
+   ETABLE_ENTRY(PERF_TYPE_SOFTWARE, name, mp_none, MetricFlags_ValFmt_Int)
 
 
 //******************************************************************************
@@ -153,6 +168,21 @@ typedef struct perf_event_callchain_s {
 
 typedef struct perf_event_mmap_page pe_mmap_t;
 
+typedef struct etable_entry_s {
+  int perf_type;
+  const char *event_name;
+  int perf_config;
+  metric_desc_properties_t hpcrun_properties;
+  MetricFlags_ValFmt_t hpcrun_value_format;
+} etable_entry_t;
+
+typedef struct selected_entry_s {
+  etable_entry_t *event;
+  int metric_id;
+  int threshold;
+  struct selected_entry_s *next;
+} selected_entry_t;
+
 
 
 /******************************************************************************
@@ -161,28 +191,6 @@ typedef struct perf_event_mmap_page pe_mmap_t;
 
 extern __thread bool hpcrun_thread_suppress_sample;
 
-
-
-//******************************************************************************
-// forward declarations 
-//******************************************************************************
-
-static bool 
-perf_thread_init();
-
-static void 
-perf_thread_fini();
-
-static cct_node_t *
-perf_add_kernel_callchain(
-  cct_node_t *leaf
-);
-
-static int perf_event_handler(
-  int sig, 
-  siginfo_t* siginfo, 
-  void* context
-);
 
 
 //******************************************************************************
@@ -197,15 +205,17 @@ static bool perf_ksyms_avail;
 static int perf_process_state;
 static int perf_initialized;
 
+#if 0
 static int metric_id;
 static long threshold;
+static const char *event_name = "PERF_COUNT_HW_CPU_CYCLES";
+#endif
 
 static sigset_t sig_mask;
 
 static int pagesize;
 static size_t tail_mask;
 
-static const char *event_name = "PERF_COUNT_HW_CPU_CYCLES";
 
 static const char * dashes_separator = 
   "---------------------------------------------------------------------------\n";
@@ -215,6 +225,34 @@ static const char * equals_separator =
 // Special case to make perf init a soft failure.
 // Make sure that we don't use perf if it won't work.
 static int perf_unavail = 0;
+
+static
+etable_entry_t etable[] = {
+  // hardware events
+  ETABLE_ENTRY_HW_CYC(PERF_COUNT_HW_CPU_CYCLES),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_INSTRUCTIONS),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_CACHE_REFERENCES),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_CACHE_MISSES),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_BRANCH_INSTRUCTIONS),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_BRANCH_MISSES),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_BUS_CYCLES),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_STALLED_CYCLES_FRONTEND),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_STALLED_CYCLES_BACKEND),
+  ETABLE_ENTRY_HW(PERF_COUNT_HW_REF_CPU_CYCLES),
+
+  // software events
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_CPU_CLOCK),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_TASK_CLOCK),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_PAGE_FAULTS),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_CONTEXT_SWITCHES),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_CPU_MIGRATIONS),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_PAGE_FAULTS_MIN),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_PAGE_FAULTS_MAJ),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_ALIGNMENT_FAULTS),
+  ETABLE_ENTRY_SW(PERF_COUNT_SW_EMULATION_FAULTS)
+};
+
+static selected_entry_t *event_list = 0;
 
 
 
@@ -239,6 +277,29 @@ struct timespec             __thread cpu_start;
 
 int                         __thread perf_thread_fd;
 pe_mmap_t                   __thread *perf_mmap;
+
+
+
+//******************************************************************************
+// forward declarations 
+//******************************************************************************
+
+static bool 
+perf_thread_init();
+
+static void 
+perf_thread_fini();
+
+static cct_node_t *
+perf_add_kernel_callchain(
+  cct_node_t *leaf
+);
+
+static int perf_event_handler(
+  int sig, 
+  siginfo_t* siginfo, 
+  void* context
+);
 
 
 
@@ -292,6 +353,30 @@ perf_stop()
   ioctl(perf_thread_fd, PERF_EVENT_IOC_DISABLE, 0);
 
   perf_started = 0;
+}
+
+
+//----------------------------------------------------------
+// event support
+//----------------------------------------------------------
+
+static etable_entry_t *
+perf_event_lookup(const char *ename)
+{
+  int n_entries = sizeof(etable)/sizeof(etable_entry_t);
+  for (int i =0; i < n_entries; i++) {
+    if (strncmp(etable[i].event_name, ename, strlen(etable[i].event_name)) == 0) {
+      return &etable[i];
+    }
+  }
+  return 0;
+}
+
+void
+perf_event_add(selected_entry_t *se)
+{
+  se->next = event_list;
+  event_list = se;
 }
 
 
@@ -420,16 +505,18 @@ perf_init()
 
 static void
 perf_attr_init(
-  struct perf_event_attr *attr
+  struct perf_event_attr *attr,
+  selected_entry_t *se
 )
 {
   memset(attr, 0, sizeof(struct perf_event_attr));
 
-  attr->type = PERF_TYPE_HARDWARE;
+  attr->type = se->event->perf_type; 
   attr->size = sizeof(struct perf_event_attr);
-  attr->config = PERF_COUNT_HW_CPU_CYCLES;
+  attr->disabled = 1;
+  attr->config = se->event->perf_config; 
 
-  attr->sample_period = threshold;
+  attr->sample_period = se->threshold;
   attr->sample_type = PERF_SAMPLE_CALLCHAIN;
   attr->precise_ip = PERF_REQUEST_0_SKID;
   attr->wakeup_events = PERF_WAKEUP_EACH_SAMPLE;
@@ -451,9 +538,15 @@ perf_thread_init()
 {
   if (perf_thread_initialized == 0) {
     struct perf_event_attr attr;
-    perf_attr_init(&attr);
+    selected_entry_t *se = event_list;
+
+    perf_attr_init(&attr, se);
     perf_thread_fd = perf_event_open(&attr, THREAD_SELF, CPU_ANY, 
 			      GROUP_FD, PERF_FLAGS);
+
+    if (perf_thread_fd == -1) {
+      fprintf(stderr, "failed to open perf_thread_fd: %s\n", strerror(errno));
+    }
 
     void *map_result = 
       mmap(NULL, PERF_MMAP_SIZE(pagesize), PROT_WRITE | PROT_READ, 
@@ -542,6 +635,16 @@ perf_add_kernel_callchain(
 }
 
 
+static void
+perf_restart()
+{
+  int rc = ioctl(perf_thread_fd, PERF_EVENT_IOC_REFRESH, 1);
+  if (rc == -1) {
+    TMSG(LINUX_PERF, "error in IOC_REFRESH");
+  }
+}
+
+
 static int
 perf_event_handler(
   int sig, 
@@ -574,6 +677,7 @@ perf_event_handler(
 
   // if sampling disabled explicitly for this thread, skip all processing
   if (hpcrun_thread_suppress_sample) {
+    perf_restart();
     return 0; // tell monitor the signal has been handled.
   }
 
@@ -581,21 +685,20 @@ perf_event_handler(
   // and return and avoid the potential for deadlock.
   if (! hpcrun_safe_enter_async(pc)) {
     hpcrun_stats_num_samples_blocked_async_inc();
+    perf_restart();
     return 0; // tell monitor the signal has been handled.
   }
 
-  sample_val_t sv = hpcrun_sample_callpath(context, metric_id, 1,
+  selected_entry_t *se = event_list;
+
+  sample_val_t sv = hpcrun_sample_callpath(context, se->metric_id, 1,
 					   0/*skipInner*/, 0/*isSync*/);
 
-  blame_shift_apply(metric_id, sv.sample_node, 1 /*metricIncr*/);
+  blame_shift_apply(se->metric_id, sv.sample_node, 1 /*metricIncr*/);
 
   hpcrun_safe_exit();
 
-  int rc = ioctl(perf_thread_fd, PERF_EVENT_IOC_REFRESH, 1);
-  if (rc == -1) {
-    TMSG(LINUX_PERF, "error in IOC_REFRESH");
-  }
-
+  perf_restart();
   return 0; // tell monitor the signal has been handled.
 }
 
@@ -708,8 +811,8 @@ METHOD_FN(shutdown)
 }
 
 
-// Return true if Linux perf recognizes the name, whether supported or not.
-// We'll handle unsupported events later.
+// return true if Linux perf recognizes the name, whether supported or not.
+// we'll handle unsupported events later.
 static bool
 METHOD_FN(supports_event, const char *ev_str)
 {
@@ -720,7 +823,7 @@ METHOD_FN(supports_event, const char *ev_str)
     METHOD_CALL(self, init);
   }
 
-  if (strncmp(event_name, ev_str, strlen(event_name)) == 0) return true; 
+  if (perf_event_lookup(ev_str)) return true;
   
   return false;
 }
@@ -729,29 +832,44 @@ METHOD_FN(supports_event, const char *ev_str)
 static void
 METHOD_FN(process_event_list, int lush_metrics)
 {
+#if 0
   metric_desc_properties_t prop = metric_property_none;
   prop = metric_property_cycles;
+MetricFlags_ValFmt_Int,
+#endif
 
   TMSG(LINUX_PERF, "process event list");
 
   if (perf_unavail) { return; }
 
   char* evlist = METHOD_CALL(self, get_event_str);
-#if 1
+#if 0
   char *event = start_tok(evlist); 
   char name[1024];
   hpcrun_extract_ev_thresh(event, sizeof(name), name, &threshold, 
 			   DEFAULT_THRESHOLD);
 #else
-  NEEDS WORK FOR MULTIPLE EVENTS
+  char *event;
   for (event = start_tok(evlist); more_tok(); event = next_tok()) {
     char name[1024];
+    long threshold;
 
     TMSG(LINUX_PERF,"checking event spec = %s",event);
 
     hpcrun_extract_ev_thresh(event, sizeof(name), name, &threshold, 
 			     DEFAULT_THRESHOLD);
 
+    selected_entry_t *se = (selected_entry_t *) malloc(sizeof(selected_entry_t));
+
+    se->event = perf_event_lookup(name);
+    se->metric_id = hpcrun_new_metric();
+    se->threshold = threshold;
+
+    perf_event_add(se);
+    
+    hpcrun_set_metric_info_and_period(se->metric_id, se->event->event_name,
+				      se->event->hpcrun_value_format, 
+				      se->threshold, se->event->hpcrun_properties);
   }
 #endif
 
@@ -763,12 +881,6 @@ METHOD_FN(process_event_list, int lush_metrics)
   perf_initialized = true;
   perf_init();
   perf_thread_init();
-
-  metric_id = hpcrun_new_metric();
-
-  hpcrun_set_metric_info_and_period(metric_id, strdup(name),
-				    MetricFlags_ValFmt_Int,
-				    threshold, prop);
 }
 
 
