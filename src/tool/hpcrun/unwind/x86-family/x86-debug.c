@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2016, Rice University
+// Copyright ((c)) 2002-2015, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
 
 //************************* System Include Files ****************************
 
+#include <xed-interface.h>
 #include <stdint.h>
 
 //*************************** configuration ****************************
@@ -69,26 +70,33 @@ static fnbounds_t local;
 fnbounds_t*
 x86_fnbounds(void* addr)
 {
-  //  fnbounds_t local;
-  fnbounds_enclosing_addr(addr, &local.begin, &local.end, NULL);
+  ildmod_stat_t *ilmstat = uw_recipe_map_get_fnbounds_ldmod(addr);
+  local.begin = (void*)ildmod_stat_interval(ilmstat)->start;
+  local.end   = (void*)ildmod_stat_interval(ilmstat)->end;
   return &local;
 }
 
+
 void
-x86_dump_intervals(void* addr) 
+x86_print_intervals(btuwi_status_t intervals)
 {
-  void *s, *e;
   unwind_interval *u;
-  interval_status intervals;
-
-  fnbounds_enclosing_addr(addr, &s, &e, NULL);
-
-  intervals = x86_build_intervals(s, e - s, 0);
-
-  for(u = (unwind_interval *)intervals.first; u; 
-      u = (unwind_interval *)(u->common).next) {
+  for(u = intervals.first; u; u = UWI_NEXT(u)) {
     dump_ui_dbg(u);
   }
+}
+
+void
+x86_dump_intervals(void* addr)
+{
+  void *s, *e;
+  btuwi_status_t intervals;
+  ildmod_stat_t *ilmstat = uw_recipe_map_get_fnbounds_ldmod(addr);
+  s = (void*)ildmod_stat_interval(ilmstat)->start;
+  e = (void*)ildmod_stat_interval(ilmstat)->end;
+
+  intervals = x86_build_intervals(s, e - s, 0, hpcrun_malloc);
+  x86_print_intervals(intervals);
 }
 
 void
@@ -110,8 +118,8 @@ x86_dump_ins(void *ins)
   xed_error = xed_decode(xptr, (uint8_t*) ins, 15);
   
   if (xed_error == XED_ERROR_NONE) {
-    xed_decoded_inst_dump_xed_format(xptr, inst_buf, sizeof(inst_buf), 
-				     (xed_uint64_t)(uintptr_t)ins);
+	xed_decoded_inst_dump_xed_format(xptr, inst_buf, sizeof(inst_buf),
+		   (xed_uint64_t)(uintptr_t)ins);
     sprintf(errbuf, "(%p, %d bytes, %s) %s \n" , ins, 
 	    xed_decoded_inst_get_length(xptr), 
 	    xed_iclass_enum_t2str(iclass(xptr)), inst_buf);
@@ -141,14 +149,15 @@ hpcrun_dump_intervals_noisy(void* addr)
 {
   void *s, *e;
   unwind_interval *u;
-  interval_status intervals;
+  btuwi_status_t intervals;
 
-  fnbounds_enclosing_addr(addr, &s, &e, NULL);
+  ildmod_stat_t *ilmstat = uw_recipe_map_get_fnbounds_ldmod(addr);
+  s = (void*)ildmod_stat_interval(ilmstat)->start;
+  e = (void*)ildmod_stat_interval(ilmstat)->end;
 
-  intervals = x86_build_intervals(s, e - s, 1);
+  intervals = x86_build_intervals(s, e - s, 1, hpcrun_malloc);
 
-  for(u = (unwind_interval *)intervals.first; u; 
-      u = (unwind_interval *)(u->common).next) {
+  for(u = intervals.first; u; u = UWI_NEXT(u)) {
     dump_ui_dbg(u);
   }
 }

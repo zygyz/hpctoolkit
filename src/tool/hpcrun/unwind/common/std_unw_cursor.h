@@ -69,13 +69,21 @@
 
 #else
 
-#  include "splay-interval.h"
-#  include <hpcrun/utilities/ip-normalized.h>
-#  define UNW_CURSOR_INTERVAL_t splay_interval_t*
+#include "binarytree_uwi.h"
+#include "ildmod_stat.h"
+#include <hpcrun/utilities/ip-normalized.h>
+#define UNW_CURSOR_INTERVAL_t bitree_uwi_t*
 
 #endif
 
 //***************************************************************************
+typedef struct unwindr_info_s {
+  uintptr_t start;
+  uintptr_t end;
+  load_module_t *lm;
+  tree_stat_t treestat;
+  bitree_uwi_t *btuwi;
+} unwindr_info_t;
 
 typedef struct hpcrun_unw_cursor_t {
 
@@ -90,9 +98,7 @@ typedef struct hpcrun_unw_cursor_t {
   void *ra_loc;  // for trampolines
 
   fence_enum_t fence; // Details on which fence stopped an unwind
-
-  UNW_CURSOR_INTERVAL_t intvl;
-
+  unwindr_info_t unwr_info; // unwind recipe info
   ip_normalized_t the_function; // (normalized) ip for function
 
   //NOTE: will fail if HPC_UWN_LITE defined
