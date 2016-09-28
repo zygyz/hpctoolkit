@@ -57,13 +57,14 @@ static char gcc_main64_signature[] = {
 };
 
 static int 
-adjust_gcc_main64_intervals(char *ins, int len, interval_status *stat)
+adjust_gcc_main64_intervals(char *ins, int len, btuwi_status_t *stat)
+/////adjust_gcc_main64_intervals(char *ins, int len, interval_status *stat)	// SKW
 {
   int siglen = sizeof(gcc_main64_signature);
 
   if (len > siglen && strncmp((char *)gcc_main64_signature, ins, siglen) == 0) {
     // signature matched 
-    unwind_interval *ui = (unwind_interval *) stat->first;
+	    unwind_interval *ui = (unwind_interval *) stat->first;
 
     // this won't fix all of the intervals, but it will fix the ones 
     // that we care about.
@@ -74,15 +75,15 @@ adjust_gcc_main64_intervals(char *ins, int len, interval_status *stat)
     // For this interval and subsequent interval, apply the corrected offsets
     //
 
-    for(; ui->ra_status != RA_STD_FRAME; ui = (unwind_interval *)(ui->common).next);
+    for(; UWI_RECIPE(ui)->ra_status != RA_STD_FRAME; ui = (unwind_interval *) UWI_NEXT(ui) );
 
     // this is only correct for 64-bit code
-    for(; ui; ui = (unwind_interval *)(ui->common).next) {
-      if (ui->ra_status == RA_SP_RELATIVE) continue;
-      if ((ui->ra_status == RA_STD_FRAME) || (ui->ra_status == RA_BP_FRAME)) {  
-         ui->ra_status = RA_BP_FRAME;
-         ui->bp_ra_pos = 8;
-         ui->bp_bp_pos = 0;
+    for(; ui; ui = (unwind_interval *) UWI_NEXT(ui)) {
+      if (UWI_RECIPE(ui)->ra_status == RA_SP_RELATIVE) continue;
+      if ((UWI_RECIPE(ui)->ra_status == RA_STD_FRAME) || (UWI_RECIPE(ui)->ra_status == RA_BP_FRAME)) {
+    	 UWI_RECIPE(ui)->ra_status = RA_BP_FRAME;
+    	 UWI_RECIPE(ui)->bp_ra_pos = 8;
+    	 UWI_RECIPE(ui)->bp_bp_pos = 0;
       }
     }
 

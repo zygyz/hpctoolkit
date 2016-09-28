@@ -57,7 +57,7 @@ static char intel_align64_signature[] = {
 };
 
 static int 
-adjust_intel_align64_intervals(char *ins, int len, interval_status *stat)
+adjust_intel_align64_intervals(char *ins, int len, btuwi_status_t *stat)
 {
   int siglen = sizeof(intel_align64_signature);
 
@@ -79,8 +79,8 @@ adjust_intel_align64_intervals(char *ins, int len, interval_status *stat)
     // this is only correct for 64-bit code
     for(; ui; ui = UWI_NEXT(ui)) {
       if (UWI_RECIPE(ui)->ra_status == RA_SP_RELATIVE) continue;
-      if ((UWI_RECIPE(ui)->ra_status == RA_STD_FRAME) || (UWI_RECIPE(ui)->ra_status == RA_BP_FRAME)) %%
-          (ui->bp_status == BP_SAVED)) {
+      if ( ((UWI_RECIPE(ui)->ra_status == RA_STD_FRAME) || (UWI_RECIPE(ui)->ra_status == RA_BP_FRAME)) &&
+          (UWI_RECIPE(ui)->bp_status == BP_SAVED)) {
     	UWI_RECIPE(ui)->ra_status = RA_BP_FRAME;
     	UWI_RECIPE(ui)->bp_ra_pos = 8;
     	UWI_RECIPE(ui)->bp_bp_pos = 0;
