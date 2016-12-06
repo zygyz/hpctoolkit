@@ -86,6 +86,8 @@ using std::endl;
 
 #include "Dbg-LM.hpp"
 
+#include "CudaSymbols.h"
+
 #include <lib/isa/AlphaISA.hpp>
 #include <lib/isa/EmptyISA.hpp>
 #include <lib/isa/IA64ISA.hpp>
@@ -99,7 +101,6 @@ using std::endl;
 #include <lib/support/diagnostics.h>
 #include <lib/support/Logic.hpp>
 #include <lib/support/QuickSort.hpp>
-
 
 
 //***************************************************************************
@@ -354,7 +355,7 @@ BinUtil::LM::LM(bool useBinutils)
     m_bfdDynSymTab(NULL), m_bfdSynthTab(NULL),
     m_bfdSymTabSort(NULL), m_bfdSymTabSz(0), m_bfdDynSymTabSz(0),
     m_bfdSymTabSortSz(0), m_bfdSynthTabSz(0), m_noreturns(0), 
-    m_realpathMgr(RealPathMgr::singleton()), m_useBinutils(useBinutils)
+    m_realpathMgr(RealPathMgr::singleton()), m_useBinutils(useBinutils), csyms(0)
 {
 }
 
@@ -398,12 +399,19 @@ BinUtil::LM::~LM()
   m_noreturns = NULL;
 }
 
-
 void
 BinUtil::LM::open(const char* filenm)
 {
   DIAG_Assert(Logic::implies(!m_name.empty(), m_name.c_str() == filenm), "Cannot open a different file!");
-  
+ 
+#if 1
+	if (strcmp(filenm, CUDA_BINARY_NAME) == 0){
+		m_name = filenm;
+		return;
+	}
+#endif
+
+ 
   // -------------------------------------------------------
   // 1. Initialize bfd and open the object file.
   // -------------------------------------------------------
@@ -532,6 +540,14 @@ BinUtil::LM::read(LM::ReadFlg readflg)
 
   m_readFlags = (ReadFlg)(readflg | LM::ReadFlg_fSeg); // enforce ReadFlg rules
 
+#if 1
+	if (strcmp(m_name.c_str(), CUDA_BINARY_NAME) == 0){
+		csyms = new CudaSymbols;
+		csyms->parseCudaSymbols();
+		return;
+	}
+#endif
+
   readSymbolTables();
   readSegs();
   computeNoReturns();
@@ -580,6 +596,21 @@ BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
   bool STATUS = false;
   func = file = "";
   line = 0;
+
+#if 1
+	if (csyms){
+		STATUS = csyms->find(vma, func, line, file);
+
+		#if 0
+		printf("In LM.cpp findSrcCodeInfo ");
+		printf("Function name: %s ", func.c_str());
+		printf("File name: %s ", file.c_str());
+		printf("Line number: %u\n", line);
+		#endif
+		
+		return STATUS;
+	}
+#endif
 
   if (!m_bfdSymTab) { 
     return STATUS; 

@@ -22030,7 +22030,7 @@ else
 fi
 
 
-  OPT_CUDA_IFLAGS="-I${OPT_CUDA_INCPATH} "
+  OPT_CUDA_IFLAGS="-I${OPT_CUDA_INCPATH} -DHAVE_CUDA"
 
 
 # Check whether --with-cuda-lib was given.

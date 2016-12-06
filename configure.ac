@@ -3299,7 +3299,7 @@ if test "$OPT_HAVE_CUDA" = "yes" ; then
          AC_MSG_ERROR(['${OPT_CUDA}/include/cuda.h' not found])
      fi])  
 
-  OPT_CUDA_IFLAGS="-I${OPT_CUDA_INCPATH} "
+  OPT_CUDA_IFLAGS="-I${OPT_CUDA_INCPATH} -DHAVE_CUDA"
 
   AC_ARG_WITH([cuda-lib],
   AS_HELP_STRING([--with-cuda-lib=PATH],
