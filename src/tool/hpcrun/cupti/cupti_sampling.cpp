@@ -118,6 +118,7 @@ kernel_invocation_activities[] = {
 const CUpti_ActivityKind
 kernel_execution_activities[] = {
   CUPTI_ACTIVITY_KIND_PC_SAMPLING,
+  CUPTI_ACTIVITY_KIND_FUNCTION,
   CUPTI_ACTIVITY_KIND_INVALID
 };
 
