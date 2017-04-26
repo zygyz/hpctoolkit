@@ -128,6 +128,60 @@ namespace Analysis {
 namespace CallPath {
 
 
+Prof::CallPath::Profile* 
+readSingle
+(
+ const Util::StringVec& profileFiles, 
+ const Util::UIntVec* groupMap,
+ uint i,
+ uint rFlags 
+)
+{
+  fprintf(stderr, "reading profile %d\n", i);
+  uint groupId = (groupMap) ? (*groupMap)[i] : 0;
+  Prof::CallPath::Profile* p = read(profileFiles[i], groupId, rFlags);
+  return p;
+}
+
+
+Prof::CallPath::Profile* 
+readSet
+(
+ const Util::StringVec& profileFiles, 
+ const Util::UIntVec* groupMap,
+ int mergeTy, 
+ uint rFlags, 
+ uint mrgFlags,
+ uint lower,
+ uint upper
+)
+{
+  if (upper == lower) { // singleton profile
+    Prof::CallPath::Profile* p = readSingle(profileFiles, groupMap, lower, rFlags);
+    return p; 
+  } else {  // multiple profiles
+    Prof::CallPath::Profile* left = 0;
+    Prof::CallPath::Profile* right = 0;
+    uint mid = lower + (upper - lower)/2; 
+#pragma omp task shared(left, profileFiles, groupMap) \
+  firstprivate(mergeTy, rFlags, mrgFlags, lower, mid)
+    {
+      left = readSet(profileFiles, groupMap, mergeTy, rFlags, mrgFlags, lower, mid);
+    }
+// #pragma omp task shared(right, profileFiles, groupMap) \
+  firstprivate(mergeTy, rFlags, mrgFlags, mid, upper)
+    {
+      right = readSet(profileFiles, groupMap, mergeTy, rFlags, mrgFlags, mid + 1, upper);
+    }
+#pragma omp taskwait 
+
+    left->merge(*right, mergeTy, mrgFlags);
+
+    return left;
+  }
+}
+
+
 Prof::CallPath::Profile*
 read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
      int mergeTy, uint rFlags, uint mrgFlags)
@@ -139,6 +193,7 @@ read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
   }
   
   // General case
+#if 0
   uint groupId = (groupMap) ? (*groupMap)[0] : 0;
   Prof::CallPath::Profile* prof = read(profileFiles[0], groupId, rFlags);
 
@@ -154,6 +209,17 @@ read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
   }
 }
 }
+#else
+ Prof::CallPath::Profile* prof = 0;
+#pragma omp parallel shared(prof)
+{
+#pragma omp master 
+{
+  prof = readSet(profileFiles, groupMap, mergeTy, 
+	         rFlags, mrgFlags, 0, profileFiles.size() - 1);
+}
+}
+#endif
   
   return prof;
 }
