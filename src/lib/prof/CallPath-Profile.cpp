@@ -256,8 +256,7 @@ Profile::merge(Profile& y, int mergeTy, uint mrgFlag)
 			     mrgFlag & CCT::MrgFlg_NormalizeTraceFileY),
 	      "CallPath::Profile::merge: there should only be CCT::MergeEffects when MrgFlg_NormalizeTraceFileY is passed");
 
-  y.merge_fixTrace(mrgEffects2);
-  delete mrgEffects2;
+  y.merge_fixTrace(mrgEffects2); // Note: the method call will delete mrgEffects2
 
   return firstMergedMetric;
 }
@@ -363,9 +362,7 @@ Profile::merge_fixCCT(const std::vector<LoadMap::MergeEffect>* mrgEffects)
   }
 }
 
-
-void
-Profile::merge_fixTrace(const CCT::MergeEffectList* mrgEffects)
+void doFixTrace(string m_traceFileName, const CCT::MergeEffectList* mrgEffects)
 {
   typedef std::map<uint, uint> UIntToUIntMap;
 
@@ -451,6 +448,18 @@ Profile::merge_fixTrace(const CCT::MergeEffectList* mrgEffects)
 
   delete[] infsBuf;
   delete[] outfsBuf;
+}
+
+void
+Profile::merge_fixTrace(const CCT::MergeEffectList* mrgEffects)
+{
+  string *file = new string(m_traceFileName);
+#pragma omp task firstprivate(file)
+{
+  doFixTrace(*file, mrgEffects);
+  delete mrgEffects;
+  delete file;
+}
 }
 
 

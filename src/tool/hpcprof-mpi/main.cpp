@@ -643,11 +643,15 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const vector<uint>& groupIdToGroupSizeMap,
 		  int myRank, int numRanks, int rootRank)
 {
+#pragma omp parallel 
+{
+#pragma omp master 
   for (uint i = 0; i < nArgs.paths->size(); ++i) {
     string& fnm = (*nArgs.paths)[i];
     uint groupId = (*nArgs.groupMap)[i];
     makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
   }
+}
 }
 
 

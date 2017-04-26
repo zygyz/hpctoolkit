@@ -142,12 +142,18 @@ read(const Util::StringVec& profileFiles, const Util::UIntVec* groupMap,
   uint groupId = (groupMap) ? (*groupMap)[0] : 0;
   Prof::CallPath::Profile* prof = read(profileFiles[0], groupId, rFlags);
 
+#pragma omp parallel shared(prof)
+{
+#pragma omp master 
+{
   for (uint i = 1; i < profileFiles.size(); ++i) {
     groupId = (groupMap) ? (*groupMap)[i] : 0;
     Prof::CallPath::Profile* p = read(profileFiles[i], groupId, rFlags);
     prof->merge(*p, mergeTy, mrgFlags);
     delete p;
   }
+}
+}
   
   return prof;
 }
