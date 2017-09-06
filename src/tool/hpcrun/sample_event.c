@@ -248,6 +248,7 @@ hpcrun_sample_callpath(void* context, int metricId,
     cct_bundle_t* cct = &(td->core_profile_trace_data.epoch->csdata);
     node = record_partial_unwind(cct, td->btbuf_beg, td->btbuf_cur - 1,
 				 metricId, metricIncr, skipInner);
+    leaf_func =  hpcrun_cct_addr(node)->ip_norm;
     hpcrun_cleanup_partial_unwind();
   }
 
