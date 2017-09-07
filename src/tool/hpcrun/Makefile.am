@@ -186,7 +186,6 @@ UNW_UNIV_FILES = \
 UNW_COMMON_FILES = \
         $(UNW_UNIV_FILES)               \
 	unwind/common/binarytree_uwi.c		    \
-	unwind/common/ildmod_stat.c \
 	unwind/common/interval_t.c	    \
 	unwind/common/stack_troll.c	\
 	unwind/common/uw_recipe_map.c
@@ -234,7 +233,7 @@ UNW_PPC64_LD_FLAGS =
 # configuration
 
 UNW_LIBUNW_FILES = \
-       $(UNW_UNIV_FILES) \
+       $(UNW_COMMON_FILES) \
        unwind/generic-libunwind/libunw-unwind.c \
        unwind/common/default_validation_summary.c
 
@@ -352,7 +351,6 @@ MY_MIPS_FILES = \
 	unwind/common/default_validation_summary.c
 
 MY_PPC_FILES = \
-	unwind/common/default_validation_summary.c \
         trampoline/ppc64/ppc64-tramp.s \
         \
         utilities/arch/ppc64/ppc64-context-pc.c
@@ -415,8 +413,7 @@ MY_MIPS_INCLUDE_DIRS = \
 	-I$(srcdir)/unwind/mips
 
 MY_PPC_INCLUDE_DIRS = 		\
-        -I$(srcdir)/utilities/arch/ppc64 \
-	-I$(srcdir)/unwind/ppc64
+        -I$(srcdir)/utilities/arch/ppc64
 
 MY_X86_INCLUDE_DIRS =		\
         -I$(srcdir)/utilities/arch/x86-family
@@ -660,7 +657,7 @@ endif
 
 libhpcrun_la_LDFLAGS = -Wl,-Bsymbolic 	\
 	-L$(LIBMONITOR_LIB) -lmonitor -lpthread -lrt \
-        $(LIBUNWIND_LDFLAGS_DYN)
+        $(LIBUNWIND_LDFLAGS_DYN) $(LZMA_LDFLAGS_DYN)
 
 libhpcrun_ga_la_LDFLAGS = -Wl,-Bsymbolic
 
@@ -674,7 +671,7 @@ libhpcrun_gpu_la_LDFLAGS = -Wl,-Bsymbolic
 
 libhpcrun_mpi_la_LDFLAGS = -Wl,-Bsymbolic
 
-libhpcrun_o_LDFLAGS = $(LIBUNWIND_LDFLAGS_STAT)
+libhpcrun_o_LDFLAGS = $(LIBUNWIND_LDFLAGS_STAT) $(LZMA_LDFLAGS_STAT)
 
 
 #-----------------------------------------------------------
