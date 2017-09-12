@@ -1700,6 +1700,92 @@ Profile::canonicalize(uint rFlags)
 
 } // namespace Prof
 
+static bool 
+getDatum
+(
+  FILE* infs, 
+  hpctrace_fmt_datum_t &datum, 
+  hpctrace_hdr_flags_t &flags, 
+  string &traceFileName
+)
+{
+  if (feof(infs)) return false;
+  int ret = hpctrace_fmt_datum_fread(&datum, flags, infs);
+  if (ret == HPCFMT_EOF) return false;
+  if (ret == HPCFMT_ERR) {
+    DIAG_Throw("error reading trace file '" << traceFileName << "'");
+  }
+  return true;
+}
+
+void dumpTraceFile(string traceFileName)
+{
+
+  // early exit for trivial case
+  if (traceFileName.empty()) {
+    return;
+  }
+
+  int ret;
+
+  char* infsBuf = new char[HPCIO_RWBufferSz];
+
+  FILE* infs = hpcio_fopen_r(traceFileName.c_str());
+  if (!infs) {
+    DIAG_Throw("error opening trace file '" << traceFileName << "'");
+  }
+  ret = setvbuf(infs, infsBuf, _IOFBF, HPCIO_RWBufferSz);
+
+  hpctrace_fmt_hdr_t hdr;
+  ret = hpctrace_fmt_hdr_fread(&hdr, infs);
+
+  DIAG_AssertWarn(ret == HPCFMT_OK, ": dumpTraceFile: hpctrace_fmt_hdr_fread!");
+  
+  std::cout << "---" 
+	    << std::endl;
+  std::cout << "Trace dump " 
+	    << "file="      << traceFileName 
+	    << ", version=" << hdr.version 
+	    << ", endian="  << hdr.endian 
+	    << ", flags=0x"   << std::hex << hdr.flags.bits << std::dec 
+	    << std::endl;
+
+  hpctrace_fmt_datum_t datum;
+  uint64_t entry = 0;
+
+  bool more = getDatum(infs, datum, hdr.flags, traceFileName);
+  uint64_t start_time = datum.time;
+  uint64_t prev_time = start_time;
+
+#define PER_LINE 5
+  while (more) {
+    std::cout << "["  << std::hex << datum.time - prev_time << std::dec
+	      << ", " << datum.cpId
+	      << ", " << (long long) datum.metricId << "]";
+
+    prev_time = datum.time;
+
+    more = getDatum(infs, datum, hdr.flags, traceFileName);
+    if (++entry % PER_LINE == 0) std::cout << std::endl;
+  }
+
+  if (entry) {
+    if (entry % PER_LINE != 0) std::cout << std::endl;
+    uint64_t end_time = prev_time;
+    std::cout << "start=0x"    << std::hex << start_time 
+	      << " ("          << std::dec << start_time << ")"
+	      << ", end=0x"    << std::hex << end_time 
+	      << " ("          << std::dec << end_time << ")"
+	      << ", extent=0x" << std::hex << end_time - start_time 
+	      << " ("          << std::dec << end_time - start_time << ")"
+	      << std::endl;
+  }
+
+  hpcio_fclose(infs);
+
+  delete[] infsBuf;
+}
+
 
 //***************************************************************************
 

@@ -61,52 +61,81 @@
 AUTOMAKE_OPTIONS = foreign
 
 #############################################################################
+# Common settings
+#############################################################################
+
+include $(top_srcdir)/src/Makeinclude.config
+
+#############################################################################
 # Local settings
 #############################################################################
+
+XED2_LIB_FLAGS = @XED2_LIB_FLAGS@
+
+MYSOURCES = \
+	main.cpp
+
+MYCFLAGS   = @HOST_CFLAGS@   $(HPC_IFLAGS) @GNUBINUTILS_IFLAGS@
+MYCXXFLAGS = @HOST_CXXFLAGS@ $(HPC_IFLAGS) @GNUBINUTILS_IFLAGS@ @XERCES_IFLAGS@
+
+MYLDFLAGS = \
+	@HPC_LT_LDFLAGS@ \
+	@HOST_CXXFLAGS@ \
+	@XERCES_LDFLAGS@ \
+	@GNUBINUTILS_LDFLAGS@
+
+MYLDADD = \
+	@HOST_LIBTREPOSITORY@ \
+	$(HPCLIB_Analysis) \
+	$(HPCLIB_Banal_Simple) \
+	$(HPCLIB_ProfXML) \
+	$(HPCLIB_Prof) \
+	$(HPCLIB_ProfLean) \
+	$(HPCLIB_Binutils) \
+	$(HPCLIB_ISA) \
+	$(MY_LIB_XED) \
+	$(HPCLIB_XML) \
+	$(HPCLIB_Support) \
+	$(HPCLIB_SupportLean) \
+	@XERCES_LDLIBS@ \
+	@GNUBINUTILS_LDLIBS@ \
+	@HOST_HPCPROFTT_LDFLAGS@
+
+if HOST_CPU_X86_FAMILY
+MY_LIB_XED = $(XED2_LIB_FLAGS)
+else
+MY_LIB_XED =
+endif
+
+MYCLEAN = @HOST_LIBTREPOSITORY@
+
 
 #############################################################################
 # Automake rules
 #############################################################################
 
-SUBDIRS =
+pkglibdir = @my_pkglibdir@
+pkglibexecdir = @my_pkglibexecdir@
 
-if OPT_BUILD_TOOL_ALL
-SUBDIRS += \
-	hpcstruct \
-	hpcprof \
-	hpcproftt \
-	hpclump \
-	hpctracedump \
-	misc
+pkglibexec_SCRIPTS = hpctracedump
 
-if OPT_ENABLE_HPCSERVER
-SUBDIRS += hpcserver
-endif
-endif
+pkglibexec_PROGRAMS = hpctracedump-bin
 
-if OPT_ENABLE_HPCRUN_FLAT
-SUBDIRS += hpcrun-flat \
-	hpcprof-flat
-endif
+hpctracedump_bin_SOURCES   = $(MYSOURCES)
+hpctracedump_bin_CFLAGS    = $(MYCFLAGS)
+hpctracedump_bin_CXXFLAGS  = $(MYCXXFLAGS)
+hpctracedump_bin_LDFLAGS   = $(MYLDFLAGS)
+hpctracedump_bin_LDADD     = $(MYLDADD)
 
-if OPT_ENABLE_HPCRUN
-  SUBDIRS += \
-	hpcrun \
-	hpcfnbounds
-endif
+MOSTLYCLEANFILES = $(MYCLEAN)
 
-if OPT_ENABLE_MPI
-  SUBDIRS += hpcprof-mpi 
+install-exec-hook:
+	$(call HPC_moveIfStaticallyLinked,$(DESTDIR)$(pkglibexecdir)/hpctracedump-bin$(EXEEXT),$(DESTDIR)$(bindir)/hpctracedump$(EXEEXT))
 
-if OPT_ENABLE_HPCSERVER
-  SUBDIRS += hpcserver/mpi
-endif
-endif
-
-#if OPT_ENABLE_DEVTOOLS
-#  SUBDIRS += hpclump
-#endif
 
 #############################################################################
-# Other rules
+# Common rules
 #############################################################################
+
+include $(top_srcdir)/src/Makeinclude.rules
+

@@ -1,0 +1,85 @@
+#!/bin/sh
+# set -x
+#
+@copyright_hash@
+#
+# $Id$
+#
+# Wrapper script for hpctracedump-bin.  Other than setting
+# LD_LIBRARY_PATH, all this script does is process the -v option
+# for internal debugging.
+#
+#------------------------------------------------------------
+# Values from configure
+#------------------------------------------------------------
+
+# If this script can't find its own install prefix, or if the script
+# is moved elsewhere, then set HPCTOOLKIT here.
+# HPCTOOLKIT='@prefix@'
+
+# Relative paths are relative to HPCTOOLKIT.
+ext_libs_dir='@hpc_ext_libs_dir@'
+hpctracedump_dir='libexec/hpctoolkit'
+
+# Should be absolute path.
+libcxx_path='@HPCRUN_LIBCXX_PATH@'
+
+#------------------------------------------------------------
+# Find path to this script
+#------------------------------------------------------------
+
+hpc_path_to_root=../..
+@export_hpctoolkit@
+
+# Relative paths are relative to HPCTOOLKIT.
+case "$ext_libs_dir" in
+    /* ) ;;
+    * )  ext_libs_dir="${HPCTOOLKIT}/${ext_libs_dir}" ;;
+esac
+case "$hpctracedump_dir" in
+    /* ) ;;
+    * )  hpctracedump_dir="${HPCTOOLKIT}/${hpctracedump_dir}" ;;
+esac
+
+#------------------------------------------------------------
+# Process options
+#------------------------------------------------------------
+
+# If -v is one of the options, then print extra info about what files
+# hpctracedump is run on, whether it succeeds, etc, to go in hpcrun
+# logfile.
+#
+server=no
+verbose=no
+base=
+for arg in "$@"
+do
+    case "$arg" in
+	-s ) server=yes ;;
+	-v ) verbose=yes ;;
+	-* ) ;;
+	* )
+	    if test "x$base" = x ; then
+		base=`basename "$arg"`
+            fi
+	    ;;
+    esac
+done
+
+# FIXME: integrate server and verbose.
+
+if test "$verbose" = yes ; then
+    echo "hpctracedump $@"
+fi
+
+LD_LIBRARY_PATH="${ext_libs_dir}:${libcxx_path}:${LD_LIBRARY_PATH}" \
+    "${hpctracedump_dir}/hpctracedump-bin" "$@"
+
+ret=$?
+if test "$verbose" = yes ; then
+    if test $ret -ne 0 ; then
+	echo "hpctracedump $base FAILED"
+    fi
+fi
+
+exit $ret
