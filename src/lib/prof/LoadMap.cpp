@@ -134,6 +134,8 @@ LoadMap::merge(const LoadMap& y)
   
   LoadMap& x = *this;
 
+#pragma omp critical (loadmapmerge)
+{
   for (LMId_t i = LoadMap::LMId_NULL; i <= y.size(); ++i) {
     LoadMap::LM* y_lm = y.lm(i);
     
@@ -154,6 +156,7 @@ LoadMap::merge(const LoadMap& y)
     
     x_lm->isUsedMrg(y_lm->isUsed());
   }
+ }
   
   return mrgEffect;
 }

@@ -111,6 +111,8 @@ RealPathMgr::realpath(string& pathNm) const
   
   // INVARIANT: 'pathNm' is not empty
 
+#pragma omp critical (realpath)
+{
   // INVARIANT: all entries in the map are non-empty
   MyMap::iterator it = m_cache.find(pathNm);
 
@@ -165,6 +167,8 @@ RealPathMgr::realpath(string& pathNm) const
       m_cache.insert(make_pair(pathNm_orig, pathNm_real));
     }
   }
+}
+
   return (pathNm[0] == '/'); // fully resolved
 }
 
