@@ -70,8 +70,7 @@ using std::string;
 
 #include <cstdlib>
 #include <cstring>
-
-#include <errno.h>
+#include <cerrno>
 
 #define __STDC_FORMAT_MACROS
 #include <stdint.h>
@@ -237,11 +236,10 @@ toDbl(const char* str, unsigned* endidx)
 //
 // --------------------------------------------------------------------------
 
-static char buf[32];
-
 string
 toStr(const int x, int base)
 {
+  char buf[32];
   const char* format = NULL;
 
   switch (base) {
@@ -261,6 +259,7 @@ toStr(const int x, int base)
 string
 toStr(const unsigned x, int base)
 {
+  char buf[32];
   const char* format = NULL;
 
   switch (base) {
@@ -288,6 +287,7 @@ toStr(const unsigned x, int base)
 string
 toStr(const int64_t x, int base)
 {
+  char buf[32];
   const char* format = NULL;
   
   switch (base) {
@@ -307,6 +307,7 @@ toStr(const int64_t x, int base)
 string
 toStr(const uint64_t x, int base)
 {
+  char buf[32];
   const char* format = NULL;
   
   switch (base) {
@@ -330,6 +331,7 @@ toStr(const uint64_t x, int base)
 string
 toStr(const void* x, int GCC_ATTR_UNUSED base)
 {
+  char buf[32];
   sprintf(buf, "%p", x);
   return string(buf);
 }
@@ -338,7 +340,7 @@ toStr(const void* x, int GCC_ATTR_UNUSED base)
 string
 toStr(const double x, const char* format)
 {
-  //static char buf[19]; // 0xhhhhhhhhhhhhhhhh format
+  char buf[32];
   sprintf(buf, format, x);
   return string(buf);
 }
