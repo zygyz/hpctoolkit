@@ -122,6 +122,8 @@ class Unique
       static std::set<std::string> classNameSet;
         // Where the set of class names are stored.
 
+      static pthread_mutex_t mutex;
+
       Unique(const Unique& mo);
         // Copy constructor (explicitly not allowed).
         // has not implemetationm since compiler should complain 

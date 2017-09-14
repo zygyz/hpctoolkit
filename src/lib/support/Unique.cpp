@@ -71,6 +71,8 @@
 
 std::set<std::string> Unique::classNameSet;  // Set of saved class names.
 
+pthread_mutex_t Unique::mutex;  // mutex for access to classNameSet
+
 
 // ***************************************************************************
 //
@@ -104,12 +106,16 @@ Unique::Unique(): className()
 Unique::Unique(const char* theClassName)
   : className((theClassName) ? theClassName : "")
 {
-  if (classNameSet.count(className) != 0) { 
+  pthread_mutex_lock(&Unique::mutex);  
+  int count = classNameSet.count(className);
+  if (count != 0) { 
+    pthread_mutex_unlock(&Unique::mutex);  
     DIAG_Die("Trying to create another " + className + " instance");
   }
   else {
     classNameSet.insert(className); 
   }
+  pthread_mutex_unlock(&Unique::mutex);  
 }
 
 
