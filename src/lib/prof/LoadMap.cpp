@@ -84,6 +84,8 @@ namespace Prof {
 
 LoadMap::LoadMap(uint sz)
 {
+  m_lm_mutex = PTHREAD_MUTEX_INITIALIZER;
+
   m_lm_byId.reserve(sz);
 
   LM* nullLM = new LM(Prof::Struct::Tree::UnknownLMNm);
@@ -118,7 +120,7 @@ LoadMap::lm_insert(LoadMap::LM* x)
 LoadMap::LMSet_nm::iterator
 LoadMap::lm_find(const std::string& nm) const
 {
-  static LoadMap::LM key;
+  LoadMap::LM key;
   key.name(nm);
 
   LMSet_nm::iterator fnd = m_lm_byName.find(&key);
@@ -134,8 +136,9 @@ LoadMap::merge(const LoadMap& y)
   
   LoadMap& x = *this;
 
-#pragma omp critical (loadmapmerge)
-{
+  // mutex to avoid data races when merging into a loadmap
+  pthread_mutex_lock(&m_lm_mutex);
+
   for (LMId_t i = LoadMap::LMId_NULL; i <= y.size(); ++i) {
     LoadMap::LM* y_lm = y.lm(i);
     
@@ -156,7 +159,8 @@ LoadMap::merge(const LoadMap& y)
     
     x_lm->isUsedMrg(y_lm->isUsed());
   }
- }
+
+  pthread_mutex_unlock(&m_lm_mutex);
   
   return mrgEffect;
 }

@@ -282,6 +282,7 @@ public:
 protected:
   LMVec m_lm_byId;
   LMSet_nm m_lm_byName;
+  pthread_mutex_t m_lm_mutex;
 };
 
 
