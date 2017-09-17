@@ -78,6 +78,7 @@
 #include <include/uint.h>
 
 #include "CCT-Merge.hpp"
+#include "CCT-Merge.hpp"
 
 #include "Metric-Mgr.hpp"
 #include "Metric-ADesc.hpp"
@@ -100,6 +101,7 @@
 #include <lib/support/NonUniformDegreeTree.hpp>
 #include <lib/support/SrcFile.hpp>
 #include <lib/support/Unique.hpp>
+#include <lib/support/threaded_id.hpp>
 
 
 //*************************** Forward Declarations ***************************
@@ -176,6 +178,13 @@ public:
   // -------------------------------------------------------
   MergeEffectList*
   merge(const Tree* y, uint x_newMetricBegIdx,
+	uint mrgFlag = 0, uint oFlag = 0);
+
+  // -------------------------------------------------------
+  // Given a Tree, match 'this' with y
+  // -------------------------------------------------------
+  MergeEffectList*
+  match(const Tree* y, uint x_newMetricBegIdx,
 	uint mrgFlag = 0, uint oFlag = 0);
 
   // -------------------------------------------------------
@@ -309,10 +318,6 @@ public:
   static ANodeTy
   IntToANodeType(long i);
 
-  // N.B.: An easy implementation for now (but not thread-safe!)
-  static uint s_raToCallsiteOfst;
-
- 
 private:
   static const std::string NodeNames[TyNUMBER];
 
@@ -321,18 +326,20 @@ public:
   ANode(ANodeTy type, ANode* parent, Struct::ACodeNode* strct = NULL)
     : NonUniformDegreeTreeNode(parent),
       Metric::IData(),
-      m_type(type), m_id(s_nextUniqueId), m_strct(strct)
+      m_type(type), m_id(threaded_unique_id(2)), m_strct(strct)
   {
-    s_nextUniqueId += 2; // cf. HPCRUN_FMT_RetainIdFlag
+    // pass 2 to threaded_unique_id to keep lower bit clear for 
+    // HPCRUN_FMT_RetainIdFlag
   }
 
   ANode(ANodeTy type,
 	ANode* parent, Struct::ACodeNode* strct, const Metric::IData& metrics)
     : NonUniformDegreeTreeNode(parent),
       Metric::IData(metrics),
-      m_type(type), m_id(s_nextUniqueId), m_strct(strct)
+      m_type(type), m_id(threaded_unique_id(2)), m_strct(strct)
   {
-    s_nextUniqueId += 2; // cf. HPCRUN_FMT_RetainIdFlag
+    // pass 2 to threaded_unique_id to keep lower bit clear for 
+    // HPCRUN_FMT_RetainIdFlag
   }
 
   virtual ~ANode()
@@ -345,7 +352,9 @@ public:
       m_type(x.m_type), /*m_id: skip*/ m_strct(x.m_strct)
   {
     zeroLinks();
-    s_nextUniqueId += 2; // cf. HPCRUN_FMT_RetainIdFlag
+    // pass 2 to threaded_unique_id to keep lower bit clear for 
+    // HPCRUN_FMT_RetainIdFlag
+    threaded_unique_id(2);
   }
 
   // deep copy of internals (but without children)
@@ -579,7 +588,18 @@ public:
   std::list<MergeEffect>*
   mergeDeep(ANode* y, uint x_numMetrics, MergeContext& mrgCtxt, uint oFlag = 0);
 
-  
+  std::list<MergeEffect>*
+  matchDeep(ANode* y, uint x_numMetrics, MergeContext& mrgCtxt, uint oFlag = 0);
+
+  void
+  mergeNodes(ANode *from);
+
+  void
+  mergeChildren();
+
+  void
+  matchMerge();
+
   // merge: Let 'this' = x and let y be a node corresponding to x.
   //   Merge y into x.
   // N.B.: assume we can destroy y.
@@ -589,6 +609,9 @@ public:
   
   virtual MergeEffect
   mergeMe(const ANode& y, MergeContext* mrgCtxt = NULL, uint metricBegIdx = 0, bool mayConflict = true);
+
+  virtual MergeEffect
+  matchMe(const ANode& y, MergeContext* mrgCtxt = NULL, uint metricBegIdx = 0, bool mayConflict = true);
 
 
   // findDynChild: Let z = 'this' be an interior ADynNode (otherwise the
@@ -671,8 +694,10 @@ protected:
   mergeDeep_fixInsert(int newMetrics, MergeContext& mrgCtxt);
 
 
+#if 0
 private:
   static uint s_nextUniqueId;
+#endif
   
 protected:
   ANodeTy m_type; // obsolete with typeid(), but hard to replace
@@ -821,7 +846,7 @@ public:
   { m_lmId = x; }
 
   virtual VMA
-  lmIP() const
+  lmIP(uint32_t raToCallsiteOffset) const
   {
     if (isValid_lip()) {
       return lush_lip_getLMIP(m_lip);
@@ -955,6 +980,9 @@ public:
 
   virtual MergeEffect
   mergeMe(const ANode& y, MergeContext* mrgCtxt = NULL, uint metricBegIdx = 0, bool mayConflict = true);
+
+  virtual MergeEffect
+  matchMe(const ANode& y, MergeContext* mrgCtxt = NULL, uint metricBegIdx = 0, bool mayConflict = true);
   
 
   // -------------------------------------------------------
@@ -1275,14 +1303,15 @@ public:
   
   // Node data
   virtual VMA
-  lmIP() const
+  lmIP(uint32_t raToCallsiteOffset) const
   {
     VMA ip = ADynNode::lmIP_real();
     if (isValid_lip()) {
       ip = lush_lip_getLMIP(lip());
     }
-    return (ip != 0) ? (ip - s_raToCallsiteOfst) : 0;
+    return (ip != 0) ? (ip - raToCallsiteOffset) : 0;
   }
+  
 
   // lmRA(): static (as opposed to run-time) return address
   VMA

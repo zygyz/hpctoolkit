@@ -156,8 +156,16 @@ cmpByDynInfoSpecial(const ADynNode* x_dyn, const ADynNode* y_dyn)
     return cmp_ip_real;
   }
 
-  // 3. logical ip (if available)
-  int cmp_ip = cmp(x_dyn->lmIP(), y_dyn->lmIP());
+  // 3. logical ip (if available) 
+
+  //------------------------------------------------------------------
+  // NOTE: Pass 0 to lmIP as the offset from return address to ip. The
+  // actual offset is available from the containing Callpath::Profile,
+  // which is not readily available here. Fortunately, the value of
+  // the offset won't change the comparison result, so using 0 here is
+  // fine.
+  // ------------------------------------------------------------------
+  int cmp_ip = cmp(x_dyn->lmIP(0), y_dyn->lmIP(0));
   return cmp_ip;
 }
 

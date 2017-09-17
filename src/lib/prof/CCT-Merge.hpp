@@ -167,7 +167,7 @@ public:
   typedef std::set<uint> CPIdSet;
 
 public:
-  MergeContext(Tree* cct, bool doTrackCPIds);
+  MergeContext(const Tree* cct, bool doTrackCPIds);
 
   // -------------------------------------------------------
   // 
@@ -256,7 +256,7 @@ public:
 
 private:
   void
-  fillCPIdSet(Tree* cct);
+  fillCPIdSet(const Tree* cct);
 
 private:
   const Tree* m_cct;

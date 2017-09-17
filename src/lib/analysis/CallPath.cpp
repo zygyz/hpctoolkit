@@ -373,7 +373,8 @@ typedef std::map<Prof::Struct::ANode*, Prof::CCT::ANode*> StructToCCTMap;
 static void
 overlayStaticStructure(Prof::CCT::ANode* node,
 		       Prof::LoadMap::LM* loadmap_lm,
-		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm);
+		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm,
+		       uint32_t raToCallsiteOffset);
 
 static Prof::CCT::ANode*
 demandScopeInFrame(Prof::CCT::ADynNode* node, Prof::Struct::ANode* strct,
@@ -494,7 +495,8 @@ overlayStaticStructure(Prof::CallPath::Profile& prof,
 		       Prof::LoadMap::LM* loadmap_lm,
 		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm)
 {
-  overlayStaticStructure(prof.cct()->root(), loadmap_lm, lmStrct, lm);
+  overlayStaticStructure(prof.cct()->root(), loadmap_lm, lmStrct, lm,
+			 prof.raToCallsiteOffset());
 }
 
 
@@ -503,6 +505,7 @@ void
 Analysis::CallPath::
 noteStaticStructureOnLeaves(Prof::CallPath::Profile& prof)
 {
+  uint32_t raToCallsiteOffset = prof.raToCallsiteOffset();
   const Prof::Struct::Root* rootStrct = prof.structure()->root();
 
   Prof::CCT::ANodeIterator it(prof.cct()->root(), NULL/*filter*/,
@@ -517,7 +520,7 @@ noteStaticStructureOnLeaves(Prof::CallPath::Profile& prof)
       const Prof::Struct::LM* lmStrct = rootStrct->findLM(lm_nm);
       DIAG_Assert(lmStrct, "failed to find Struct::LM: " << lm_nm);
 
-      VMA lm_ip = n_dyn->lmIP();
+      VMA lm_ip = n_dyn->lmIP(raToCallsiteOffset);
       const Prof::Struct::ACodeNode* strct = lmStrct->findByVMA(lm_ip);
       DIAG_Assert(strct, "Analysis::CallPath::noteStaticStructureOnLeaves: failed to find structure for: " << n_dyn->toStringMe(Prof::CCT::Tree::OFlg_DebugAll));
 
@@ -532,7 +535,8 @@ noteStaticStructureOnLeaves(Prof::CallPath::Profile& prof)
 static void
 overlayStaticStructure(Prof::CCT::ANode* node,
 		       Prof::LoadMap::LM* loadmap_lm,
-		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm)
+		       Prof::Struct::LM* lmStrct, BinUtil::LM* lm,
+		       uint32_t raToCallsiteOffset)
 {
   // INVARIANT: The parent of 'node' has been fully processed
   // w.r.t. the given load module and lives within a correctly located
@@ -550,7 +554,9 @@ overlayStaticStructure(Prof::CCT::ANode* node,
     (*Analysis::CallPath::dbgOs) << "overlayStaticStructure: node (";
     Prof::CCT::ADynNode* node_dyn = dynamic_cast<Prof::CCT::ADynNode*>(node);
     if (node_dyn) {
-      (*Analysis::CallPath::dbgOs) << node_dyn->lmId() << ", " << hex << node_dyn->lmIP() << dec;
+      (*Analysis::CallPath::dbgOs) 
+	<< node_dyn->lmId() << ", " 
+	<< hex << node_dyn->lmIP(raToCallsiteOffset) << dec;
     }
     (*Analysis::CallPath::dbgOs) << "): " << node->toStringMe() << std::endl;
   }
@@ -582,7 +588,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
       }
 
       // 1. Add symbolic information to 'n_dyn'
-      VMA lm_ip = n_dyn->lmIP();
+      VMA lm_ip = n_dyn->lmIP(raToCallsiteOffset);
       Struct::ACodeNode* strct =
 	Analysis::Util::demandStructure(lm_ip, lmStrct, lm, useStruct,
 					unkProcNm);
@@ -613,7 +619,7 @@ overlayStaticStructure(Prof::CCT::ANode* node,
     // recur
     // ---------------------------------------------------
     if (!n->isLeaf()) {
-      overlayStaticStructure(n, loadmap_lm, lmStrct, lm);
+      overlayStaticStructure(n, loadmap_lm, lmStrct, lm, raToCallsiteOffset);
     }
   }
 

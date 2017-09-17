@@ -237,6 +237,19 @@ public:
   idx(uint idxNodes, uint idxMetrics)
   { return m_packedData[m_numHdr + (m_numMetrics * idxNodes) + idxMetrics]; }
 
+  bool 
+  idxSet(uint idxNodes, uint idxMetrics, double value)
+  { if (idxNodes < m_numNodes) {
+      idx(idxNodes, idxMetrics) = value;
+      return true;
+    } else {
+      DIAG_AssertWarn(idxNodes >= m_numNodes, 
+		      "PackMetrics::setIdx: idxNodes=" << idxNodes 
+		      << ", m_numNumNodes=" << m_numNodes);
+      return false;
+    }
+  }
+
   
   uint
   numNodes() const

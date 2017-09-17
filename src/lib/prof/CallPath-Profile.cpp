@@ -166,6 +166,106 @@ Profile::~Profile()
 
 
 uint
+Profile::match(Profile& y, int mergeTy, uint mrgFlag)
+{
+  Profile& x = (*this);
+
+  DIAG_Assert(!x.m_structure, "Profile::merge: source profile should not have structure yet!");
+
+  // -------------------------------------------------------
+  // merge name, flags, etc
+  // -------------------------------------------------------
+
+#if 0
+  // global values should be computed during canonicalization
+  // FIXME PARALLEL
+
+  // Note: these values can be 'null' if the hpcrun-fmt data had no epochs
+  assert(y.m_fmtVersion != 0.0);
+
+  if (x.m_fmtVersion == 0.0) {
+    x.m_fmtVersion = y.m_fmtVersion;
+  }
+
+  if (x.m_flags.bits == 0) {
+    x.m_flags.bits = y.m_flags.bits;
+  }
+
+  if (x.m_measurementGranularity == 0) {
+    x.m_measurementGranularity = y.m_measurementGranularity;
+  }
+
+  if (x.m_raToCallsiteOfst == 0) {
+    x.m_raToCallsiteOfst = y.m_raToCallsiteOfst;
+  }
+
+  DIAG_WMsgIf(x.m_fmtVersion != y.m_fmtVersion,
+	      "CallPath::Profile::merge(): ignoring incompatible versions: "
+	      << x.m_fmtVersion << " vs. " << y.m_fmtVersion);
+  DIAG_WMsgIf(x.m_flags.bits != y.m_flags.bits,
+	      "CallPath::Profile::merge(): ignoring incompatible flags: "
+	      << x.m_flags.bits << " vs. " << y.m_flags.bits);
+  DIAG_WMsgIf(x.m_measurementGranularity != y.m_measurementGranularity,
+	      "CallPath::Profile::merge(): ignoring incompatible measurement-granularity: " << x.m_measurementGranularity << " vs. " << y.m_measurementGranularity);
+  DIAG_WMsgIf(x.m_raToCallsiteOfst != y.m_raToCallsiteOfst,
+	      "CallPath::Profile::merge(): ignoring incompatible RA-to-callsite-offset" << x.m_raToCallsiteOfst << " vs. " << y.m_raToCallsiteOfst);
+
+  // FIXME PARALLEL
+  // the global collection of trace file names and 
+  // min/max time needs to happen during canonicalization
+  x.m_profileFileName = "";
+
+  x.m_traceFileName = "";
+  x.m_traceFileNameSet.insert(y.m_traceFileNameSet.begin(),
+			      y.m_traceFileNameSet.end());
+  x.m_traceMinTime = std::min(x.m_traceMinTime, y.m_traceMinTime);
+  x.m_traceMaxTime = std::max(x.m_traceMaxTime, y.m_traceMaxTime);
+#endif
+
+
+  // -------------------------------------------------------
+  // merge metrics
+  // -------------------------------------------------------
+  uint x_newMetricBegIdx = 0;
+#if 0
+  // FIXME PARALLEL
+  uint firstMergedMetric = mergeMetrics(y, mergeTy, x_newMetricBegIdx);
+#else
+  uint firstMergedMetric = 0;
+#endif
+  
+  // -------------------------------------------------------
+  // merge LoadMaps
+  //
+  // Post-INVARIANT: y's cct refers to x's LoadMap
+  // -------------------------------------------------------
+  std::vector<LoadMap::MergeEffect>* mrgEffects1 =
+    y.m_loadmap->merge(*x.loadmap());
+  x.merge_fixCCT(mrgEffects1);
+  delete mrgEffects1;
+
+  // -------------------------------------------------------
+  // merge CCTs
+  // -------------------------------------------------------
+
+  if (mrgFlag & CCT::MrgFlg_NormalizeTraceFileY) {
+    mrgFlag |= CCT::MrgFlg_PropagateEffects;
+  }
+
+  CCT::MergeEffectList* mrgEffects2 =
+    x.cct()->match(y.cct(), x_newMetricBegIdx, mrgFlag);
+
+  DIAG_Assert(Logic::implies(mrgEffects2 && !mrgEffects2->empty(),
+			     mrgFlag & CCT::MrgFlg_NormalizeTraceFileY),
+	      "CallPath::Profile::merge: there should only be CCT::MergeEffects when MrgFlg_NormalizeTraceFileY is passed");
+
+  x.merge_fixTrace(mrgEffects2); // Note: the method call will delete mrgEffects2
+
+  return firstMergedMetric;
+}
+
+
+uint
 Profile::merge(Profile& y, int mergeTy, uint mrgFlag)
 {
   Profile& x = (*this);
@@ -830,7 +930,8 @@ cct_makeNode(Prof::CallPath::Profile& prof,
 
 static void
 fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
-		 epoch_flags_t flags);
+		 epoch_flags_t flags,
+		 uint32_t raToCallsiteOffset);
 
 
 //***************************************************************************
@@ -1132,9 +1233,6 @@ Profile::fmt_epoch_fread(Profile* &prof, FILE* infs, uint rFlags,
   prof->m_flags = ehdr.flags;
   prof->m_measurementGranularity = ehdr.measurementGranularity;
   prof->m_raToCallsiteOfst = ehdr.raToCallsiteOfst;
-
-  CCT::ANode::s_raToCallsiteOfst = prof->m_raToCallsiteOfst;
-
   prof->m_profileFileName = profFileName;
 
   if (haveTrace) {
@@ -1577,7 +1675,7 @@ Profile::fmt_cct_fwrite(const Profile& prof, FILE* fs, uint wFlags)
 
   for (CCT::ANodeIterator it(prof.cct()->root()); it.Current(); ++it) {
     CCT::ANode* n = it.current();
-    fmt_cct_makeNode(nodeFmt, *n, prof.m_flags);
+    fmt_cct_makeNode(nodeFmt, *n, prof.m_flags, prof.raToCallsiteOffset());
 
     ret = hpcrun_fmt_cct_node_fwrite(&nodeFmt, prof.m_flags, fs);
     if (ret != HPCFMT_OK) {
@@ -1952,7 +2050,7 @@ cct_makeNode(Prof::CallPath::Profile& prof,
 
 static void
 fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
-		 epoch_flags_t flags)
+		 epoch_flags_t flags, uint32_t raToCallsiteOffset)
 {
   n_fmt.id = (n.isLeaf()) ? -(n.id()) : n.id();
 
@@ -1975,7 +2073,7 @@ fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
     }
     
     n_fmt.lm_id = (uint16_t) n_dyn.lmId();
-    n_fmt.lm_ip = n_dyn.Prof::CCT::ADynNode::lmIP();
+    n_fmt.lm_ip = n_dyn.Prof::CCT::ADynNode::lmIP(raToCallsiteOffset);
 
     if (flags.fields.isLogicalUnwind) {
       lush_lip_init(&(n_fmt.lip));

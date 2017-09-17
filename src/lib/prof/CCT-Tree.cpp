@@ -197,6 +197,66 @@ Tree::merge(const Tree* y, uint x_newMetricBegIdx, uint mrgFlag, uint oFlag)
 }
 
 
+
+MergeEffectList*
+Tree::match(const Tree* y, uint x_newMetricBegIdx, uint mrgFlag, uint oFlag)
+{
+  ANode* x_root = root();
+  ANode* y_root = y->root();
+  
+  // -------------------------------------------------------
+  // Merge pre-condition: both x and y should be "locally merged",
+  // i.e., the nodes themselves should be equal (modulo metrics & children)
+  // -------------------------------------------------------
+  bool isPrecondition = false;
+  if (typeid(*x_root) == typeid(CCT::Root)
+      && typeid(*y_root) == typeid(CCT::Root)) {
+    // Case 1
+    isPrecondition = true;
+  }
+  else {
+    ADynNode* x_dyn = dynamic_cast<ADynNode*>(x_root);
+    ADynNode* y_dyn = dynamic_cast<ADynNode*>(y_root);
+    if (x_dyn && y_dyn && ADynNode::isMergable(*x_dyn, *y_dyn)) {
+      // Case 2a
+      isPrecondition = true;
+    }
+    else if ((x_dyn->childCount() == 0 || y_dyn->childCount() == 0)
+	     && x_dyn->isPrimarySynthRoot() && y_dyn->isPrimarySynthRoot()) {
+      // Case 2b (A special sub-case of Case 1): (a) Neither tree x
+      // nor y have been canonicalized (and therefore do not have a
+      // CCT::Root node); and (b) one of x or y is a single-node tree.
+      isPrecondition = true;
+    }
+  }
+  DIAG_Assert(isPrecondition, "Prof::CCT::Tree::merge: Merge precondition fails!");
+
+  // -------------------------------------------------------
+  // 
+  // -------------------------------------------------------
+
+  if (!m_mergeCtxt) {
+    bool doTrackCPIds = !y->metadata()->traceFileNameSet().empty();
+    m_mergeCtxt = new MergeContext(y, doTrackCPIds);
+  }
+  m_mergeCtxt->flags(mrgFlag);
+
+  x_root->id(y_root->id());
+  
+  MergeEffectList* mrgEffects =
+    x_root->matchDeep(y_root, x_newMetricBegIdx, *m_mergeCtxt, oFlag);
+
+#if 0
+  DIAG_If(0 /*public diag level*/) {
+    verifyUniqueCPIds();
+  }
+#endif
+
+  x_root->matchMerge();
+
+  return mrgEffects;
+}
+
 void
 Tree::pruneCCTByNodeId(const uint8_t* prunedNodes)
 {
@@ -316,14 +376,14 @@ ANode::IntToANodeType(long i)
   return (ANodeTy)i;
 }
 
+#if 0
 uint ANode::s_nextUniqueId = 2;
+#endif
 
 
 //***************************************************************************
 // ANode, etc: constructors/destructors
 //***************************************************************************
-
-uint ANode::s_raToCallsiteOfst = 1;
 
 string AProcNode::BOGUS;
 
@@ -850,6 +910,124 @@ ANode::mergeDeep(ANode* y, uint x_newMetricBegIdx, MergeContext& mrgCtxt,
 }
 
 
+void
+ANode::mergeNodes(ANode* from)
+{
+  ANode* to = this;
+  
+  // augment "to"'s metrics with those of "from" 
+  for (uint i = 0; i < numMetrics(); i++) {
+    to->metric(i) += from->metric(i);
+  }
+  
+  // relink "from"'s children to "to" 
+  for (ANodeChildIterator it(from); it.Current(); /* */) {
+    ANode* child = it.current();
+    it++; // advance iterator
+    child->unlink();
+    child->link(to);
+  }
+  
+  from->unlink();
+
+  delete from;
+}
+
+void
+ANode::mergeChildren()
+{
+  std::map<uint, ANode *> originals;
+  for (ANodeChildIterator it(this); it.Current(); /* */) {
+    ANode* child = it.current();
+    it++; // advance iterator
+    auto found = originals.find(child->id());
+    if (found != originals.end()) {
+      ANode *original = found->second;
+      original->mergeNodes(child);
+    } else {
+      originals[child->id()] = child;
+    }
+  }
+}
+
+void
+ANode::matchMerge()
+{
+  mergeChildren();
+  for (ANodeChildIterator it(this); it.Current(); /* */) {
+    ANode* child = it.current();
+    it++; // advance iterator
+    child->matchMerge();
+  }
+}
+
+
+MergeEffectList*
+ANode::matchDeep(ANode* y, uint x_newMetricBegIdx, MergeContext& mrgCtxt,
+		 uint oFlag)
+{
+  ANode* x = this;
+
+  // ------------------------------------------------------------
+  // 0. If y is childless, return.
+  // ------------------------------------------------------------
+  if (x->isLeaf()) {
+    return NULL;
+  }
+
+  // ------------------------------------------------------------
+  // 1. If a child x_child of x _does not_ appear as a child of y,
+  //    then copy (subtree) x_child [fixing its metrics], make it a
+  //    child of x and return.
+  // 2. If a child y_child of y _does_ have a corresponding child
+  //    x_child of x, merge [the metrics of] y_child into x_child and
+  //    recur.
+  // ------------------------------------------------------------
+  MergeEffectList* effctLst = new MergeEffectList;
+  
+  for (ANodeChildIterator it(x); it.Current(); /* */) {
+    ANode* x_child = it.current();
+    ADynNode* x_child_dyn = dynamic_cast<ADynNode*>(x_child);
+    DIAG_Assert(x_child_dyn, "ANode::matchDeep");
+    it++; // advance iterator -- it is pointing at 'child'
+
+    MergeEffectList* effctLst1 = NULL;
+
+    ADynNode* y_child_dyn = y->findDynChild(*x_child_dyn);
+
+#define MERGE_ACTION 0
+#define MERGE_ERROR 0
+
+    if (!y_child_dyn) {
+      DIAG_WMsgIf(y_child_dyn, "CCT::ANode::matchDeep: CCT node unmerged");
+      continue;
+    }
+
+    DIAG_MsgIf(MERGE_ACTION /*(oFlag & Tree::OFlg_Debug)*/,
+		 "CCT::ANode::matchDeep: matching y => x:\n"
+		 << "  x: " << x_child_dyn->toStringMe(Tree::OFlg_Debug)
+		 << "\n  y: " << y_child_dyn->toStringMe(Tree::OFlg_Debug));
+    MergeEffect effct =
+      x_child_dyn->matchMe(*y_child_dyn, &mrgCtxt, x_newMetricBegIdx);
+
+    if (mrgCtxt.doPropagateEffects() && !effct.isNoop()) {
+      effctLst->push_back(effct);
+    }
+      
+    effctLst1 = x_child_dyn->matchDeep(y_child_dyn, 
+				       x_newMetricBegIdx, mrgCtxt,
+				       oFlag);
+
+    if (effctLst1 && !effctLst1->empty()) {
+      effctLst->splice(effctLst->end(), *effctLst1);
+      DIAG_MsgIf(0, MergeEffect::toString(*effctLst));
+    }
+    delete effctLst1;
+  }
+
+  return effctLst;
+}
+
 MergeEffect
 ANode::merge(ANode* y)
 {
@@ -886,6 +1064,32 @@ ANode::mergeMe(const ANode& y, MergeContext* GCC_ATTR_UNUSED mrgCtxt,
 
   for (uint x_i = metricBegIdx, y_i = 0; x_i < x_end; ++x_i, ++y_i) {
     x->metric(x_i) += y.metric(y_i);
+  }
+  
+  MergeEffect noopEffect;
+  return noopEffect;
+}
+
+
+MergeEffect
+ANode::matchMe(const ANode& y, MergeContext* GCC_ATTR_UNUSED mrgCtxt,
+	       uint metricBegIdx, bool mayConflict)
+{
+  if (metricBegIdx != 0) {
+    int newlen = metricBegIdx + numMetrics(); 
+    ensureMetricsSize(newlen);
+
+    std::cerr << "resizing metrics" << std::endl;
+  
+    // slide existing metrics right by metricBegIdx  
+    for (uint i = newlen - 1; i >= metricBegIdx; i--) {
+      metric(i) = metric(i - metricBegIdx);
+    }
+  
+    // zero-fill the vacated leading positions
+    for (uint i = 0; i < metricBegIdx; i++) {
+      metric(i) = 0.0;
+    }
   }
   
   MergeEffect noopEffect;
@@ -938,6 +1142,38 @@ ADynNode::mergeMe(const ANode& y, MergeContext* mrgCtxt, uint metricBegIdx, bool
   return effct;
 }
 
+
+MergeEffect
+ADynNode::matchMe(const ANode& y, MergeContext* mrgCtxt, 
+		  uint metricBegIdx, bool mayConflict)
+{
+  // N.B.: Assumes ADynNode::isMergable() holds
+  ADynNode* x = this;
+
+  const ADynNode* y_dyn = dynamic_cast<const ADynNode*>(&y);
+  DIAG_Assert(y_dyn, "ADynNode::matchMe: " << DIAG_UnexpectedInput);
+
+  MergeEffect effct = ANode::matchMe(y, mrgCtxt, metricBegIdx);
+
+  // merge cp-ids
+  if (hasMergeEffects(*x, *y_dyn)) {
+    // 1. Conflicting ids:
+    //    => keep y's cpId; within x, translate [m_cpId ==> y_dyn->m_cpId]
+    effct.old_cpId = m_cpId;
+    effct.new_cpId = y_dyn->m_cpId;
+  }
+  else if (m_cpId == HPCRUN_FMT_CCTNodeId_NULL) {
+    // 2. Trivial conflict: x's cpId is NULL; y's may or may not be NULL:
+    //    => keep x's cpId.
+  } else {
+    DIAG_Assert((y_dyn->cpId() != HPCRUN_FMT_CCTNodeId_NULL),
+		"ADynNode::matchMe: node in right tree should always have cp-id if left does");
+  }
+
+  m_id = y_dyn->m_id;
+  
+  return effct;
+}
 
 ADynNode*
 ANode::findDynChild(const ADynNode& y_dyn)
