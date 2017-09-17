@@ -103,6 +103,9 @@ MYSOURCES = \
 	HashTable.hpp HashTable.cpp \
 	HashTableSortedIterator.hpp HashTableSortedIterator.cpp \
 	\
+	mutex.hpp \
+	fake_lock.h fake_lock.c \
+	\
 	PointerStack.hpp PointerStack.cpp \
 	QuickSort.hpp QuickSort.cpp \
 	Unique.hpp Unique.cpp
