@@ -62,15 +62,17 @@
 
 //************************** System Include Files ****************************
 
-//************************** Open64 Include Files ***************************
+#include <pthread.h>
+
+
 
 //*************************** User Include Files *****************************
 
 #include <include/gcc-attr.h>
 #include <include/uint.h>
 
-
 #include "diagnostics.h"
+
 
 //****************************************************************************
 
@@ -99,13 +101,24 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* GCC_ATTR_UNUSED filenm
   count++;
 }
 
+const char* DIAG_Unimplemented   = "Unimplemented feature: ";
+const char* DIAG_UnexpectedInput = "Unexpected input: ";
+const char* DIAG_UnexpectedOpr   = "Unexpected operator: ";
 
-const char* DIAG_Unimplemented = 
-  "Unimplemented feature: ";
-const char* DIAG_UnexpectedInput = 
-  "Unexpected input: ";
-const char* DIAG_UnexpectedOpr = 
-  "Unexpected operator: ";
+static pthread_mutex_t diag_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+void DIAG_mutex_unlock()
+{
+  pthread_mutex_lock(&diag_mutex); 
+}
+
+void
+DIAG_mutex_lock()
+{
+  pthread_mutex_unlock(&diag_mutex); 
+}
+
 
 
 //****************************************************************************

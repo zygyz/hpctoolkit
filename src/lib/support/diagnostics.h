@@ -67,6 +67,7 @@
 
 #if defined(__cplusplus)
 # include <cstdlib>
+# include "mutex.hpp"
 #else
 # include <stdlib.h>
 #endif
@@ -88,7 +89,11 @@
 #define DIAG_DBG_LVL 0
 
 // Public debugging level: stuff that a few users may find interesting [0-9]
-extern int DIAG_DBG_LVL_PUB; // default: 0
+DIAG_EXTERN int DIAG_DBG_LVL_PUB; // default: 0
+
+DIAG_EXTERN const char* DIAG_Unimplemented;
+DIAG_EXTERN const char* DIAG_UnexpectedInput;
+DIAG_EXTERN const char* DIAG_UnexpectedOpr;
 
 DIAG_EXTERN void
 Diagnostics_SetDiagnosticFilterLevel(int lvl);
@@ -103,6 +108,11 @@ DIAG_EXTERN void
 Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm, 
 					      unsigned int lineno);
 
+DIAG_EXTERN void 
+DIAG_mutex_lock();
+
+DIAG_EXTERN void 
+DIAG_mutex_unlock();
 
 //****************************************************************************
 // Diagnostic macros
@@ -154,9 +164,12 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
 // a message string.  Example:
 //   if (...) DIAG_EMsg("bad val: '" << v << "'")
 
-#define DIAG_MsgIf_GENERIC(tag, ifexpr, streamArgs)		    \
-  if (ifexpr) {                                                     \
-    DIAG_CERR << tag << streamArgs << DIAG_ENDL; }
+#define DIAG_MsgIf_GENERIC(tag, ifexpr, streamArgs)			\
+  if (ifexpr) {								\
+    DIAG_mutex_lock();							\
+    DIAG_CERR << tag << streamArgs << DIAG_ENDL;			\
+    DIAG_mutex_unlock();						\
+  }
 
 
 #define DIAG_MsgIf(ifexpr, streamArgs)                              \
@@ -178,9 +191,12 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
 #define DIAG_DevMsgIfCtd(ifexpr, streamArgs)		            \
   DIAG_MsgIf_GENERIC("", ifexpr, streamArgs)
 
-#define DIAG_DevMsg(level, streamArgs)                              \
-  if (level <= DIAG_DBG_LVL) {                                      \
-    DIAG_CERR << "msg* [" << level << "]: " << streamArgs << DIAG_ENDL; }
+#define DIAG_DevMsg(level, streamArgs)					\
+  if (level <= DIAG_DBG_LVL) {						\
+    DIAG_mutex_lock();							\
+    DIAG_CERR << "msg* [" << level << "]: " << streamArgs << DIAG_ENDL; \
+    DIAG_mutex_unlock();						\
+  }
 
 
 #define DIAG_WMsgIf(ifexpr, streamArgs)                              \
@@ -193,10 +209,12 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
   DIAG_WMsgIf((level <= DIAG_DBG_LVL_PUB), streamArgs)
 
 
-#define DIAG_EMsg(streamArgs)                                       \
-  { DIAG_CERR << "ERROR: " << streamArgs << DIAG_ENDL;              \
-    if (DIAG_DBG_LVL_PUB) {                                         \
+#define DIAG_EMsg(streamArgs)						\
+  { DIAG_mutex_lock();							\
+    DIAG_CERR << "ERROR: " << streamArgs << DIAG_ENDL;			\
+    if (DIAG_DBG_LVL_PUB) {						\
       DIAG_CERR << "\t[" << __FILE__ << ":" << __LINE__ << "]" << DIAG_ENDL; } \
+    DIAG_mutex_unlock();						\
   }
 
 #define DIAG_Assert(expr, streamArgs)                               \
@@ -223,6 +241,7 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
 #endif
 
 
+
 // ---------------------------------------------------------------------------
 // C diagnostics
 // ---------------------------------------------------------------------------
@@ -233,24 +252,36 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
 
 #define DIAG_MsgIf(ifexpr, ...)                                     \
   if (ifexpr) {                                                     \
+    DIAG_mutex_lock();						    \
     fputs("msg: ", stderr);                                         \
-    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr); }
+    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr);		    \
+    DIAG_mutex_unlock();					    \
+  }
 
 #define DIAG_Msg(level, ...)                                        \
   if (level <= DIAG_DBG_LVL_PUB) {                                  \
-    fprintf(stderr, "msg [%d]: ", level);                   \
-    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr); }
+    DIAG_mutex_lock();						    \
+    fprintf(stderr, "msg [%d]: ", level);			    \
+    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr);		    \
+    DIAG_mutex_unlock();					    \
+  }
 
 #define DIAG_DevMsg(level, ...)                                     \
   if (level <= DIAG_DBG_LVL) {                                      \
-    fprintf(stderr, "msg* [%d]: ", level);                  \
-    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr); }
+    DIAG_mutex_lock();						    \
+    fprintf(stderr, "msg* [%d]: ", level);			    \
+    fprintf(stderr, __VA_ARGS__); fputs("\n", stderr);		    \
+    DIAG_mutex_unlock();					    \
+  }
 
 #define DIAG_EMsg(...)                                              \
-  { fputs("ERROR: ", stderr);                                       \
+  {								    \
+    DIAG_mutex_lock();						    \
+    fputs("ERROR: ", stderr);					    \
     fprintf(stderr, __VA_ARGS__); fputs("\n", stderr);              \
     if (DIAG_DBG_LVL_PUB) {                                         \
       fprintf(stderr, "\t[%s:%d]\n", __FILE__, __LINE__); }         \
+    DIAG_mutex_unlock();					    \
   }
 
 //#define DIAG_Assert(expr, ...) // cf. Open64's FmtAssert
@@ -262,16 +293,6 @@ Diagnostics_TheMostVisitedBreakpointInHistory(const char* filenm,
   { Diagnostics_TheMostVisitedBreakpointInHistory(__FILE__, __LINE__); exit(1); }
 
 #endif
-
-
-//****************************************************************************
-// 
-//****************************************************************************
-
-extern const char* DIAG_Unimplemented;
-extern const char* DIAG_UnexpectedInput;
-extern const char* DIAG_UnexpectedOpr;
-
 
 #endif /* support_diagnostics_h */
 

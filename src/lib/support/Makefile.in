@@ -155,6 +155,7 @@ am__objects_1 = libHPCsupport_la-CmdLineParser.lo \
 	libHPCsupport_la-StackableIterator.lo \
 	libHPCsupport_la-WordSet.lo libHPCsupport_la-HashTable.lo \
 	libHPCsupport_la-HashTableSortedIterator.lo \
+	libHPCsupport_la-fake_lock.lo libHPCsupport_la-threaded_id.lo \
 	libHPCsupport_la-PointerStack.lo libHPCsupport_la-QuickSort.lo \
 	libHPCsupport_la-Unique.lo
 am_libHPCsupport_la_OBJECTS = $(am__objects_1)
@@ -521,7 +522,7 @@ HPCLIB_SupportLean = $(top_builddir)/src/lib/support-lean/libHPCsupport-lean.la
 MYSOURCES = \
 	CmdLineParser.hpp CmdLineParser.cpp \
 	\
-	diagnostics.h diagnostics.cpp \
+	diagnostics.h diagnostics.c \
 	Exception.hpp Exception.cpp \
 	Trace.hpp Trace.cpp \
 	\
@@ -550,6 +551,10 @@ MYSOURCES = \
 	WordSet.hpp WordSet.cpp \
 	HashTable.hpp HashTable.cpp \
 	HashTableSortedIterator.hpp HashTableSortedIterator.cpp \
+	\
+	mutex.hpp \
+	fake_lock.h fake_lock.c \
+	threaded_id.hpp threaded_id.cpp \
 	\
 	PointerStack.hpp PointerStack.cpp \
 	QuickSort.hpp QuickSort.cpp \
@@ -660,9 +665,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-Unique.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-WordSet.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-diagnostics.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-fake_lock.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-findinstall.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-pathfind.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-realpath.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCsupport_la-threaded_id.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -685,6 +692,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
+libHPCsupport_la-diagnostics.lo: diagnostics.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -MT libHPCsupport_la-diagnostics.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-diagnostics.Tpo -c -o libHPCsupport_la-diagnostics.lo `test -f 'diagnostics.c' || echo '$(srcdir)/'`diagnostics.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCsupport_la-diagnostics.Tpo $(DEPDIR)/libHPCsupport_la-diagnostics.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='diagnostics.c' object='libHPCsupport_la-diagnostics.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -c -o libHPCsupport_la-diagnostics.lo `test -f 'diagnostics.c' || echo '$(srcdir)/'`diagnostics.c
+
 libHPCsupport_la-NaN.lo: NaN.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -MT libHPCsupport_la-NaN.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-NaN.Tpo -c -o libHPCsupport_la-NaN.lo `test -f 'NaN.c' || echo '$(srcdir)/'`NaN.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCsupport_la-NaN.Tpo $(DEPDIR)/libHPCsupport_la-NaN.Plo
@@ -705,6 +719,13 @@ libHPCsupport_la-realpath.lo: realpath.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='realpath.c' object='libHPCsupport_la-realpath.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -c -o libHPCsupport_la-realpath.lo `test -f 'realpath.c' || echo '$(srcdir)/'`realpath.c
+
+libHPCsupport_la-fake_lock.lo: fake_lock.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -MT libHPCsupport_la-fake_lock.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-fake_lock.Tpo -c -o libHPCsupport_la-fake_lock.lo `test -f 'fake_lock.c' || echo '$(srcdir)/'`fake_lock.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCsupport_la-fake_lock.Tpo $(DEPDIR)/libHPCsupport_la-fake_lock.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fake_lock.c' object='libHPCsupport_la-fake_lock.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CFLAGS) $(CFLAGS) -c -o libHPCsupport_la-fake_lock.lo `test -f 'fake_lock.c' || echo '$(srcdir)/'`fake_lock.c
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -733,13 +754,6 @@ libHPCsupport_la-CmdLineParser.lo: CmdLineParser.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='CmdLineParser.cpp' object='libHPCsupport_la-CmdLineParser.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -c -o libHPCsupport_la-CmdLineParser.lo `test -f 'CmdLineParser.cpp' || echo '$(srcdir)/'`CmdLineParser.cpp
-
-libHPCsupport_la-diagnostics.lo: diagnostics.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -MT libHPCsupport_la-diagnostics.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-diagnostics.Tpo -c -o libHPCsupport_la-diagnostics.lo `test -f 'diagnostics.cpp' || echo '$(srcdir)/'`diagnostics.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCsupport_la-diagnostics.Tpo $(DEPDIR)/libHPCsupport_la-diagnostics.Plo
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='diagnostics.cpp' object='libHPCsupport_la-diagnostics.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -c -o libHPCsupport_la-diagnostics.lo `test -f 'diagnostics.cpp' || echo '$(srcdir)/'`diagnostics.cpp
 
 libHPCsupport_la-Exception.lo: Exception.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -MT libHPCsupport_la-Exception.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-Exception.Tpo -c -o libHPCsupport_la-Exception.lo `test -f 'Exception.cpp' || echo '$(srcdir)/'`Exception.cpp
@@ -880,6 +894,13 @@ libHPCsupport_la-HashTableSortedIterator.lo: HashTableSortedIterator.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='HashTableSortedIterator.cpp' object='libHPCsupport_la-HashTableSortedIterator.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -c -o libHPCsupport_la-HashTableSortedIterator.lo `test -f 'HashTableSortedIterator.cpp' || echo '$(srcdir)/'`HashTableSortedIterator.cpp
+
+libHPCsupport_la-threaded_id.lo: threaded_id.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -MT libHPCsupport_la-threaded_id.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-threaded_id.Tpo -c -o libHPCsupport_la-threaded_id.lo `test -f 'threaded_id.cpp' || echo '$(srcdir)/'`threaded_id.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCsupport_la-threaded_id.Tpo $(DEPDIR)/libHPCsupport_la-threaded_id.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='threaded_id.cpp' object='libHPCsupport_la-threaded_id.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -c -o libHPCsupport_la-threaded_id.lo `test -f 'threaded_id.cpp' || echo '$(srcdir)/'`threaded_id.cpp
 
 libHPCsupport_la-PointerStack.lo: PointerStack.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCsupport_la_CXXFLAGS) $(CXXFLAGS) -MT libHPCsupport_la-PointerStack.lo -MD -MP -MF $(DEPDIR)/libHPCsupport_la-PointerStack.Tpo -c -o libHPCsupport_la-PointerStack.lo `test -f 'PointerStack.cpp' || echo '$(srcdir)/'`PointerStack.cpp
