@@ -129,6 +129,11 @@ namespace CCT {
 
 class ANode;
 
+class TreeMetricAccessor {
+public:
+  virtual double &index(ANode *n, uint metricId, uint size) = 0;
+};
+
 
 class Tree
   : public Unique
@@ -503,6 +508,9 @@ public:
   aggregateMetricsIncl(const VMAIntervalSet& ivalset);
 
   void
+  aggregateMetricsIncl(const VMAIntervalSet& ivalset, TreeMetricAccessor &tma);
+
+  void
   aggregateMetricsIncl(uint mBegId)
   { aggregateMetricsIncl(mBegId, mBegId + 1); }
 
@@ -516,6 +524,9 @@ public:
   aggregateMetricsExcl(const VMAIntervalSet& ivalset);
 
   void
+  aggregateMetricsExcl(const VMAIntervalSet& ivalset, TreeMetricAccessor &tma);
+
+  void
   aggregateMetricsExcl(uint mBegId)
   { aggregateMetricsExcl(mBegId, mBegId + 1); }
 
@@ -526,7 +537,7 @@ private:
   // function (Proc) as the same as a normal procedure (ProcFrm).
   // And the lowest common ancestor for Proc and ProcFrm is AProcNode.
   void
-  aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset);
+  aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset, TreeMetricAccessor &tma);
 
 public:
   // computeMetrics: compute this subtree's Metric::DerivedDesc metric
@@ -1363,6 +1374,15 @@ class Stmt
   virtual std::string
   toStringMe(uint oFlags = 0) const;
 };
+
+
+class TreeMetricAccessor_InBand : public TreeMetricAccessor {
+public:
+  virtual double &index(ANode *n, uint metricId, uint size) {
+    return n->demandMetric(metricId, size);
+  }
+};
+
 
 
 } // namespace CCT

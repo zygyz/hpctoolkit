@@ -213,8 +213,12 @@ public:
     size_t sz = dataSize();
     m_packedData = new double[sz];
 
+#if 0
     // initialize first (unused) row to avoid bogus valgrind warnings
     memset(m_packedData, 0, (m_numHdr + m_numMetrics) * sizeof(double));
+#else
+    for (unsigned int i = 0; i < sz; i++) m_packedData[i] = 0;
+#endif
 
     m_packedData[m_numNodesIdx] = (double)m_numNodes;
     m_packedData[m_mBegIdIdx]   = (double)m_mBegId;
@@ -295,6 +299,19 @@ public:
   uint
   dataSize() const
   { return (m_numNodes * m_numMetrics) + m_numHdr; }
+
+  void
+  dump() {
+    std::cerr << "packed metrics (" << std::hex << this << ")" << std::dec << std::endl;
+    for (unsigned int i = 0; i < m_numNodes; i++) {
+      for (unsigned int j = m_mBegId; j < m_mEndId; j++) {
+	double metric = idx(i, j);
+	if (metric != 0) {
+	  std::cerr << "node(" << i << ")[" << j << "]=" << metric << std::endl;
+	}
+      }
+    }
+  }
 
 private:
   static const uint m_numHdr = 4;
@@ -402,7 +419,7 @@ unpackProfile(uint8_t* buffer, size_t bufferSz);
 // ------------------------------------------------------------------------
 
 // packMetrics: pack the given metric values from 'profile' into
-// 'packedMetrics'
+// 'packedMetrics'. 
 void
 packMetrics(const Prof::CallPath::Profile& profile,
 	    ParallelAnalysis::PackedMetrics& packedMetrics);

@@ -505,9 +505,15 @@ ANode::aggregateMetricsIncl(uint mBegId, uint mEndId)
   aggregateMetricsIncl(ivalset);
 }
 
-
 void
 ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset)
+{
+  TreeMetricAccessor_InBand tmai;
+  aggregateMetricsIncl(ivalset, tmai);
+}
+
+void
+ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset, TreeMetricAccessor &tma)
 {
   if (ivalset.empty()) {
     return; // short circuit
@@ -526,8 +532,12 @@ ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset)
 	uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
 	for (uint mId = mBegId; mId < mEndId; ++mId) {
+#if 0
 	  double mVal = n->demandMetric(mId, mEndId/*size*/);
 	  n_parent->demandMetric(mId, mEndId/*size*/) += mVal;
+#endif
+	  tma.index(n_parent, mId, mEndId) += 
+	    tma.index(n, mId, mEndId);
 	}
       }
     }
@@ -545,48 +555,52 @@ ANode::aggregateMetricsExcl(uint mBegId, uint mEndId)
   aggregateMetricsExcl(ivalset);
 }
 
-
 void
 ANode::aggregateMetricsExcl(const VMAIntervalSet& ivalset)
+{
+  TreeMetricAccessor_InBand tmai;
+  aggregateMetricsExcl(ivalset, tmai);
+}
+
+void
+ANode::aggregateMetricsExcl(const VMAIntervalSet& ivalset, TreeMetricAccessor &tma)
 {
   if (ivalset.empty()) {
     return; // short circuit
   }
 
   AProcNode* frame = NULL; // will be set during tree traversal
-  aggregateMetricsExcl(frame, ivalset);
+  aggregateMetricsExcl(frame, ivalset, tma);
 }
 
 
 void
-ANode::aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset)
+ANode::aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset, TreeMetricAccessor &tma)
 {
   ANode* n = this;
 
   // -------------------------------------------------------
-  // Pre-order visit
-  // -------------------------------------------------------
-  //
   // laks 2015.10.21: we don't want accumulate the exclusive cost of 
   // an inlined statement to the caller. Instead, we assume an inline
   // function (Proc) as the same as a normal procedure (ProcFrm).
   // And the lowest common ancestor for Proc and ProcFrm is AProcNode.
-  //
+  // -------------------------------------------------------
+
   bool isFrame = (typeid(*n) == typeid(ProcFrm));
   bool isProc  = (typeid(*n) == typeid(Proc));
   bool isLogicalProc   = isFrame || isProc;
   AProcNode * frameNxt = (isLogicalProc) ? static_cast<AProcNode*>(n) : frame;
 
   // -------------------------------------------------------
-  // Tree traversal
+  // recursively visit children before myself
   // -------------------------------------------------------
   for (ANodeChildIterator it(n); it.Current(); ++it) {
     ANode* x = it.current();
-    x->aggregateMetricsExcl(frameNxt, ivalset);
+    x->aggregateMetricsExcl(frameNxt, ivalset, tma);
   }
 
   // -------------------------------------------------------
-  // Post-order visit
+  // visit self
   // -------------------------------------------------------
   if (typeid(*n) == typeid(CCT::Stmt)) {
     ANode* n_parent = n->parent();
@@ -597,10 +611,17 @@ ANode::aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset)
       uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
       for (uint mId = mBegId; mId < mEndId; ++mId) {
+	double mVal = tma.index(n, mId, mEndId); 
+	tma.index(n_parent, mId, mEndId) += mVal;
+#if 0
 	double mVal = n->demandMetric(mId, mEndId/*size*/);
 	n_parent->demandMetric(mId, mEndId/*size*/) += mVal;
+#endif
 	if (frame && frame != n_parent) {
+#if 0
 	  frame->demandMetric(mId, mEndId/*size*/) += mVal;
+#endif
+	  tma.index(frame, mId, mEndId) += mVal;
 	}
       }
     }
