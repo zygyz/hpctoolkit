@@ -284,7 +284,8 @@ packMetrics(const Prof::CallPath::Profile& profile,
 #else
 	if (n->metric(mId2) != 0) 
 	  std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
-	packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
+	// packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
+	packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
 #endif
       }
     }

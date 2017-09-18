@@ -376,9 +376,6 @@ ANode::IntToANodeType(long i)
   return (ANodeTy)i;
 }
 
-#if 0
-uint ANode::s_nextUniqueId = 2;
-#endif
 
 
 //***************************************************************************
@@ -532,12 +529,8 @@ ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset, TreeMetricAccessor &t
 	uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
 	for (uint mId = mBegId; mId < mEndId; ++mId) {
-#if 0
-	  double mVal = n->demandMetric(mId, mEndId/*size*/);
-	  n_parent->demandMetric(mId, mEndId/*size*/) += mVal;
-#endif
-	  tma.index(n_parent, mId, mEndId) += 
-	    tma.index(n, mId, mEndId);
+	  tma.index(n_parent, mId, mEndId/*size*/) += 
+	    tma.index(n, mId, mEndId/*size*/);
 	}
       }
     }
@@ -612,16 +605,9 @@ ANode::aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset, Tre
 
       for (uint mId = mBegId; mId < mEndId; ++mId) {
 	double mVal = tma.index(n, mId, mEndId); 
-	tma.index(n_parent, mId, mEndId) += mVal;
-#if 0
-	double mVal = n->demandMetric(mId, mEndId/*size*/);
-	n_parent->demandMetric(mId, mEndId/*size*/) += mVal;
-#endif
+	tma.index(n_parent, mId, mEndId/*size*/) += mVal;
 	if (frame && frame != n_parent) {
-#if 0
-	  frame->demandMetric(mId, mEndId/*size*/) += mVal;
-#endif
-	  tma.index(frame, mId, mEndId) += mVal;
+	  tma.index(frame, mId, mEndId/*size*/) += mVal;
 	}
       }
     }

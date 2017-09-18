@@ -591,7 +591,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 #pragma omp master 
   for (uint i = 0; i < nArgs.paths->size(); ++i) {
     // SPECULATIVE PARALLELISM
-#pragma omp task if (0)
+    // #pragma omp task if (0)
     {
     const string& fnm = (*nArgs.paths)[i];
     uint groupId = (*nArgs.groupMap)[i];
@@ -934,87 +934,6 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 }
 
 
-#if 0
-static void
-aggregatePackedMetricsExcl
-(
- const Prof::CallPath::Profile& canonicalProfile,
- const VMAIntervalSet& ivalset,
- ParallelAnalysis::PackedMetrics& packedMetrics
-)
-{
-  // aggregate packed metrics using the aggregation pattern implied by the canonicalCCT
-
-  if (!ivalset.empty()) {
-    const Prof::CCT::ANode *c_cct_root = canonicalProfile.cct()->root();
-
-    Prof::CCT::ANodeIterator it(c_cct_root, NULL/*filter*/, false/*leavesOnly*/,
-				IteratorStack::PostOrder);
-    for (Prof::CCT::ANode *n = NULL; (n = it.current()); ++it) {
-      if (n != c_cct_root) {
-	Prof::CCT::ANode *n_parent = n->parent();
-	
-	for (VMAIntervalSet::const_iterator it1 = ivalset.begin();
-	     it1 != ivalset.end(); ++it1) {
-	  const VMAInterval& ival = *it1;
-	  uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
-	  
-	  for (uint mId = mBegId; mId < mEndId; ++mId) {
-	    double val = packedMetrics.idx(n->id(), mId);         // child value
-	    double pval = packedMetrics.idx(n_parent->id(), mId); // parent value
-	    std::cerr << "node(" << n_parent->id() << ")[" << mId << "] {" << pval << "} += " 
-		      << "node(" << n->id() << ")[" << mId << "] {" << val << "}" << std::endl; 
-	    // accumulate child into parent
-	    packedMetrics.idx(n_parent->id(), mId) += val;        
-	  }
-	}
-      }
-    }
-  }
-}
-
-
-static void
-aggregatePackedMetricsIncl
-(
- const Prof::CallPath::Profile& canonicalProfile,
- const VMAIntervalSet& ivalset,
- ParallelAnalysis::PackedMetrics& packedMetrics
-)
-{
-  if (!ivalset.empty()) { // if there are any inclusive metrics to aggregate
-
-    // aggregate inclusive packed metrics using the aggregation pattern
-    // dictated by the canonicalCCT
-
-    const Prof::CCT::ANode *c_cct_root = canonicalProfile.cct()->root();
-    Prof::CCT::ANodeIterator it(c_cct_root, NULL/*filter*/, false/*leavesOnly*/,
-				IteratorStack::PostOrder);
-    for (Prof::CCT::ANode *n = NULL; (n = it.current()); ++it) {
-      if (n != root) {
-	ANode* n_parent = n->parent();
-      
-	for (VMAIntervalSet::const_iterator it1 = ivalset.begin();
-	     it1 != ivalset.end(); ++it1) {
-	  const VMAInterval& ival = *it1;
-	  uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
-
-	  for (uint mId = mBegId; mId < mEndId; ++mId) {
-	    double val = packedMetrics.idx(n->id(), mId);         // child value
-	    double pval = packedMetrics.idx(n_parent->id(), mId); // parent value
-	    std::cerr << "node(" << n_parent->id() << ")[" << mId << "] {" << pval << "} += " 
-		      << "node(" << n->id() << ")[" << mId << "] {" << val << "}" << std::endl; 
-	    // accumulate child into parent
-	    packedMetrics.idx(n_parent->id(), mId) += val;        
-	  }
-	}
-      }
-    }
-  }
-}
-#endif
-
-
 // makeThreadMetrics_Lcl: Make thread-level metric database.
 //
 // Makes same assumptions as makeSummaryMetrics_Lcl but with one key
@@ -1091,46 +1010,27 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
     (profGbl.cct()->maxDenseId() + 1, mBeg, mEnd, mBeg, mEnd);
 
   ParallelAnalysis::packMetrics(*prof, packedMetrics);
-
     
-#define DEBUGGING_OUTPUT 1
-#if DEBUGGING_OUTPUT
-    // -------------------------------------------------------
-    // DEBUGGING OUTPUT BEFORE AGGREGATION
-    // -------------------------------------------------------
-    {
-      string dbFnm = makeDBFileName(args.db_dir, groupId, profileFile);
-      writeMetricsDB(*prof, profGbl.cct()->maxDenseId(), mBeg, mEnd, dbFnm, packedMetrics);
-    }
+#if DEBUG_PACKED_METRICS
+  packedMetrics.dump();
 #endif
 
-#if 0
-    Prof::CCT::ANode* prof_root = prof->cct()->root();
-    prof_root->aggregateMetricsIncl(ivalsetIncl);
-    prof_root->aggregateMetricsExcl(ivalsetExcl);
+  TreeMetricAccessor_OutOfBand packedMetricsAccessor(packedMetrics);
+  
+  Prof::CCT::ANode* c_cct_root = profGbl.cct()->root(); // canonical cct root
+  c_cct_root->aggregateMetricsIncl(ivalsetIncl, packedMetricsAccessor);
+  c_cct_root->aggregateMetricsExcl(ivalsetExcl, packedMetricsAccessor);
+  
+#if DEBUG_PACKED_METRICS
+  packedMetrics.dump();
 #endif
 
-    packedMetrics.dump();
-
-    TreeMetricAccessor_OutOfBand packedMetricsAccessor(packedMetrics);
-
-    Prof::CCT::ANode* c_cct_root = profGbl.cct()->root(); // canonical cct root
-    c_cct_root->aggregateMetricsIncl(ivalsetIncl, packedMetricsAccessor);
-    c_cct_root->aggregateMetricsExcl(ivalsetExcl, packedMetricsAccessor);
-
-#if 0
-    aggregatePackedMetricsIncl(profGbl, ivalsetIncl, packedMetrics);
-    aggregatePackedMetricsExcl(profGbl, ivalsetExcl, packedMetrics);
-#endif
-
-    packedMetrics.dump();
-
-    // -------------------------------------------------------
-    // write local sampled metric values into database
-    // -------------------------------------------------------
-
-    string dbFnm = makeDBFileName(args.db_dir, groupId, profileFile);
-    writeMetricsDB(*prof, profGbl.cct()->maxDenseId(), mBeg, mEnd, dbFnm, packedMetrics);
+  // -------------------------------------------------------
+  // write local sampled metric values into database
+  // -------------------------------------------------------
+  
+  string dbFnm = makeDBFileName(args.db_dir, groupId, profileFile);
+  writeMetricsDB(*prof, profGbl.cct()->maxDenseId(), mBeg, mEnd, dbFnm, packedMetrics);
   }
 
   delete prof;
