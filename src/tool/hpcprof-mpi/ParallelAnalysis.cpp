@@ -273,17 +273,20 @@ packMetrics(const Prof::CallPath::Profile& profile,
   // DIAG_Assert(packedMetrics.numNodes() == cct.maxDenseId() + 1, "");
   DIAG_Assert(packedMetrics.numMetrics() == mDrvdEnd - mDrvdBeg, "");
 
-  //std::cerr << "<<<< packing metrics >>>>" << std::endl;
+  std::cerr << "<<<< packing metrics >>>>" << std::endl;
   for (Prof::CCT::ANodeIterator it(cct.root()); it.Current(); ++it) {
     Prof::CCT::ANode* n = it.current();
-    for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
+    if (n->numMetrics() != 0) { 
+      for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
 #if 0
-      // FIXME PARALLEL
-      packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
+	// FIXME PARALLEL
+	packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
 #else
-      // std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
-      packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
+	if (n->metric(mId2) != 0) 
+	  std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
+	packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
 #endif
+      }
     }
   }
 }

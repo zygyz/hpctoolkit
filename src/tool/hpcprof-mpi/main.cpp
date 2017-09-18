@@ -661,6 +661,47 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 }
 
 
+#if !defined(CILKSCREEN)
+
+static void spawnThreadMetrics_Lcl
+(
+ Prof::CallPath::Profile& profGbl,
+ const Analysis::Args& args,
+ const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
+ int myRank, 
+ uint lower, 
+ uint upper
+)
+{
+  if (lower != upper) {
+    mid = (lower + upper) >> 1; // midpoint, rounded down
+#pragma omp task 
+    spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, lower, mid);
+    spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, mid + 1, upper);
+  } else {
+    string& fnm = (*nArgs.paths)[lower];
+    uint groupId = (*nArgs.groupMap)[lower];
+    makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
+  }
+}
+
+
+static void
+makeThreadMetrics(Prof::CallPath::Profile& profGbl,
+		  const Analysis::Args& args,
+		  const Analysis::Util::NormalizeProfileArgs_t& nArgs,
+		  const vector<uint>& groupIdToGroupSizeMap,
+		  int myRank, int numRanks, int rootRank)
+{
+#pragma omp parallel 
+  {
+#pragma omp master 
+    spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, 0, nArgs.paths->size() - 1);
+  }
+}
+#else
+
+
 static void
 makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const Analysis::Args& args,
@@ -669,27 +710,13 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  int myRank, int numRanks, int rootRank)
 {
 
-  #if 0
-  #pragma omp parallel for 
   _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
-  { 
-  #else
-#pragma omp parallel 
-  {
-#pragma omp master 
-    for (uint i = 0; i < nArgs.paths->size(); ++i) {
-      // SPECULATIVE PARALLELISM
-#pragma omp task 
-      {
-  #endif
 	string& fnm = (*nArgs.paths)[i];
 	uint groupId = (*nArgs.groupMap)[i];
-	// #pragma omp critical (thread_metrics)
 	makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
-      }
-    }
   }
 }
+#endif
 
 
 static uint
@@ -902,8 +929,6 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		      const Analysis::Args& args, uint groupId, uint groupMax,
 		      int myRank)
 {
-#pragma omp critical (thread_metrics)
-{
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
   Prof::CCT::Tree* cctGbl = profGbl.cct();
 
@@ -960,6 +985,17 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
       }
     }
     
+#define DEBUGGING_OUTPUT 1
+#if DEBUGGING_OUTPUT
+    // -------------------------------------------------------
+    // DEBUGGING OUTPUT BEFORE AGGREGATION
+    // -------------------------------------------------------
+    {
+      string dbFnm = makeDBFileName(args.db_dir, groupId, profileFile);
+      writeMetricsDB(*prof, profGbl.cct()->maxDenseId(), mBeg, mEnd, dbFnm);
+    }
+#endif
+
     Prof::CCT::ANode* prof_root = prof->cct()->root();
     prof_root->aggregateMetricsIncl(ivalsetIncl);
     prof_root->aggregateMetricsExcl(ivalsetExcl);
@@ -973,7 +1009,6 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   }
 
   delete prof;
- }
 }
 
 
