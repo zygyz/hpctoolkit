@@ -279,13 +279,17 @@ packMetrics(const Prof::CallPath::Profile& profile,
     if (n->numMetrics() != 0) { 
       for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
 #if 0
-	// FIXME PARALLEL
+	// FIXME PARALLEL: we have a problem here: a sibling of the CCT root
+	// is getting dropped. it has no corresponding entry in the canonical CCT.
+	// this means that it has a thread-local (large) id, which causes it to be out of bounds
 	packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
 #else
+#define DEBUG_PACKED_METRICS 0
+#if DEBUG_PACKED_METRICS
 	if (n->metric(mId2) != 0) 
 	  std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
-	// packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
-	packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
+#endif
+	packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
 #endif
       }
     }

@@ -682,8 +682,8 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 
 static void spawnThreadMetrics_Lcl
 (
- Prof::CallPath::Profile& profGbl,
- const Analysis::Args& args,
+ Prof::CallPath::Profile *profGbl,
+ const Analysis::Args *args,
  const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
  int myRank, 
  uint lower, 
@@ -691,14 +691,14 @@ static void spawnThreadMetrics_Lcl
 )
 {
   if (lower != upper) {
-    mid = (lower + upper) >> 1; // midpoint, rounded down
+    uint mid = (lower + upper) >> 1; // midpoint, rounded down
 #pragma omp task 
     spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, lower, mid);
     spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, mid + 1, upper);
   } else {
     string& fnm = (*nArgs.paths)[lower];
     uint groupId = (*nArgs.groupMap)[lower];
-    makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
+    makeThreadMetrics_Lcl(*profGbl, fnm, *args, groupId, nArgs.groupMax, myRank);
   }
 }
 
@@ -713,7 +713,7 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 #pragma omp parallel 
   {
 #pragma omp master 
-    spawnThreadMetrics_Lcl(profGbl, args, nArgs, myRank, 0, nArgs.paths->size() - 1);
+    spawnThreadMetrics_Lcl(&profGbl, &args, nArgs, myRank, 0, nArgs.paths->size() - 1);
   }
 }
 #else
