@@ -662,16 +662,6 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   cctRoot->computeMetricsIncr(mMgrGbl, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
 
-#define SEQUENTIAL 0
-#if SEQUENTIAL
-  for (uint i = 0; i < nArgs.paths->size(); ++i) {
-    const string& fnm = (*nArgs.paths)[i];
-    uint groupId = (*nArgs.groupMap)[i];
-    makeSummaryMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax,
-			   groupIdToGroupMetricsMap, myRank);
-  }
-#endif
-
   makeSummaryMetrics(&profGbl, &args, nArgs, groupIdToGroupMetricsMap, myRank);
 
   // -------------------------------------------------------
