@@ -79,7 +79,7 @@ using std::vector;
 #include <cctype>  // isdigit()
 #include <cstring> // strcpy()
 
-#include <cilk/cilk.h> // strcpy()
+
 
 //*************************** User Include Files ****************************
 
@@ -102,6 +102,15 @@ using std::vector;
 #include <lib/support/Logic.hpp>
 #include <lib/support/RealPathMgr.hpp>
 #include <lib/support/StrUtil.hpp>
+
+
+
+//****************************************************************************
+// macros
+//****************************************************************************
+
+#define DEBUG_PACKED_METRICS 0
+
 
 
 //*************************** Forward Declarations ***************************

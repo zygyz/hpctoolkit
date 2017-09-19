@@ -88,6 +88,7 @@ using std::string;
 //*************************** Forward Declarations **************************
 
 #define DBG_CCT_MERGE 0
+#define DEBUG_PACKED_METRICS 0
 
 //***************************************************************************
 
@@ -273,24 +274,23 @@ packMetrics(const Prof::CallPath::Profile& profile,
   // DIAG_Assert(packedMetrics.numNodes() == cct.maxDenseId() + 1, "");
   DIAG_Assert(packedMetrics.numMetrics() == mDrvdEnd - mDrvdBeg, "");
 
+#if DEBUG_PACKED_METRICS
   std::cerr << "<<<< packing metrics >>>>" << std::endl;
+#endif
   for (Prof::CCT::ANodeIterator it(cct.root()); it.Current(); ++it) {
     Prof::CCT::ANode* n = it.current();
     if (n->numMetrics() != 0) { 
       for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
-#if 0
-	// FIXME PARALLEL: we have a problem here: a sibling of the CCT root
-	// is getting dropped. it has no corresponding entry in the canonical CCT.
-	// this means that it has a thread-local (large) id, which causes it to be out of bounds
-	packedMetrics.idx(n->id(), mId1) = n->metric(mId2);
-#else
-#define DEBUG_PACKED_METRICS 0
 #if DEBUG_PACKED_METRICS
 	if (n->metric(mId2) != 0) 
 	  std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
 #endif
+	// FIXME? 
+	//   Some nodes in a thread profile have no corresponding match to a
+	//   node in the global CCT. For now, ignore them by refusing to record
+	//   metrics for a node with an id that is out of bounds. 
+	//   This may need to be revisited.
 	packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
-#endif
       }
     }
   }
