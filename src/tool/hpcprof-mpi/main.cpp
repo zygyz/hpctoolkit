@@ -564,6 +564,73 @@ myNormalizeProfileArgs(const Analysis::Util::StringVec& profileFiles,
   return out;
 }
 
+#if !defined(CILKSCREEN)
+
+static void
+spawnSummaryMetrics_Lcl
+(
+ Prof::CallPath::Profile *profGbl,
+ const Analysis::Args *args,
+ const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
+ vector<VMAIntervalSet*> *groupIdToGroupMetricsMap,
+ int myRank,
+ uint lower, 
+ uint upper
+)
+{
+  if (lower != upper) {
+    uint mid = (lower + upper) >> 1; // midpoint, rounded down
+#pragma omp task if(0)
+    spawnSummaryMetrics_Lcl(profGbl, args, nArgs, groupIdToGroupMetricsMap, myRank, lower, mid);
+    spawnSummaryMetrics_Lcl(profGbl, args, nArgs, groupIdToGroupMetricsMap, myRank, mid + 1, upper);
+  } else {
+    string& fnm = (*nArgs.paths)[lower];
+    uint groupId = (*nArgs.groupMap)[lower];
+    makeSummaryMetrics_Lcl(*profGbl, fnm, *args, groupId, nArgs.groupMax,
+			   *groupIdToGroupMetricsMap, myRank);
+  }
+}
+
+static void
+makeSummaryMetrics
+(
+ Prof::CallPath::Profile *profGbl,
+ const Analysis::Args *args,
+ const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
+ vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
+ int myRank
+ )
+{
+#pragma omp parallel 
+  {
+#pragma omp master 
+    spawnSummaryMetrics_Lcl(profGbl, args, nArgs, &groupIdToGroupMetricsMap, 
+			    myRank, 0, nArgs.paths->size() - 1);
+  }
+}
+
+#else
+
+static void
+makeSummaryMetrics
+(
+ Prof::CallPath::Profile *profGbl,
+ const Analysis::Args *args,
+ const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
+ vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
+ int myRank
+ )
+{
+  _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
+	string& fnm = (*nArgs.paths)[i];
+	uint groupId = (*nArgs.groupMap)[i];
+	makeSummaryMetrics_Lcl(*profGbl, fnm, *args, groupId, nArgs.groupMax,
+			       groupIdToGroupMetricsMap, myRank);
+  }
+}
+
+#endif
+
 
 //***************************************************************************
 
@@ -595,20 +662,17 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   cctRoot->computeMetricsIncr(mMgrGbl, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
 
-#pragma omp parallel 
-{
-#pragma omp master 
+#define SEQUENTIAL 0
+#if SEQUENTIAL
   for (uint i = 0; i < nArgs.paths->size(); ++i) {
-    // SPECULATIVE PARALLELISM
-    // #pragma omp task if (0)
-    {
     const string& fnm = (*nArgs.paths)[i];
     uint groupId = (*nArgs.groupMap)[i];
     makeSummaryMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax,
 			   groupIdToGroupMetricsMap, myRank);
-    }
   }
-}
+#endif
+
+  makeSummaryMetrics(&profGbl, &args, nArgs, groupIdToGroupMetricsMap, myRank);
 
   // -------------------------------------------------------
   // create summary metrics via reduction (combine function)
@@ -735,7 +799,6 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const vector<uint>& groupIdToGroupSizeMap,
 		  int myRank, int numRanks, int rootRank)
 {
-
   _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
 	string& fnm = (*nArgs.paths)[i];
 	uint groupId = (*nArgs.groupMap)[i];
