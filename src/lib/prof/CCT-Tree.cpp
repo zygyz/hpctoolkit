@@ -693,21 +693,23 @@ ANode::computeMetricsIncrMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, ui
     const Metric::DerivedIncrDesc* mm =
       dynamic_cast<const Metric::DerivedIncrDesc*>(m);
     if (mm && mm->expr()) {
+      MetricAccessor *nma = tma.nodeMetricAccessor(this);
       const Metric::AExprIncr* expr = mm->expr();
       switch (fn) {
         case Metric::AExprIncr::FnInit:
-	  expr->initialize(*this); break;
+	  expr->initialize(*nma); break;
         case Metric::AExprIncr::FnInitSrc:
-	  expr->initializeSrc(*this); break;
+	  expr->initializeSrc(*nma); break;
         case Metric::AExprIncr::FnAccum:
-	  expr->accumulate(*this); break;
+	  expr->accumulate(*nma); break;
         case Metric::AExprIncr::FnCombine:
-	  expr->combine(*this); break;
+	  expr->combine(*nma); break;
         case Metric::AExprIncr::FnFini:
-	  expr->finalize(*this); break;
+	  expr->finalize(*nma); break;
         default:
 	  DIAG_Die(DIAG_UnexpectedInput);
       }
+      delete nma;
     }
   }
 }
