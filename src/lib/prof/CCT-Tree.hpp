@@ -1376,7 +1376,7 @@ class Stmt
 };
 
 
-class TreeMetricAccessor_InBand : public TreeMetricAccessor {
+class TreeMetricAccessorInband : public TreeMetricAccessor {
 public:
   virtual double &index(ANode *n, uint metricId, uint size) {
     return n->demandMetric(metricId, size);
