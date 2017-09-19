@@ -84,6 +84,8 @@
 #include "Metric-ADesc.hpp"
 #include "Metric-IData.hpp"
 
+#include "MetricAccessorInband.hpp"
+
 #include "Struct-Tree.hpp"
 
 #include "LoadMap.hpp"
@@ -131,7 +133,8 @@ class ANode;
 
 class TreeMetricAccessor {
 public:
-  virtual double &index(ANode *n, uint metricId, uint size) = 0;
+  virtual double &index(ANode *n, uint metricId, uint size = 0) = 0;
+  virtual MetricAccessor *nodeMetricAccessor(ANode *n) = 0;
 };
 
 
@@ -543,12 +546,17 @@ public:
   // computeMetrics: compute this subtree's Metric::DerivedDesc metric
   //   values for metric ids [mBegId, mEndId)
   // computeMetricsMe: same, but for the node (not the subtree)
+
+  // this one defaults to inband metrics in the tree
   void
-  computeMetrics(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+  computeMetrics(const Metric::Mgr& mMgr, uint mBegId, uint mEndId, bool doFinal);
+
+  void
+  computeMetrics(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 		 bool doFinal);
 
   void
-  computeMetricsMe(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+  computeMetricsMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 		   bool doFinal);
 
 
@@ -556,11 +564,11 @@ public:
   //   values for metric ids [mBegId, mEndId)
   // computeMetricsIncrMe: same, but for the node (not the subtree)
   void
-  computeMetricsIncr(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+  computeMetricsIncr(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 		     Metric::AExprIncr::FnTy fn);
 
   void
-  computeMetricsIncrMe(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+  computeMetricsIncrMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 		       Metric::AExprIncr::FnTy fn);
 
   // pruneByMetrics: TODO: make this static for consistency
@@ -1378,9 +1386,12 @@ class Stmt
 
 class TreeMetricAccessorInband : public TreeMetricAccessor {
 public:
-  virtual double &index(ANode *n, uint metricId, uint size) {
+  virtual double &index(ANode *n, uint metricId, uint size = 0) {
     return n->demandMetric(metricId, size);
   }
+  virtual MetricAccessor *nodeMetricAccessor(ANode *n) {
+    return new MetricAccessorInband(*n); 
+  };
 };
 
 

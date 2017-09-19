@@ -427,6 +427,7 @@ packMetrics(const Prof::CallPath::Profile& profile,
 // unpackMetrics: unpack 'packedMetrics' into profile and apply metric update
 void
 unpackMetrics(Prof::CallPath::Profile& profile,
+	      Prof::CCT::TreeMetricAccessor &tma,
 	      const ParallelAnalysis::PackedMetrics& packedMetrics);
 
 } // namespace ParallelAnalysis

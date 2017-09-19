@@ -620,6 +620,15 @@ void
 ANode::computeMetrics(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
 		      bool doFinal)
 {
+  TreeMetricAccessorInband tmai;
+  computeMetrics(mMgr, tmai, mBegId, mEndId, doFinal);
+}
+
+
+void
+ANode::computeMetrics(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
+		      bool doFinal)
+{
   if ( !(mBegId < mEndId) ) {
     return;
   }
@@ -629,13 +638,13 @@ ANode::computeMetrics(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
 
   for (ANodeIterator it(this); it.Current(); ++it) {
     ANode* n = it.current();
-    n->computeMetricsMe(mMgr, mBegId, mEndId, doFinal);
+    n->computeMetricsMe(mMgr, tma, mBegId, mEndId, doFinal);
   }
 }
 
 
 void
-ANode::computeMetricsMe(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+ANode::computeMetricsMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 			bool doFinal)
 {
   uint numMetrics = mMgr.size();
@@ -645,19 +654,20 @@ ANode::computeMetricsMe(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
     const Metric::DerivedDesc* mm = dynamic_cast<const Metric::DerivedDesc*>(m);
     if (mm && mm->expr()) {
       const Metric::AExpr* expr = mm->expr();
-      MetricAccessorInband mda(*this);
-      expr->evalNF(mda);
+      MetricAccessor *mda = tma.nodeMetricAccessor(this);
+      expr->evalNF(*mda);
       if (doFinal) {
-	double val = expr->eval(mda);
-	demandMetric(mId, numMetrics/*size*/) = val;
+	double val = expr->eval(*mda);
+	tma.index(this, mId, numMetrics/*size*/) = val;
       }
+      delete mda;
     }
   }
 }
 
 
 void
-ANode::computeMetricsIncr(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+ANode::computeMetricsIncr(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 			  Metric::AExprIncr::FnTy fn)
 {
   if ( !(mBegId < mEndId) ) {
@@ -669,13 +679,13 @@ ANode::computeMetricsIncr(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
 
   for (ANodeIterator it(this); it.Current(); ++it) {
     ANode* n = it.current();
-    n->computeMetricsIncrMe(mMgr, mBegId, mEndId, fn);
+    n->computeMetricsIncrMe(mMgr, tma, mBegId, mEndId, fn);
   }
 }
 
 
 void
-ANode::computeMetricsIncrMe(const Metric::Mgr& mMgr, uint mBegId, uint mEndId,
+ANode::computeMetricsIncrMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 			    Metric::AExprIncr::FnTy fn)
 {
   for (uint mId = mBegId; mId < mEndId; ++mId) {

@@ -195,9 +195,10 @@ mergeNonLocal(Prof::CallPath::Profile* profile, int rank_x, int rank_y,
 
 void
 mergeNonLocal(std::pair<Prof::CallPath::Profile*,
-	                ParallelAnalysis::PackedMetrics*> data,
+	      ParallelAnalysis::PackedMetrics*> data,
 	      int rank_x, int rank_y, int myRank, MPI_Comm comm)
 {
+  Prof::CCT::TreeMetricAccessorInband tmai;
   int tag = rank_y; // sender
 
   if (myRank == rank_x) {
@@ -210,7 +211,7 @@ mergeNonLocal(std::pair<Prof::CallPath::Profile*,
 	     MPI_DOUBLE, rank_y, tag, comm, &mpistat);
     DIAG_Assert(packedMetrics_x->verify(), DIAG_UnexpectedInput);
     
-    unpackMetrics(*profile_x, *packedMetrics_x);
+    unpackMetrics(*profile_x, tmai, *packedMetrics_x);
   }
 
   if (myRank == rank_y) {
@@ -299,6 +300,7 @@ packMetrics(const Prof::CallPath::Profile& profile,
 
 void
 unpackMetrics(Prof::CallPath::Profile& profile,
+	      Prof::CCT::TreeMetricAccessor &tma,
 	      const ParallelAnalysis::PackedMetrics& packedMetrics)
 {
   Prof::CCT::Tree& cct = *profile.cct();
@@ -313,7 +315,7 @@ unpackMetrics(Prof::CallPath::Profile& profile,
   for (uint nodeId = 1; nodeId < packedMetrics.numNodes(); ++nodeId) {
     for (uint mId1 = 0, mId2 = mBegId; mId2 < mEndId; ++mId1, ++mId2) {
       Prof::CCT::ANode* n = cct.findNode(nodeId);
-      n->demandMetric(mId2) = packedMetrics.idx(nodeId, mId1);
+      tma.index(n, mId2) = packedMetrics.idx(nodeId, mId1);
     }
   }
 
@@ -321,7 +323,7 @@ unpackMetrics(Prof::CallPath::Profile& profile,
   //    values in [mBegId, mEndId)
   uint mDrvdBeg = packedMetrics.mDrvdBegId();
   uint mDrvdEnd = packedMetrics.mDrvdEndId();
-  cct.root()->computeMetricsIncr(*profile.metricMgr(), mDrvdBeg, mDrvdEnd,
+  cct.root()->computeMetricsIncr(*profile.metricMgr(), tma, mDrvdBeg, mDrvdEnd,
 				 Prof::Metric::AExprIncr::FnCombine);
 }
 
