@@ -168,8 +168,7 @@ readSet
     {
       left = readSet(profileFiles, groupMap, mergeTy, rFlags, mrgFlags, lower, mid);
     }
-// #pragma omp task shared(right, profileFiles, groupMap) \
-  firstprivate(mergeTy, rFlags, mrgFlags, mid, upper)
+// #pragma omp task shared(right, profileFiles, groupMap) firstprivate(mergeTy, rFlags, mrgFlags, mid, upper)
     {
       right = readSet(profileFiles, groupMap, mergeTy, rFlags, mrgFlags, mid + 1, upper);
     }
