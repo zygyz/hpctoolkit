@@ -188,10 +188,10 @@ class MetricAccessorOutOfBand : public MetricAccessor {
 public:
 public:
   MetricAccessorOutOfBand(ParallelAnalysis::PackedMetrics &_pm, int _nodeId) : pm(_pm), nodeId(_nodeId) {}
-  virtual double &idx(int metricId, int size = 0) {
+  double &idx(int metricId, int size = 0) {
     return pm.idx(nodeId, metricId);
   }
-  virtual double c_idx(int metricId) const {
+  double c_idx(int metricId) const {
     return pm.idx(nodeId, metricId);
   }
 private:
