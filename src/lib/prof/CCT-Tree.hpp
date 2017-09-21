@@ -499,7 +499,7 @@ public:
   // --------------------------------------------------------
 
   void
-  zeroMetricsDeep(uint mBegId, uint mEndId);
+  zeroMetricsDeep(TreeMetricAccessor &tma, uint mBegId, uint mEndId);
 
 
   // aggregateMetricsIncl: aggregates metrics for inclusive CCT
