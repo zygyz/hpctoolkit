@@ -78,17 +78,8 @@
 
 #include <setjmp.h>
 #include <signal.h>
-#include <string.h>
-
-#include <list>
-#include <utility>
-#include <vector>
 
 #include <lib/support/diagnostics.h>
-#include <lib/support/FileNameMap.hpp>
-#include <lib/support/FileUtil.hpp>
-#include <lib/support/RealPathMgr.hpp>
-#include <lib/support/StringTable.hpp>
 
 #include "ElfHelper.hpp"
 #include "Struct-Inline.hpp"
@@ -115,6 +106,8 @@ static int num_errors = 0;
 
 //***************************************************************************
 
+static void restore_sighandler(void);
+
 static void
 banal_sighandler(int sig)
 {
@@ -123,6 +116,7 @@ banal_sighandler(int sig)
   }
 
   // caught a signal, but it didn't come from symtab
+  restore_sighandler();
   DIAG_Die("banal caught unexpected signal " << sig);
 }
 
@@ -248,7 +242,6 @@ analyzeAddr(InlineSeqn &nodelist, VMA addr)
 	long lineno = callsite.second;
 	string procnm = func->getName();
         if (procnm == "") { procnm = UNKNOWN_PROC; }
-
 	nodelist.push_front(InlineNode(filenm, procnm, lineno));
 
 	func = parent;

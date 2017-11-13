@@ -53,7 +53,7 @@
 #include <include/hpctoolkit-config.h>
 #include "x86-build-intervals.h"
 
-#include "ui_tree.h"
+#include "uw_recipe_map.h"
 
 #include "x86-decoder.h"
 #include "x86-process-inst.h"
@@ -91,8 +91,11 @@ static void x86_coalesce_unwind_intervals(unwind_interval *ui);
 btuwi_status_t
 build_intervals(char *ins, unsigned int len, mem_alloc m_alloc)
 {
-  return x86_build_intervals(ins, len, 0, m_alloc);
+  btuwi_status_t status = x86_build_intervals(ins, len, 0, m_alloc);
+  bitree_uwi_finalize(status.first);
+  return status;
 }
+
 
 btuwi_status_t
 x86_build_intervals(void *ins, unsigned int len, int noisy, mem_alloc m_alloc)
@@ -125,13 +128,14 @@ x86_build_intervals(void *ins, unsigned int len, int noisy, mem_alloc m_alloc)
   iarg.end           = end;
   iarg.highwatermark = _h;
   iarg.ins           = ins;
-  iarg.current       = new_ui(ins, RA_SP_RELATIVE, 0, 0, BP_UNCHANGED, 0, 0, NULL, m_alloc);
+  iarg.current       = new_ui(ins, RA_SP_RELATIVE, 0, 0, BP_UNCHANGED, 0, 0, m_alloc);
   iarg.first         = iarg.current;
 
   // handle return is different if there are any bp frames
 
   iarg.bp_frames_found 	     = false;
   iarg.bp_just_pushed  	     = false;
+  iarg.sp_realigned  	     = false;
 
   iarg.rax_rbp_equivalent_at = NULL;
   iarg.canonical_interval    = NULL;
@@ -182,10 +186,11 @@ x86_build_intervals(void *ins, unsigned int len, int noisy, mem_alloc m_alloc)
 
   UWI_END_ADDR(iarg.current) = (uintptr_t)end;
 
-  set_status(&status, iarg.ins, error_count, bitree_uwi_finalize(iarg.first));
+  set_status(&status, iarg.ins, error_count, iarg.first);
 
   x86_fix_unwind_intervals(iarg.beg, len, &status);
   x86_coalesce_unwind_intervals(status.first);
+
   return status;
 }
 
@@ -264,6 +269,7 @@ x86_coalesce_unwind_intervals(unwind_interval *ui)
 		  UWI_RECIPE(current)->has_tail_calls || UWI_RECIPE(ui)->has_tail_calls;
 	  // disconnect ui's right subtree and free ui:
 	  bitree_uwi_set_rightsubtree(ui, NULL);
+	  bitree_uwi_set_leftsubtree(ui, NULL);
 	  bitree_uwi_free(ui);
 
 	  ui = current;
@@ -282,15 +288,4 @@ x86_coalesce_unwind_intervals(unwind_interval *ui)
   UWI_RECIPE(first)->has_tail_calls = routine_has_tail_calls;
 
   return;
-}
-
-//*************************** Debug stuff ****************************
-
-static btuwi_status_t d_istat;
-
-btuwi_status_t*
-d_build_intervals(void* b, unsigned l, mem_alloc m_alloc)
-{
-  d_istat = build_intervals(b, l, m_alloc);
-  return &d_istat;
 }

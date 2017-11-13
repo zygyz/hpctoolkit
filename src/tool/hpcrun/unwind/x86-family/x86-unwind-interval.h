@@ -123,19 +123,18 @@ typedef struct x86recipe_s {
 extern "C" {
 #endif
 
+#include <unwind/common/unwind-interval.h>
 
   void set_ui_canonical(unwind_interval *u, unwind_interval *value);
 
   void set_ui_restored_canonical(unwind_interval *u, unwind_interval *value);
 
 
-  btuwi_status_t build_intervals(char  *ins, unsigned int len, mem_alloc m_alloc);
-
   unwind_interval *
   new_ui(char *startaddr, 
 	 ra_loc ra_status, unsigned int sp_ra_pos, int bp_ra_pos, 
 	 bp_loc bp_status,          int sp_bp_pos, int bp_bp_pos,
-	 unwind_interval *prev, mem_alloc m_alloc);
+	 mem_alloc m_alloc);
 
   unwind_interval *fluke_ui(char *pc,unsigned int sp_ra_pos, mem_alloc m_alloc);
 

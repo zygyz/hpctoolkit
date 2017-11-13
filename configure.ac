@@ -82,7 +82,7 @@ m4_include(config/hpc-mpiutils.m4)
 # Initialization: 
 #----------------------------------------------------------------------------
 
-AC_INIT([hpctoolkit], [2016.12],
+AC_INIT([hpctoolkit], [2017.06],
         [hpctoolkit-forum@rice.edu],
 	[hpctoolkit],
 	[http://hpctoolkit.org/])
@@ -744,6 +744,18 @@ case "$host" in
       HOST_CXXFLAGS="$HOST_CXXFLAGS -DBOOST_NO_CXX11_ALLOCATOR"
       HOST_CXXFLAGS="$HOST_CXXFLAGS -DBOOST_NO_CXX11_CONSTEXPR"
       HOST_CXXFLAGS="$HOST_CXXFLAGS -DBOOST_NO_CXX11_VARIADIC_TEMPLATES"
+      ;;
+esac
+
+# The stdatomic.h file misreads the features of the 4.7.0 gnu k1om
+# compiler.  It doesn't have the gnu __atomic_fetch_add() functions.
+# We workaround the problem by resetting the minor number to 4.6 to
+# more accurately reflect the features the compiler actually has.
+
+case "$host" in
+  *k1om* )
+      HOST_CFLAGS="$HOST_CFLAGS -U__GNUC_MINOR__ -D__GNUC_MINOR__=6"
+      HOST_CXXFLAGS="$HOST_CXXFLAGS -U__GNUC_MINOR__ -D__GNUC_MINOR__=6"
       ;;
 esac
 
