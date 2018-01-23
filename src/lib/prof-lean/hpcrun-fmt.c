@@ -623,8 +623,20 @@ hpcrun_fmt_cct_node_fread(hpcrun_fmt_cct_node_t* x,
     hpcrun_fmt_lip_fread(&x->lip, fs);
   }
 
+  hpcfmt_uint_t num_zeroes;
+  hpcfmt_uint_t num_unread = 0;
   for (int i = 0; i < x->num_metrics; ++i) {
-    HPCFMT_ThrowIfError(hpcfmt_int8_fread(&x->metrics[i].bits, fs));
+    if (num_unread == 0) {
+      HPCFMT_ThrowIfError(hpcfmt_int4_fread(&num_zeroes, fs));
+      HPCFMT_ThrowIfError(hpcfmt_int4_fread(&num_unread, fs));
+    }
+    if (num_zeroes > 0) {
+      x->metrics[i].bits = 0;
+      num_zeroes--;
+    } else {
+      HPCFMT_ThrowIfError(hpcfmt_int8_fread(&x->metrics[i].bits, fs));
+      num_unread--;
+    }
   }
   
   return HPCFMT_OK;
@@ -649,8 +661,22 @@ hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
     hpcrun_fmt_lip_fwrite(&x->lip, fs);
   }
 
-  for (int i = 0; i < x->num_metrics; ++i) {
-    hpcfmt_int8_fwrite(x->metrics[i].bits, fs);
+  hpcfmt_uint_t num_zeroes = 0;
+  hpcfmt_uint_t nWritten = 0;
+  for (hpcfmt_uint_t i = 0; i <= x->num_metrics; ++i) {
+    if (i == x->num_metrics || x->metrics[i].bits == 0) {
+      if (i == x->num_metrics || nWritten + num_zeroes < i) {
+	// write num_zeroes, i - (nWritten+num_zeroes)
+	hpcfmt_int4_fwrite(num_zeroes, fs);
+	nWritten += num_zeroes;
+	num_zeroes = 0;
+	hpcfmt_int4_fwrite(i - nWritten, fs);
+	while (nWritten < i)
+	  hpcfmt_int8_fwrite(x->metrics[nWritten++].bits, fs);
+      }
+      else
+	num_zeroes++; 
+    }
   }
   
   return HPCFMT_OK;
