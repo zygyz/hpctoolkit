@@ -548,6 +548,10 @@ hpcrun_fmt_cct_node_fread(hpcrun_fmt_cct_node_t* x,
 			  epoch_flags_t flags, FILE* fs);
 
 extern int
+hpcrun_fmt_cct_node_prefix_fwrite(hpcrun_fmt_cct_node_t* x,
+				  epoch_flags_t flags, FILE* fs);
+
+extern int
 hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
 			   epoch_flags_t flags, FILE* fs);
 

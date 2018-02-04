@@ -644,8 +644,8 @@ hpcrun_fmt_cct_node_fread(hpcrun_fmt_cct_node_t* x,
 
 
 int
-hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
-			   epoch_flags_t flags, FILE* fs)
+hpcrun_fmt_cct_node_prefix_fwrite(hpcrun_fmt_cct_node_t* x,
+				  epoch_flags_t flags, FILE* fs)
 {
   HPCFMT_ThrowIfError(hpcfmt_int4_fwrite(x->id, fs));
   HPCFMT_ThrowIfError(hpcfmt_int4_fwrite(x->id_parent, fs));
@@ -661,18 +661,30 @@ hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
     hpcrun_fmt_lip_fwrite(&x->lip, fs);
   }
 
+  return HPCFMT_OK;
+}
+
+
+int
+hpcrun_fmt_cct_node_fwrite(hpcrun_fmt_cct_node_t* x,
+			   epoch_flags_t flags, FILE* fs)
+{
+  int status = hpcrun_fmt_cct_node_prefix_fwrite(x, flags, fs);
+
+  if (status != HPCFMT_OK)
+    return (status);
+
   hpcfmt_uint_t num_zeroes = 0;
   hpcfmt_uint_t nWritten = 0;
   for (hpcfmt_uint_t i = 0; i <= x->num_metrics; ++i) {
     if (i == x->num_metrics || x->metrics[i].bits == 0) {
       if (i == x->num_metrics || nWritten + num_zeroes < i) {
-	// write num_zeroes, i - (nWritten+num_zeroes)
 	hpcfmt_int4_fwrite(num_zeroes, fs);
 	nWritten += num_zeroes;
-	num_zeroes = 0;
 	hpcfmt_int4_fwrite(i - nWritten, fs);
 	while (nWritten < i)
 	  hpcfmt_int8_fwrite(x->metrics[nWritten++].bits, fs);
+	num_zeroes = 0;
       }
       else
 	num_zeroes++; 

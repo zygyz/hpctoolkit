@@ -424,20 +424,44 @@ hpcrun_new_metric_data_list(int metric_id)
 }
 
 //
-// copy a metric set
+// write a metric set
 //
 void
-hpcrun_metric_set_dense_copy(cct_metric_data_t* dest,
-			     metric_data_list_t* list,
-			     int num_metrics)
+hpcrun_metric_set_sparse_fwrite(metric_data_list_t* list, FILE *fs)
 {
-  kind_info_t *curr_k;
+  kind_info_t *curr_k = first_kind, *start_k = first_kind;
   metric_data_list_t *curr;
+  hpcfmt_uint_t num_zeroes = 0;
+  hpcfmt_uint_t nWritten = 0;
+  hpcfmt_uint_t nScanned = 0;
 
-  for (curr_k = first_kind; curr_k != NULL; curr_k = curr_k->link) {
+  for (;;) {
     for (curr = list; curr != NULL && curr->kind != curr_k; curr = curr->next);
-    metric_set_t* actual = curr ? curr->metrics : (metric_set_t*) curr_k->null_metrics;
-    memcpy((char*) dest, (char*) actual, curr_k->idx * sizeof(cct_metric_data_t));
-    dest += curr_k->idx;
+    if (curr != NULL)
+      nScanned += curr_k->idx;
+    else {
+      if (nWritten < nScanned || curr_k == NULL) {
+	// write zero, nonzero counts, then unwritten nonzeroes
+	hpcfmt_int4_fwrite(num_zeroes, fs);
+	nWritten += num_zeroes;
+	nScanned += num_zeroes;
+	while (num_zeroes > 0) {
+	  num_zeroes -= start_k->idx;
+	  start_k = start_k->link;
+	}
+	hpcfmt_int4_fwrite(nScanned - nWritten, fs);
+	while (nWritten < nScanned) {
+	  for (curr = list; curr->kind != start_k; curr = curr->next);
+	  for (int j = 0; j < start_k->idx; j++)
+	    hpcfmt_int8_fwrite(curr->metrics[j].v1.bits, fs);
+	  nWritten += start_k->idx;
+	  start_k = start_k->link;
+	}
+	if (curr_k == NULL)
+	  break;
+      }
+      num_zeroes += curr_k->idx;
+    }
+    curr_k = curr_k->link;
   }
 }

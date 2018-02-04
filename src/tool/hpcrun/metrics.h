@@ -138,10 +138,8 @@ extern void hpcrun_metric_std_inc(int metric_id, metric_data_list_t* set,
 extern metric_data_list_t* hpcrun_new_metric_data_list(int metric_id);
 
 //
-// copy a metric set
+// write a metric set
 //
-extern void hpcrun_metric_set_dense_copy(cct_metric_data_t* dest,
-					 metric_data_list_t* list,
-					 int num_metrics);
+extern void hpcrun_metric_set_sparse_fwrite(metric_data_list_t* list, FILE *fs);
 
 #endif // METRICS_H

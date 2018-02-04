@@ -292,10 +292,8 @@ lwrite(cct_node_t* node, cct_op_arg_t arg, size_t level)
   // double casts to avoid warnings when pointer is < 64 bits 
   tmp->lm_ip = (hpcfmt_vma_t) (uintptr_t) (addr->ip_norm).lm_ip;
 
-  tmp->num_metrics = my_arg->num_kind_metrics;
-  hpcrun_metric_set_dense_copy(tmp->metrics, hpcrun_get_metric_data_list(node),
-			       my_arg->num_kind_metrics);
-  hpcrun_fmt_cct_node_fwrite(tmp, flags, my_arg->fs);
+  hpcrun_fmt_cct_node_prefix_fwrite(tmp, flags, my_arg->fs);
+  hpcrun_metric_set_sparse_fwrite(hpcrun_get_metric_data_list(node), my_arg->fs);
 }
 
 //
