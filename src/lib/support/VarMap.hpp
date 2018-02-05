@@ -63,6 +63,7 @@ private:
 public:
   bool   isVariable(char *expr);
   double getValue(int var);
+  void   setValue(int var, double val);
   int    getErrorCode();
 
   VarMap(hpcrun_metricVal_t *metrics, 

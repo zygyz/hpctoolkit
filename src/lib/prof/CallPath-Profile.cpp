@@ -1392,7 +1392,7 @@ Profile::fmt_cct_fread(Profile& prof, FILE* infs, uint rFlags,
       double res = eval.Eval(expr, &var_map);
       if (eval.GetErr() == EEE_NO_ERROR) {
         // the formula syntax looks "correct". Update the the metric value
-      	hpcrun_fmt_metric_set_value(m_lst[i], &nodeFmt.metrics[i], res);
+      	var_map.setValue(i, res);
       }
     }
 

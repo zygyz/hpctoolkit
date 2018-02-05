@@ -52,6 +52,7 @@ class BaseVarMap {
 public:
   virtual bool   isVariable(char *expr) = 0;
   virtual double getValue(int var) = 0;
+  virtual void   setValue(int var, double val) = 0;
   virtual int    getErrorCode() = 0;
 
 };

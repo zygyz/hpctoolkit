@@ -75,6 +75,15 @@ double VarMap::getValue(int var)
 }
 
 
+void VarMap::setValue(int var, double val)
+{
+  if ( var>=0 && var<m_num_metrics )
+    return hpcrun_fmt_metric_set_value(m_list_metric_desc[var], 
+              &m_metrics[var], val);
+  m_error_code = 1;
+}
+
+
 int 
 VarMap::getErrorCode()
 {
