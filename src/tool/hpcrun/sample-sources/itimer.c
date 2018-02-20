@@ -261,8 +261,11 @@ hpcrun_delete_real_timer(thread_data_t *td)
 
 #ifdef ENABLE_CLOCK_REALTIME
   if (td->timer_init) {
+#if 0
+    // deleting the timer asynchronously is problematic 
     ret = timer_delete(td->timerid);
     td->timerid = NULL;
+#endif
   }
   td->timer_init = false;
 #endif
