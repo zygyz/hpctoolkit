@@ -1,5 +1,3 @@
-// -*-Mode: C++;-*- // technically C99
-
 // * BeginRiceCopyright *****************************************************
 //
 // $HeadURL$
@@ -12,7 +10,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2012, Rice University
+// Copyright ((c)) 2002-2017, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -44,63 +42,83 @@
 //
 // ******************************************************* EndRiceCopyright *
 
-// This overrides the malloc family of functions and provides two
-// metrics: number of bytes allocated and number of bytes freed per
-// dynamic context.  
+
+//***************************************************************************
 //
-// Override functions:
-// posix_memalign, memalign, valloc
-// malloc, calloc, free, realloc
+// File: ElfHelper.hpp
+//
+// Purpose:
+//   Interface for a module that scans an elf file and returns a vector
+//   of sections 
+//
+//***************************************************************************
 
-#ifndef __MEMORY_OVERRIDES_H__
-#define __MEMORY_OVERRIDES_H__
+#ifndef __ElfHelper_hpp__
+#define __ElfHelper_hpp__
 
-#include <stdlib.h>
-#include "sample_event.h"
-#include "cct_insert_backtrace.h"
 
-typedef struct mem_info_s {
-  long magic;
-  cct_node_t *context;
-  size_t bytes;
-  void *memblock;
-  void *rmemblock;
-  struct mem_info_s *left;
-  struct mem_info_s *right;
-} mem_info_t;
+//******************************************************************************
+// system includes
+//******************************************************************************
 
-typedef void mem_action_fcn(void *, mem_info_t *);
-typedef sample_val_t sample_callpath(ucontext_t *, size_t);
+#include <vector>
+#include <string>
 
-typedef struct mem_registry_s {
-  // Interface to add restriction for the minimum threshold
-  // of allocated bytes we want to collect
-  // If the allocation function allocates less than the threshold, 
-  // we will not collect the samples
-  size_t byte_threshold;
-  
-  mem_action_fcn  *action_fcn;
-  sample_callpath *sample_fcn;
+#include <libelf.h>
+#include <gelf.h>
 
-} mem_registry_t;
 
-int add_mem_registry(mem_registry_t mem_item);
+//******************************************************************************
+// macros
+//******************************************************************************
 
-// ----------------------------------------------
-// API has to be implemented by external plugin
-// ----------------------------------------------
 
-// function needs to be implemented by the plugin
-// this function will be called by memory-overrides.c during the initialiation
+//******************************************************************************
+// type definitions
+//******************************************************************************
 
-void mo_external_init();
+class ElfFile {
+public:
+  ElfFile() { memPtr = 0; elf = 0; memLen = 0; }
+  bool open(char *_memPtr, size_t _memLen, std::string _fileName);
+  ~ElfFile();
+  Elf *getElf() { return elf; };
+  char *getMemory() { return memPtr; };
+  size_t getLength() { return memLen; };
+  std::string getFileName() { return fileName; };
+private:
+  char *memPtr;
+  size_t memLen;
+  Elf *elf;
+  std::string fileName;
+};
 
-// function needs to be implemented by the plugin
-// this function returns true if the external is active.
-//  false otherwise
 
-int mo_external_active();
+class ElfFileVector : public std::vector<ElfFile *> {};
 
-int get_free_metric_id();
+
+class ElfSectionVector : public std::vector<Elf_Scn *> {};
+
+
+
+//******************************************************************************
+// interface functions
+//******************************************************************************
+
+ElfSectionVector *
+elfGetSectionVector
+(
+ Elf *elf
+);
+
+
+char *
+elfSectionGetData
+(
+ char *obj_ptr,
+ GElf_Shdr *shdr
+);
+
+
 
 #endif
