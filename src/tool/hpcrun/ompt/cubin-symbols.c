@@ -81,6 +81,8 @@
 #define NULL 0
 #endif
 
+#if DYNINST_USE_CUDA
+
 #define section_index(n) (n-1)
 
 #define EM_CUDA 190
@@ -272,6 +274,8 @@ printSymbols
   }
 }
 
+#endif
+
 
 
 //******************************************************************************
@@ -289,6 +293,8 @@ computeCubinFunctionOffsets
 
   Elf_SymbolVector *symbols = NULL;
 
+#if DYNINST_USE_CUDA
+
   elf_version(EV_CURRENT);
   Elf *elf = elf_memory(cubin_ptr, cubin_len);
   if (elf != 0) {
@@ -302,6 +308,8 @@ computeCubinFunctionOffsets
 		  }
 	  }
   }
+
+#endif
 
   return symbols;
 }
