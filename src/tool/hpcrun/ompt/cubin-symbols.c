@@ -85,6 +85,8 @@
 
 #define EM_CUDA 190
 
+
+
 //******************************************************************************
 // type definitions
 //******************************************************************************
@@ -286,6 +288,7 @@ computeCubinFunctionOffsets
   char *cubin_ptr = (char *) cubin_ptr_const;
 
   Elf_SymbolVector *symbols = NULL;
+
   elf_version(EV_CURRENT);
   Elf *elf = elf_memory(cubin_ptr, cubin_len);
   if (elf != 0) {
@@ -299,5 +302,6 @@ computeCubinFunctionOffsets
 		  }
 	  }
   }
+
   return symbols;
 }
