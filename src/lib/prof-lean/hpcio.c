@@ -66,13 +66,10 @@
 #ifndef _POSIX_SOURCE
 #  define _POSIX_SOURCE // fdopen()
 #endif
-#ifndef _SVID_SOURCE
-#  define _SVID_SOURCE  // fputc_unlocked()
-#endif
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>  // fdopen(), fputc_unlocked()
+#include <stdio.h>  // fdopen()
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -323,7 +320,7 @@ hpcio_beX_fread(uint8_t* val, size_t size, FILE* fs)
 {
   size_t num_read = 0;
 
-  for (uint i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     int c = fgetc(fs);
     if (c == EOF) {
       break;
@@ -388,7 +385,7 @@ hpcio_beX_fwrite(uint8_t* val, size_t size, FILE* fs)
 {
   size_t num_write = 0;
   
-  for (uint i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     int c = fputc(val[i], fs);
     if (c == EOF) {
       break;
