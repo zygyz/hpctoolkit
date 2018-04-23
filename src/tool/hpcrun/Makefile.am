@@ -373,7 +373,8 @@ MY_STATIC_FILES = 			\
         custom-init-static.c
 
 MY_LINUX_DYNAMIC_FILES = 		\
-	os/linux/dylib.c
+	os/linux/dylib.c                \
+	os/linux/proc_self_maps.c
 
 
 MY_MIPS_FILES = \
