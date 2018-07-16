@@ -239,8 +239,6 @@ realmain(int argc, char* const* argv)
   // -------------------------------------------------------
   char dbDirBuf[PATH_MAX];
   if (myRank == rootRank) {
-    args.makeDatabaseDir();
-
     memset(dbDirBuf, '\0', PATH_MAX); // avoid artificial valgrind warnings
     strncpy(dbDirBuf, args.db_dir.c_str(), PATH_MAX);
     dbDirBuf[PATH_MAX - 1] = '\0';
@@ -260,6 +258,12 @@ realmain(int argc, char* const* argv)
     myNormalizeProfileArgs(args.profileFiles, groupIdToGroupSizeMap,
 			   myRank, numRanks, rootRank);
 
+  if (nArgs.paths->size() == 0) {
+    std::cerr << "ERROR: command line directories"
+      " contain no .hpcrun files; no database generated\n";
+    exit(-1);
+  }
+
   int mergeTy = Prof::CallPath::Profile::Merge_MergeMetricByName;
   uint rFlags = (Prof::CallPath::Profile::RFlg_VirtualMetrics
 		 | Prof::CallPath::Profile::RFlg_NoMetricSfx
@@ -268,6 +272,13 @@ realmain(int argc, char* const* argv)
     (nArgs.groupMax > 1) ? nArgs.groupMap : NULL;
 
   profLcl = Analysis::CallPath::read(*nArgs.paths, groupMap, mergeTy, rFlags);
+
+  // -------------------------------------------------------
+  // 0. Make empty Experiment database (ensure file system works)
+  // -------------------------------------------------------
+
+  if (myRank == rootRank)
+    args.makeDatabaseDir();
 
   // -------------------------------------------------------
   // 1b. Create canonical CCT (metrics merged by <group>.<name>.*)
@@ -563,7 +574,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   //    since the 'combine' function will be used during the metric
   //    reduction.  Metric inputs point to accumulators [mXDrvdBeg,
   //    mXDrvdEnd) rather input values.
-  for (uint i = mDrvdBeg, j = mXDrvdBeg; i < mDrvdEnd; ++i, ++j) {
+  for (uint i = mDrvdBeg, j = mXDrvdBeg; i < mDrvdEnd; ++i) {
     Prof::Metric::ADesc* m = mMgrGbl.metric(i);
     Prof::Metric::DerivedIncrDesc* mm =
       dynamic_cast<Prof::Metric::DerivedIncrDesc*>(m);
@@ -571,10 +582,8 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 
     Prof::Metric::AExprIncr* expr = mm->expr();
     if (expr) {
-      expr->srcId(j);
-      if (expr->hasAccum2()) {
-	expr->src2Id(j + 1); // cf. Metric::Mgr::makeSummaryMetricIncr()
-      }
+      for (uint k = 0; k < expr->numAccum(); ++k)
+	expr->srcId(k, j++);
     }
   }
 
