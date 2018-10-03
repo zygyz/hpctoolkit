@@ -718,7 +718,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   Prof::CCT::TreeMetricAccessorInband tmai;
 
   // -------------------------------------------------------
-  // compute local contribution summary metrics (accumulate function)
+  // compute local contribution summary metrics (initialize function)
   // -------------------------------------------------------
   cctRoot->computeMetricsIncr(mMgrGbl, tmai, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
@@ -732,7 +732,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   // 1. Change definitions of derived metrics [mDrvdBeg, mDrvdEnd)
   //    since the 'combine' function will be used during the metric
   //    reduction.  Metric inputs point to accumulators [mXDrvdBeg,
-  //    mXDrvdEnd) rather input values.
+  //    mXDrvdEnd) rather than input values.
   for (uint i = mDrvdBeg, j = mXDrvdBeg; i < mDrvdEnd; ++i) {
     Prof::Metric::ADesc* m = mMgrGbl.metric(i);
     Prof::Metric::DerivedIncrDesc* mm =
