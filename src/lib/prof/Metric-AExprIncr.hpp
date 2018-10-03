@@ -238,7 +238,7 @@ public:
   
   bool
   isSetSrc(int i) const
-  { return (m_srcId[i] != MetricAccessor::npos); }
+  { return (m_srcId[i] != Metric::IData::npos); }
 
   // ------------------------------------------------------------
   // numSrcFix: number of inputs for CCT (fixed)
@@ -267,7 +267,7 @@ public:
 
   bool
   isSetNumSrcVar() const
-  { return (m_numSrcVarId != MetricAccessor::npos); }
+  { return (m_numSrcVarId != Metric::IData::npos); }
 
   // Metric::IDBExpr
   virtual uint
