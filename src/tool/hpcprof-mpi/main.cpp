@@ -187,14 +187,32 @@ makeFileName(const char* baseNm, const char* ext, int myRank);
 //****************************************************************************
 // type declarations
 //****************************************************************************
-class TreeMetricAccessor_OutOfBand : public Prof::CCT::TreeMetricAccessor {
+class MetricAccessorOutOfBand : public MetricAccessor {
 public:
-  TreeMetricAccessor_OutOfBand(ParallelAnalysis::PackedMetrics &_pm) : pm(_pm) {
+public:
+  MetricAccessorOutOfBand(ParallelAnalysis::PackedMetrics &_pm, int _nodeId) : pm(_pm), nodeId(_nodeId) {}
+  virtual double &idx(int metricId, int size = 0) {
+    return pm.idx(nodeId, metricId);
+  }
+  virtual double c_idx(int metricId) const {
+    return pm.idx(nodeId, metricId);
+  }
+private:
+  ParallelAnalysis::PackedMetrics &pm;
+  int nodeId;
+};
+
+class TreeMetricAccessorOutOfBand : public Prof::CCT::TreeMetricAccessor {
+public:
+  TreeMetricAccessorOutOfBand(ParallelAnalysis::PackedMetrics &_pm) : pm(_pm) {
   }
   
   virtual double &index(Prof::CCT::ANode *n, uint metricId, uint size) {
     return pm.idx(n->id(), metricId);
   }
+  virtual MetricAccessor *nodeMetricAccessor(Prof::CCT::ANode *n) {
+    return new MetricAccessorOutOfBand(pm, n->id());
+  };
 private:
   ParallelAnalysis::PackedMetrics &pm;
 };
@@ -697,10 +715,12 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   Prof::Metric::Mgr& mMgrGbl = *profGbl.metricMgr();
   Prof::CCT::ANode* cctRoot = profGbl.cct()->root();
 
+  Prof::CCT::TreeMetricAccessorInband tmai;
+
   // -------------------------------------------------------
   // compute local contribution summary metrics (accumulate function)
   // -------------------------------------------------------
-  cctRoot->computeMetricsIncr(mMgrGbl, mDrvdBeg, mDrvdEnd,
+  cctRoot->computeMetricsIncr(mMgrGbl, tmai, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
 
   makeSummaryMetrics(&profGbl, &args, nArgs, groupIdToGroupMetricsMap, myRank);
@@ -728,7 +748,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 
   // 2. Initialize temporary accumulators [mXDrvdBeg, mXDrvdEnd) used
   //    during the summary metrics reduction
-  cctRoot->computeMetricsIncr(mMgrGbl, mXDrvdBeg, mXDrvdEnd,
+  cctRoot->computeMetricsIncr(mMgrGbl, tmai, mXDrvdBeg, mXDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInitSrc);
 
   // 3. Reduction
@@ -748,6 +768,24 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 
   if (myRank == 0) {
     
+    // We now generate non-finalized metrics, so no need to do this
+    if (0) {
+      for (uint grpId = 1; grpId < groupIdToGroupMetricsMap.size(); ++grpId) {
+	const VMAIntervalSet* ivalset = groupIdToGroupMetricsMap[grpId];
+	
+	// degenerate case: group has no metrics => no derived metrics
+	if (!ivalset) { continue; }
+	
+	DIAG_Assert(ivalset->size() == 1, DIAG_UnexpectedInput);
+	
+	const VMAInterval& ival = *(ivalset->begin());
+	uint mBeg = (uint)ival.beg(), mEnd = (uint)ival.end();
+	
+	cctRoot->computeMetricsIncr(mMgrGbl, tmai, mBeg, mEnd,
+				    Prof::Metric::AExprIncr::FnFini);
+      }
+    }
+
     for (uint i = 0; i < mMgrGbl.size(); ++i) {
       Prof::Metric::ADesc* m = mMgrGbl.metric(i);
       m->computedType(Prof::Metric::ADesc::ComputedTy_NonFinal);
@@ -932,6 +970,8 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   Prof::CCT::Tree* cctGbl = profGbl.cct();
   Prof::CCT::ANode* cctRootGbl = cctGbl->root();
 
+  Prof::CCT::TreeMetricAccessorInband tmai;
+
   // -------------------------------------------------------
   // read profile file
   // -------------------------------------------------------
@@ -996,7 +1036,7 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
     uint mDrvdEnd = (uint)ival.end();
 
     DIAG_MsgIf(0, "[" << myRank << "] grp " << groupId << ": [" << mDrvdBeg << ", " << mDrvdEnd << ")");
-    cctRootGbl->computeMetricsIncr(*mMgrGbl, mDrvdBeg, mDrvdEnd,
+    cctRootGbl->computeMetricsIncr(*mMgrGbl, tmai, mDrvdBeg, mDrvdEnd,
 				   Prof::Metric::AExprIncr::FnAccum);
   }
 
@@ -1097,7 +1137,7 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   packedMetrics.dump();
 #endif
 
-  TreeMetricAccessor_OutOfBand packedMetricsAccessor(packedMetrics);
+  TreeMetricAccessorOutOfBand packedMetricsAccessor(packedMetrics);
   
   Prof::CCT::ANode* c_cct_root = profGbl.cct()->root(); // canonical cct root
   c_cct_root->aggregateMetricsIncl(ivalsetIncl, packedMetricsAccessor);

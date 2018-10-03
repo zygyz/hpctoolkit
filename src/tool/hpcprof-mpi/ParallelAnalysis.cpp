@@ -258,6 +258,7 @@ recvMerge(std::pair<Prof::CallPath::Profile*,
 	  ParallelAnalysis::PackedMetrics*> data,
 	  int src, int myRank, MPI_Comm comm)
 {
+  Prof::CCT::TreeMetricAccessorInband tmai;
   Prof::CallPath::Profile* profile = data.first;
   ParallelAnalysis::PackedMetrics* packedMetrics = data.second;
 
@@ -266,7 +267,7 @@ recvMerge(std::pair<Prof::CallPath::Profile*,
   MPI_Recv(packedMetrics->data(), packedMetrics->dataSize(),
 	   MPI_DOUBLE, src, src, comm, &mpistat);
   DIAG_Assert(packedMetrics->verify(), DIAG_UnexpectedInput);
-  unpackMetrics(*profile, *packedMetrics);
+  unpackMetrics(*profile, tmai, *packedMetrics);
 }
 
 void
@@ -407,6 +408,7 @@ packMetrics(const Prof::CallPath::Profile& profile,
 
 void
 unpackMetrics(Prof::CallPath::Profile& profile,
+	      Prof::CCT::TreeMetricAccessor &tma,
 	      const ParallelAnalysis::PackedMetrics& packedMetrics)
 {
   Prof::CCT::Tree& cct = *profile.cct();
@@ -421,7 +423,7 @@ unpackMetrics(Prof::CallPath::Profile& profile,
   for (uint nodeId = 1; nodeId < packedMetrics.numNodes(); ++nodeId) {
     for (uint mId1 = 0, mId2 = mBegId; mId2 < mEndId; ++mId1, ++mId2) {
       Prof::CCT::ANode* n = cct.findNode(nodeId);
-      n->demandMetric(mId2) = packedMetrics.idx(nodeId, mId1);
+      tma.index(n, mId2) = packedMetrics.idx(nodeId, mId1);
     }
   }
 
@@ -429,7 +431,7 @@ unpackMetrics(Prof::CallPath::Profile& profile,
   //    values in [mBegId, mEndId)
   uint mDrvdBeg = packedMetrics.mDrvdBegId();
   uint mDrvdEnd = packedMetrics.mDrvdEndId();
-  cct.root()->computeMetricsIncr(*profile.metricMgr(), mDrvdBeg, mDrvdEnd,
+  cct.root()->computeMetricsIncr(*profile.metricMgr(), tma, mDrvdBeg, mDrvdEnd,
 				 Prof::Metric::AExprIncr::FnCombine);
 }
 
