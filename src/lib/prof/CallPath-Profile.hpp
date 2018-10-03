@@ -395,6 +395,8 @@ private:
 
 } // namespace Prof
 
+void dumpTraceFile(std::string traceFileName);
+
 
 //***************************************************************************
 
