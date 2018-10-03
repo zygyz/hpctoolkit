@@ -73,7 +73,7 @@ include $(top_srcdir)/src/Makeinclude.config
 MYSOURCES = \
 	CmdLineParser.hpp CmdLineParser.cpp \
 	\
-	diagnostics.h diagnostics.cpp \
+	diagnostics.h diagnostics.c \
 	Exception.hpp Exception.cpp \
 	Trace.hpp Trace.cpp \
 	\
@@ -105,6 +105,7 @@ MYSOURCES = \
 	\
 	mutex.hpp \
 	fake_lock.h fake_lock.c \
+	threaded_id.hpp threaded_id.cpp \
 	\
 	PointerStack.hpp PointerStack.cpp \
 	QuickSort.hpp QuickSort.cpp \
