@@ -81,6 +81,15 @@
 #include <sys/stat.h>
 
 
+//****************************************************************************
+// race detection
+//****************************************************************************
+
+#ifdef CILKSCREEN
+#include <lib/support/fake_lock.h>
+#endif
+
+
 //*************************** User Include Files ****************************
 
 #include "hpcio.h"
@@ -95,13 +104,34 @@
 // interface operations
 //***************************************************************************
 
+void 
+hpcio_lock()
+{
+#ifdef CILKSCREEN
+  fake_lock_acquire();
+#endif
+}
+
+
+void 
+hpcio_unlock()
+{
+#ifdef CILKSCREEN
+  fake_lock_release();
+#endif
+}
+
 // See header for interface information.
 FILE*
 hpcio_fopen_w(const char* fnm, int overwrite)
 {
   mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  int fd;
+  int fd = -1;
   FILE* fs = NULL; // default return value
+
+  if (overwrite < 0 || overwrite > 2) return NULL;
+
+  hpcio_lock();
 
   if (overwrite == 0) {
     // Open file for writing; fail if the file already exists.  
@@ -125,6 +155,8 @@ hpcio_fopen_w(const char* fnm, int overwrite)
     fs = fdopen(fd, "w");
   }
 
+  hpcio_unlock();
+
   return fs;
 }
 
@@ -133,7 +165,14 @@ hpcio_fopen_w(const char* fnm, int overwrite)
 FILE*
 hpcio_fopen_r(const char* fnm)
 {
-  FILE* fs = fopen(fnm, "r");
+  FILE* fs;
+
+  hpcio_lock();
+
+  fs = fopen(fnm, "r");
+
+  hpcio_unlock();
+
   return fs;
 }
 
@@ -142,7 +181,14 @@ hpcio_fopen_r(const char* fnm)
 FILE*
 hpcio_fopen_rw(const char* fnm)
 {
-  FILE* fs = fopen(fnm, "r+");
+  FILE* fs;
+
+  hpcio_lock();
+
+  fs = fopen(fnm, "r+");
+
+  hpcio_unlock();
+
   return fs;
 }
 
@@ -152,7 +198,15 @@ int
 hpcio_fclose(FILE* fs)
 {
   if (fs) {
-    if (fclose(fs) == EOF) { 
+    int status;
+
+    hpcio_lock();
+
+    status = fclose(fs);  
+
+    hpcio_unlock();
+
+    if (status == EOF) { 
       return 1;
     }
   }
