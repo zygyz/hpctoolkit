@@ -22657,6 +22657,8 @@ ac_config_files="$ac_config_files src/tool/hpcprof-flat/hpcprof-flat"
 
 ac_config_files="$ac_config_files src/tool/hpcproftt/hpcproftt"
 
+ac_config_files="$ac_config_files src/tool/hpctracedump/hpctracedump"
+
 ac_config_files="$ac_config_files src/tool/hpcstruct/hpcstruct"
 
 
@@ -23994,6 +23996,7 @@ do
     "src/tool/hpcprof-mpi/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcprof-mpi/Makefile" ;;
     "src/tool/hpcprof-flat/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcprof-flat/Makefile" ;;
     "src/tool/hpcproftt/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcproftt/Makefile" ;;
+    "src/tool/hpctracedump/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpctracedump/Makefile" ;;
     "src/tool/hpcrun/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcrun/Makefile" ;;
     "src/tool/hpcrun/utilities/bgq-cnk/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcrun/utilities/bgq-cnk/Makefile" ;;
     "src/tool/hpcrun-flat/Makefile") CONFIG_FILES="$CONFIG_FILES src/tool/hpcrun-flat/Makefile" ;;
@@ -24023,6 +24026,7 @@ do
     "src/tool/hpcprof-mpi/hpcprof-mpi") CONFIG_FILES="$CONFIG_FILES src/tool/hpcprof-mpi/hpcprof-mpi" ;;
     "src/tool/hpcprof-flat/hpcprof-flat") CONFIG_FILES="$CONFIG_FILES src/tool/hpcprof-flat/hpcprof-flat" ;;
     "src/tool/hpcproftt/hpcproftt") CONFIG_FILES="$CONFIG_FILES src/tool/hpcproftt/hpcproftt" ;;
+    "src/tool/hpctracedump/hpctracedump") CONFIG_FILES="$CONFIG_FILES src/tool/hpctracedump/hpctracedump" ;;
     "src/tool/hpcstruct/hpcstruct") CONFIG_FILES="$CONFIG_FILES src/tool/hpcstruct/hpcstruct" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -25469,6 +25473,7 @@ _LT_EOF
     "src/tool/hpcprof-mpi/hpcprof-mpi":F) chmod +x src/tool/hpcprof-mpi/hpcprof-mpi ;;
     "src/tool/hpcprof-flat/hpcprof-flat":F) chmod +x src/tool/hpcprof-flat/hpcprof-flat ;;
     "src/tool/hpcproftt/hpcproftt":F) chmod +x src/tool/hpcproftt/hpcproftt ;;
+    "src/tool/hpctracedump/hpctracedump":F) chmod +x src/tool/hpctracedump/hpctracedump ;;
     "src/tool/hpcstruct/hpcstruct":F) chmod +x src/tool/hpcstruct/hpcstruct ;;
 
   esac

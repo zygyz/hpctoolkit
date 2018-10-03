@@ -81,6 +81,8 @@ using std::vector;
 #include <cctype>  // isdigit()
 #include <cstring> // strcpy()
 
+#include <cilk/cilk.h> // strcpy()
+
 //*************************** User Include Files ****************************
 
 #include <include/uint.h>
@@ -594,12 +596,20 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   cctRoot->computeMetricsIncr(mMgrGbl, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
 
+#pragma omp parallel 
+{
+#pragma omp master 
   for (uint i = 0; i < nArgs.paths->size(); ++i) {
+    // SPECULATIVE PARALLELISM
+#pragma omp task if (0)
+    {
     const string& fnm = (*nArgs.paths)[i];
     uint groupId = (*nArgs.groupMap)[i];
     makeSummaryMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax,
 			   groupIdToGroupMetricsMap, myRank);
+    }
   }
+ }
 
   // -------------------------------------------------------
   // create summary metrics via reduction (combine function)
@@ -665,15 +675,18 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const vector<uint>& groupIdToGroupSizeMap,
 		  int myRank, int numRanks)
 {
-#pragma omp parallel 
-{
-#pragma omp master 
+#if 1
+  // #pragma omp parallel for 
+  _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
+#else
+#pragma omp parallel for 
   for (uint i = 0; i < nArgs.paths->size(); ++i) {
+#endif
     string& fnm = (*nArgs.paths)[i];
     uint groupId = (*nArgs.groupMap)[i];
+    // #pragma omp critical (thread_metrics)
     makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
   }
-}
 }
 
 
@@ -785,6 +798,7 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		       vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
 		       int myRank)
 {
+  {
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
   Prof::CCT::Tree* cctGbl = profGbl.cct();
   Prof::CCT::ANode* cctRootGbl = cctGbl->root();
@@ -870,6 +884,7 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   cctRootGbl->zeroMetricsDeep(mBeg, mEnd); // cf. FnInitSrc
   
   delete prof;
+  }
 }
 
 
@@ -884,6 +899,8 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		      const string& profileFile,
 		      const Analysis::Args& args, uint groupId, uint groupMax,
 		      int myRank)
+{
+#pragma omp critical (thread_metrics)
 {
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
   Prof::CCT::Tree* cctGbl = profGbl.cct();
@@ -942,8 +959,11 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
       }
     }
     
+#pragma omp critical (thread_metrics_local)
+    {
     cctRootGbl->aggregateMetricsIncl(ivalsetIncl);
     cctRootGbl->aggregateMetricsExcl(ivalsetExcl);
+    }
 
     // -------------------------------------------------------
     // write local sampled metric values into database
@@ -961,6 +981,7 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   }
 
   delete prof;
+ }
 }
 
 
