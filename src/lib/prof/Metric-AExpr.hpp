@@ -92,6 +92,8 @@
 #include <lib/support/Unique.hpp>
 #include <lib/support/StrUtil.hpp>
 
+#include "MetricDataAccessor.hpp"
+
 
 //************************ Forward Declarations ******************************
 
@@ -136,11 +138,11 @@ public:
 
   // eval: generate a finalized value and return result
   virtual double
-  eval(const Metric::IData& mdata) const = 0;
+  eval(const MetricDataAccessor &mdata) const = 0;
 
   // evalNF: generate non-finalized values and store results in accumulators
   virtual double
-  evalNF(Metric::IData& mdata) const
+  evalNF(MetricDataAccessor &mdata) const
   {
     double z = eval(mdata);
     accumVar(0, mdata) = z;
@@ -220,11 +222,11 @@ public:
   // ------------------------------------------------------------
 
   static double&
-  var(Metric::IData& mdata, uint mId)
-  { return mdata.demandMetric(mId); }
+  var(MetricDataAccessor &mdata, uint mId)
+  { return mdata.idx(mId); }
 
   double&
-  accumVar(int i, Metric::IData& mdata) const
+  accumVar(int i, MetricDataAccessor& mdata) const
   { return var(mdata, m_accumId[i]); }
 
 
@@ -255,7 +257,7 @@ protected:
   // ------------------------------------------------------------
 
   static double
-  evalSum(const Metric::IData& mdata, AExpr** opands, uint sz)
+  evalSum(const MetricDataAccessor& mdata, AExpr** opands, uint sz)
   {
     double z = 0.0;
     for (uint i = 0; i < sz; ++i) {
@@ -267,7 +269,7 @@ protected:
 
 
   static std::pair<double, double>
-  evalSumSquares(const Metric::IData& mdata, AExpr** opands, uint sz)
+  evalSumSquares(const MetricDataAccessor &mdata, AExpr** opands, uint sz)
   {
     double z1 = 0.0; // sum
     double z2 = 0.0; // sum of squares
@@ -281,7 +283,7 @@ protected:
 
 
   static double
-  evalMean(const Metric::IData& mdata, AExpr** opands, uint sz)
+  evalMean(const MetricDataAccessor &mdata, AExpr** opands, uint sz)
   {
     double sum = evalSum(mdata, opands, sz);
     double z = sum / (double) sz;
@@ -291,7 +293,7 @@ protected:
   
   // returns <variance, mean>
   static std::pair<double, double>
-  evalVariance(const Metric::IData& mdata, AExpr** opands, uint sz)
+  evalVariance(const MetricDataAccessor &mdata, AExpr** opands, uint sz)
   {
     double x_mean = 0.0; // mean
     double x_var = 0.0; // variance
@@ -308,7 +310,7 @@ protected:
 
 
   double
-  evalStdDevNF(Metric::IData& mdata, AExpr** opands, uint sz) const
+  evalStdDevNF(MetricDataAccessor &mdata, AExpr** opands, uint sz) const
   {
     std::pair<double, double> z = evalSumSquares(mdata, opands, sz);
     double z1 = z.first;  // sum
@@ -346,7 +348,7 @@ public:
   { }
 
   virtual double
-  eval(const Metric::IData& GCC_ATTR_UNUSED mdata) const
+  eval(const MetricDataAccessor &GCC_ATTR_UNUSED mdata) const
   { return m_c; }
 
 
@@ -388,7 +390,7 @@ public:
   { delete m_expr; }
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
 
   // ------------------------------------------------------------
@@ -432,8 +434,8 @@ public:
   { }
 
   virtual double
-  eval(const Metric::IData& mdata) const
-  { return mdata.demandMetric(m_metricId); }
+  eval(const MetricDataAccessor &mdata) const
+  { return mdata.c_idx(m_metricId); }
 
 
   // ------------------------------------------------------------
@@ -488,7 +490,7 @@ public:
   }
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
 
   // ------------------------------------------------------------
@@ -538,7 +540,7 @@ public:
 
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -585,7 +587,7 @@ public:
   }
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -629,7 +631,7 @@ public:
   ~Plus();
   
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -679,7 +681,7 @@ public:
   ~Times();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -725,7 +727,7 @@ public:
   ~Min();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -774,7 +776,7 @@ public:
   ~Max();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   // ------------------------------------------------------------
   // Metric::IDBExpr:
@@ -823,10 +825,10 @@ public:
   ~Mean();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   virtual double
-  evalNF(Metric::IData& mdata) const
+  evalNF(MetricDataAccessor& mdata) const
   {
     double z = evalSum(mdata, m_opands, m_sz);
     accumVar(0, mdata) = z;
@@ -884,10 +886,10 @@ public:
   ~StdDev();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   virtual double
-  evalNF(Metric::IData& mdata) const
+  evalNF(MetricDataAccessor &mdata) const
   { return evalStdDevNF(mdata, m_opands, m_sz); }
 
 
@@ -950,10 +952,10 @@ public:
   ~CoefVar();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   virtual double
-  evalNF(Metric::IData& mdata) const
+  evalNF(MetricDataAccessor &mdata) const
   { return evalStdDevNF(mdata, m_opands, m_sz); }
 
 
@@ -1016,10 +1018,10 @@ public:
   ~RStdDev();
 
   virtual double
-  eval(const Metric::IData& mdata) const;
+  eval(const MetricDataAccessor &mdata) const;
 
   virtual double
-  evalNF(Metric::IData& mdata) const
+  evalNF(MetricDataAccessor & mdata) const
   { return evalStdDevNF(mdata, m_opands, m_sz); }
 
 
@@ -1083,7 +1085,7 @@ public:
   { }
 
   virtual double
-  eval(const Metric::IData& GCC_ATTR_UNUSED mdata) const
+  eval(const MetricDataAccessor & GCC_ATTR_UNUSED mdata) const
   { return (double)m_numSrc; }
 
 
