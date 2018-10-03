@@ -1030,7 +1030,6 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		      int myRank)
 {
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
-  Prof::CCT::Tree* cctGbl = profGbl.cct();
 
   // -------------------------------------------------------
   // read profile file
@@ -1140,22 +1139,6 @@ writeMetricsDB(Prof::CallPath::Profile& prof, uint maxCCTId, uint mBegId,
 	       uint mEndId, const string& metricDBFnm, 
 	       ParallelAnalysis::PackedMetrics &packedMetrics)
 {
-#if 0
-  const Prof::CCT::Tree& cct = *(prof.cct());
-  const Prof::CCT::Tree& c_cct = *(canonicalProf.cct());
-#endif
-
-#if 0
-  // -------------------------------------------------------
-  // pack metrics into dense matrix
-  // -------------------------------------------------------
-
-  ParallelAnalysis::PackedMetrics packedMetrics(maxCCTId + 1, mBegId, mEndId,
-						mBegId, mEndId);
-
-  ParallelAnalysis::packMetrics(prof, packedMetrics);
-#endif
-
   // -------------------------------------------------------
   // write data
   // -------------------------------------------------------
