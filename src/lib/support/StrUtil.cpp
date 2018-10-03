@@ -82,6 +82,60 @@ using std::string;
 #include "StrUtil.hpp"
 #include "diagnostics.h"
 
+//****************************************************************************
+// race detection
+//****************************************************************************
+
+//----------------------------------------------------------------------------
+// NOTE: 
+//   when accessing thread-local data, use a fake lock to prevent 
+//   cilkscreen from reporting a race. cilkscreen doesn't understand 
+//   thread-local data.
+//----------------------------------------------------------------------------
+
+#ifdef CILKSCREEN
+#include <lib/support/fake_lock.h>
+#endif
+
+// With <cerrno>, errno is thread local. However, cilkscreen doesn't
+// understand thread-local variables.  To avoid false reports of race
+// conditions for errno, use a "fake lock" around accesses to the
+// thread local variable to convince cilkscreen that there is not a
+// race.
+
+void
+clear_errno()
+{
+#ifdef CILKSCREEN
+  fake_lock_acquire();
+#endif
+
+  errno = 0; 
+
+#ifdef CILKSCREEN
+  fake_lock_release();
+#endif
+}
+
+int
+read_errno()
+{
+  int error;
+
+#ifdef CILKSCREEN
+  fake_lock_acquire();
+#endif
+
+  error = errno;
+
+#ifdef CILKSCREEN
+  fake_lock_release();
+#endif
+
+  return error;
+}
+
+
 //************************** Forward Declarations ****************************
 
 //****************************************************************************
@@ -166,17 +220,20 @@ toLong(const char* str, unsigned* endidx)
   long value = 0;
   DIAG_Assert((str && str[0] != '\0'), "StrUtil::toLong: empty string!");
   
-  errno = 0;
+  clear_errno();
+
   char* endptr = NULL;
   value = strtol(str, &endptr, 0);
   if (endidx) {
     *endidx = (endptr - str) / sizeof(char);
   }
-  if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
+
+  int error = read_errno();
+  if (error || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toLong] Cannot convert `" + string(str) 
       + "' to integral (long) value";
-    if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+    if (error) { // not always set
+      msg += string(" (") + strerror(error) + string(")");
     }
     DIAG_Throw(msg);
   }
@@ -190,17 +247,20 @@ toUInt64(const char* str, unsigned* endidx)
   uint64_t value = 0;
   DIAG_Assert((str && str[0] != '\0'), "StrUtil::toUInt64: empty string!");
   
-  errno = 0;
+  clear_errno();
+
   char* endptr = NULL;
   value = strtoull(str, &endptr, 0);
   if (endidx) {
     *endidx = (endptr - str) / sizeof(char);
   }
-  if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
+
+  int error = read_errno();
+  if (error || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toUInt64] Cannot convert `" + string(str)
       + "' to integral (uint64_t) value";
-    if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+    if (error) { // not always set
+      msg += string(" (") + strerror(error) + string(")");
     }
     DIAG_Throw(msg);
   }
@@ -214,17 +274,20 @@ toDbl(const char* str, unsigned* endidx)
   double value = 0;
   DIAG_Assert((str && str[0] != '\0'), "StrUtil::toDbl: empty string!");
   
-  errno = 0;
+  clear_errno();
+
   char* endptr = NULL;
   value = strtod(str, &endptr);
   if (endidx) {
     *endidx = (endptr - str) / sizeof(char);
   }
-  if (errno || (!endidx && endptr && strlen(endptr) > 0)) {
+
+  int error = read_errno();
+  if (error || (!endidx && endptr && strlen(endptr) > 0)) {
     string msg = "[StrUtil::toDbl] Cannot convert `" + string(str)
       + "' to real (double) value.";
-    if (errno) { // not always set
-      msg += string(" (") + strerror(errno) + string(")");
+    if (error) { // not always set
+      msg += string(" (") + strerror(error) + string(")");
     }
     DIAG_Throw(msg);
   }
