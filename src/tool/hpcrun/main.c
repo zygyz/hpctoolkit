@@ -1560,3 +1560,13 @@ monitor_post_dlclose(void* handle, int ret)
 }
 
 #endif /* ! HPCRUN_STATIC_LINK */
+
+
+
+//****************************************************************************
+// race detection
+//****************************************************************************
+
+#ifdef CILKSCREEN
+#include <lib/support/fake_lock.c>
+#endif

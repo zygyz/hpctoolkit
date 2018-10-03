@@ -90,7 +90,7 @@ namespace CCT {
 // MergeContext
 //***************************************************************************
 
-MergeContext::MergeContext(Tree* cct, bool doTrackCPIds)
+MergeContext::MergeContext(const Tree* cct, bool doTrackCPIds)
   : m_cct(cct), m_mrgFlag(0), m_isTrackingCPIds(doTrackCPIds)
 {
   if (isTrackingCPIds()) {
@@ -100,7 +100,7 @@ MergeContext::MergeContext(Tree* cct, bool doTrackCPIds)
 
 
 void
-MergeContext::fillCPIdSet(Tree* cct)
+MergeContext::fillCPIdSet(const Tree* cct)
 {
   for (ANodeIterator it(cct->root()); it.Current(); ++it) {
     ANode* n = it.current();

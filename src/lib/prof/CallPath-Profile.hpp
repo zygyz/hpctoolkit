@@ -247,6 +247,14 @@ public:
   uint
   merge(Profile& y, int mergeTy, uint mrgFlag = 0);
 
+  // merge: Given a canonical Profile y, merge y into x = 'this'.  
+  //   The 'mergeTy'
+  //   parameter indicates how to merge y's metrics into x.  Returns
+  //   the index of the first merged metric in x.
+  // ASSUMES: both x and y are in canonical form (canonicalize())
+  uint
+  match(Profile& y, int mergeTy, uint mrgFlag = 0);
+
   // -------------------------------------------------------
   //
   // -------------------------------------------------------
@@ -362,12 +370,15 @@ private:
   void
   merge_fixTrace(const CCT::MergeEffectList* mrgEffects);
 
+public:
+  uint32_t raToCallsiteOffset() const { return m_raToCallsiteOfst; }
 
 private:
   std::string m_name;
   double m_fmtVersion;
   epoch_flags_t m_flags;
   uint64_t m_measurementGranularity;
+  uint32_t m_raToCallsiteOfst;
 
   std::string m_profileFileName; // non-empty, if relevant
   StringSet m_directorySet; // set of directories containing profiles

@@ -158,7 +158,7 @@ static string
 makeDBFileName(const string& dbDir, uint groupId, const string& profileFile);
 
 static void
-writeMetricsDB(Prof::CallPath::Profile& profGbl, uint mBegId, uint mEndId,
+writeMetricsDB(Prof::CallPath::Profile& profGbl, uint maxCCtId, uint mBegId, uint mEndId,
 	       const string& metricDBFnm);
 
 
@@ -185,11 +185,25 @@ prof_abort
   MPI_Abort(MPI_COMM_WORLD, error_code);
 }
 
+volatile int DEBUGGER_WAIT = 1;
+void debug_continue()
+{
+  DEBUGGER_WAIT = 0;
+}
+void debug_wait()
+{
+  if (getenv("HPCTOOLKIT_DEBUG_WAIT")) {
+    std::cerr << "Waiting for debugger ..." << std::endl;
+    while (DEBUGGER_WAIT);
+  }
+}
 
 int 
 main(int argc, char* const* argv) 
 {
   int ret;
+
+  debug_wait();
 
   try {
     ret = realmain(argc, argv);
@@ -609,7 +623,7 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
 			   groupIdToGroupMetricsMap, myRank);
     }
   }
- }
+}
 
   // -------------------------------------------------------
   // create summary metrics via reduction (combine function)
@@ -675,17 +689,26 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const vector<uint>& groupIdToGroupSizeMap,
 		  int myRank, int numRanks)
 {
-#if 1
-  // #pragma omp parallel for 
+
+  #if 0
+  #pragma omp parallel for 
   _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
-#else
-#pragma omp parallel for 
-  for (uint i = 0; i < nArgs.paths->size(); ++i) {
-#endif
-    string& fnm = (*nArgs.paths)[i];
-    uint groupId = (*nArgs.groupMap)[i];
-    // #pragma omp critical (thread_metrics)
-    makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
+  { 
+  #else
+#pragma omp parallel 
+  {
+#pragma omp master 
+    for (uint i = 0; i < nArgs.paths->size(); ++i) {
+      // SPECULATIVE PARALLELISM
+#pragma omp task 
+      {
+  #endif
+	string& fnm = (*nArgs.paths)[i];
+	uint groupId = (*nArgs.groupMap)[i];
+	// #pragma omp critical (thread_metrics)
+	makeThreadMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax, myRank);
+      }
+    }
   }
 }
 
@@ -904,7 +927,6 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 {
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
   Prof::CCT::Tree* cctGbl = profGbl.cct();
-  Prof::CCT::ANode* cctRootGbl = cctGbl->root();
 
   // -------------------------------------------------------
   // read profile file
@@ -937,7 +959,7 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   Analysis::CallPath::noteStaticStructureOnLeaves(*prof);
   prof->structure(NULL);
 
-  uint mBeg = profGbl.merge(*prof, mergeTy, mergeFlg); // [closed begin
+  uint mBeg = prof->match(profGbl, mergeTy, mergeFlg); // [closed begin
 
   if (args.db_makeMetricDB) {
     uint mEnd = mBeg + prof->metricMgr()->size(); // open end)
@@ -959,25 +981,16 @@ makeThreadMetrics_Lcl(Prof::CallPath::Profile& profGbl,
       }
     }
     
-#pragma omp critical (thread_metrics_local)
-    {
-    cctRootGbl->aggregateMetricsIncl(ivalsetIncl);
-    cctRootGbl->aggregateMetricsExcl(ivalsetExcl);
-    }
+    Prof::CCT::ANode* prof_root = prof->cct()->root();
+    prof_root->aggregateMetricsIncl(ivalsetIncl);
+    prof_root->aggregateMetricsExcl(ivalsetExcl);
 
     // -------------------------------------------------------
     // write local sampled metric values into database
     // -------------------------------------------------------
 
     string dbFnm = makeDBFileName(args.db_dir, groupId, profileFile);
-    writeMetricsDB(profGbl, mBeg, mEnd, dbFnm);
-
-    // -------------------------------------------------------
-    // reinitialize metric values for next time
-    // -------------------------------------------------------
-    
-    // TODO: see corresponding comments in makeSummaryMetrics_Lcl()
-    cctRootGbl->zeroMetricsDeep(mBeg, mEnd); // cf. FnInitSrc
+    writeMetricsDB(*prof, profGbl.cct()->maxDenseId(), mBeg, mEnd, dbFnm);
   }
 
   delete prof;
@@ -1001,7 +1014,7 @@ makeDBFileName(const string& dbDir, uint groupId, const string& profileFile)
 
 // [mBegId, mEndId)
 static void
-writeMetricsDB(Prof::CallPath::Profile& profGbl, uint mBegId, uint mEndId,
+  writeMetricsDB(Prof::CallPath::Profile& profGbl, uint maxCCTId, uint mBegId, uint mEndId,
 	       const string& metricDBFnm)
 {
   const Prof::CCT::Tree& cct = *(profGbl.cct());
@@ -1009,7 +1022,6 @@ writeMetricsDB(Prof::CallPath::Profile& profGbl, uint mBegId, uint mEndId,
   // -------------------------------------------------------
   // pack metrics into dense matrix
   // -------------------------------------------------------
-  uint maxCCTId = cct.maxDenseId();
 
   ParallelAnalysis::PackedMetrics packedMetrics(maxCCTId + 1, mBegId, mEndId,
 						mBegId, mEndId);
@@ -1108,5 +1120,12 @@ makeFileName(const char* baseNm, const char* ext, int myRank)
   return string(baseNm) + "-" + StrUtil::toStr(myRank) + "." + ext;
 }
 
+
+
+//****************************************************************************
+// race detection
 //****************************************************************************
 
+#ifdef CILKSCREEN
+#include <lib/support/fake_lock.c>
+#endif
