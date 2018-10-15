@@ -221,10 +221,6 @@ Profile::match(Profile& y, int mergeTy, uint mrgFlag)
     x.m_measurementGranularity = y.m_measurementGranularity;
   }
 
-  if (x.m_raToCallsiteOfst == 0) {
-    x.m_raToCallsiteOfst = y.m_raToCallsiteOfst;
-  }
-
   DIAG_WMsgIf(x.m_fmtVersion != y.m_fmtVersion,
 	      "CallPath::Profile::merge(): ignoring incompatible versions: "
 	      << x.m_fmtVersion << " vs. " << y.m_fmtVersion);
@@ -233,8 +229,6 @@ Profile::match(Profile& y, int mergeTy, uint mrgFlag)
 	      << x.m_flags.bits << " vs. " << y.m_flags.bits);
   DIAG_WMsgIf(x.m_measurementGranularity != y.m_measurementGranularity,
 	      "CallPath::Profile::merge(): ignoring incompatible measurement-granularity: " << x.m_measurementGranularity << " vs. " << y.m_measurementGranularity);
-  DIAG_WMsgIf(x.m_raToCallsiteOfst != y.m_raToCallsiteOfst,
-	      "CallPath::Profile::merge(): ignoring incompatible RA-to-callsite-offset" << x.m_raToCallsiteOfst << " vs. " << y.m_raToCallsiteOfst);
 
   // FIXME PARALLEL
   // the global collection of trace file names and 
@@ -1034,8 +1028,7 @@ cct_makeNode(Prof::CallPath::Profile& prof,
 
 static void
 fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
-		 epoch_flags_t flags,
-		 uint32_t raToCallsiteOffset);
+		 epoch_flags_t flags);
 
 
 //***************************************************************************
@@ -1348,7 +1341,6 @@ Profile::fmt_epoch_fread(Profile* &prof, FILE* infs, uint rFlags,
   prof->m_fmtVersion = hdr.version;
   prof->m_flags = ehdr.flags;
   prof->m_measurementGranularity = ehdr.measurementGranularity;
-  prof->m_raToCallsiteOfst = ehdr.raToCallsiteOfst;
   prof->m_profileFileName = profFileName;
 
   if (haveTrace) {
@@ -1849,7 +1841,7 @@ Profile::fmt_cct_fwrite(const Profile& prof, FILE* fs, uint wFlags)
 
   for (CCT::ANodeIterator it(prof.cct()->root()); it.Current(); ++it) {
     CCT::ANode* n = it.current();
-    fmt_cct_makeNode(nodeFmt, *n, prof.m_flags, prof.raToCallsiteOffset());
+    fmt_cct_makeNode(nodeFmt, *n, prof.m_flags);
 
     ret = hpcrun_fmt_cct_node_fwrite(&nodeFmt, prof.m_flags, fs);
     if (ret != HPCFMT_OK) return HPCFMT_ERR;
@@ -2222,7 +2214,7 @@ cct_makeNode(Prof::CallPath::Profile& prof,
 
 static void
 fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
-		 epoch_flags_t flags, uint32_t raToCallsiteOffset)
+		 epoch_flags_t flags)
 {
   n_fmt.id = (n.isLeaf()) ? -(n.id()) : n.id();
 
@@ -2245,7 +2237,7 @@ fmt_cct_makeNode(hpcrun_fmt_cct_node_t& n_fmt, const Prof::CCT::ANode& n,
     }
     
     n_fmt.lm_id = (uint16_t) n_dyn.lmId();
-    n_fmt.lm_ip = n_dyn.Prof::CCT::ADynNode::lmIP(raToCallsiteOffset);
+    n_fmt.lm_ip = n_dyn.Prof::CCT::ADynNode::lmIP();
 
     if (flags.fields.isLogicalUnwind) {
       lush_lip_init(&(n_fmt.lip));

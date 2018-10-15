@@ -865,7 +865,7 @@ public:
   { m_lmId = x; }
 
   virtual VMA
-  lmIP(uint32_t raToCallsiteOffset) const
+  lmIP() const
   {
     if (isValid_lip()) {
       return lush_lip_getLMIP(m_lip);
@@ -1322,7 +1322,7 @@ public:
   
   // Node data
   virtual VMA
-  lmIP(uint32_t raToCallsiteOffset) const
+  lmIP() const
   {
     VMA ip = ADynNode::lmIP_real();
     if (isValid_lip()) {

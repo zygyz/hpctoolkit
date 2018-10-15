@@ -165,7 +165,7 @@ cmpByDynInfoSpecial(const ADynNode* x_dyn, const ADynNode* y_dyn)
   // the offset won't change the comparison result, so using 0 here is
   // fine.
   // ------------------------------------------------------------------
-  int cmp_ip = cmp(x_dyn->lmIP(0), y_dyn->lmIP(0));
+  int cmp_ip = cmp(x_dyn->lmIP(), y_dyn->lmIP());
   return cmp_ip;
 }
 

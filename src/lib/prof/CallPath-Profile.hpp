@@ -370,15 +370,10 @@ private:
   void
   merge_fixTrace(const CCT::MergeEffectList* mrgEffects);
 
-public:
-  uint32_t raToCallsiteOffset() const { return m_raToCallsiteOfst; }
-
-private:
   std::string m_name;
   double m_fmtVersion;
   epoch_flags_t m_flags;
   uint64_t m_measurementGranularity;
-  uint32_t m_raToCallsiteOfst;
 
   std::string m_profileFileName; // non-empty, if relevant
   StringSet m_directorySet; // set of directories containing profiles
