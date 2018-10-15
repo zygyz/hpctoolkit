@@ -1330,7 +1330,7 @@ public:
     }
     // if IP is non-zero, subtract 1 from IP of return 
     // to move it into range for the preceeding call instruction
-    return (ip != 0) ? (ip - raToCallsiteOffset) : 0;
+    return (ip != 0) ? (ip - 1) : 0;
   }
   
 
