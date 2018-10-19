@@ -685,7 +685,6 @@ spawnSummaryMetrics_Lcl
     // wait for computation of left to finish, then integrate it into result
     TreeMetricAccessorOutOfBand tma(*self);
     combine(profGbl, tma, other);
-
     delete other;
   } else {
     string& fnm = (*nArgs.paths)[lower];
@@ -717,6 +716,7 @@ makeSummaryMetrics
   }
   Prof::CCT::TreeMetricAccessorInband tma;
   combine(profGbl, tma, result);
+  delete result;
 }
 
 #else
