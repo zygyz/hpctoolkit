@@ -87,14 +87,14 @@ MYCLEAN = @HOST_LIBTREPOSITORY@
 
 pkglibexecdir = @my_pkglibexecdir@
 
-pkglibexec_PROGRAMS = dotgraph-bin
+# pkglibexec_PROGRAMS = dotgraph-bin
 
 noinst_LTLIBRARIES = libHPCbanal.la libHPCbanal_simple.la
 
-dotgraph_bin_SOURCES  = DotGraph.cpp
-dotgraph_bin_CPPFLAGS = -I$(BOOST_INC) $(DWARF_IFLAGS) -I$(LIBELF_INC) -I$(SYMTABAPI_INC)
-dotgraph_bin_CXXFLAGS = @HOST_CXXFLAGS@
-dotgraph_bin_LDADD    = -L$(SYMTABAPI_LIB) $(SYMTABAPI_LIB_LIST)
+# dotgraph_bin_SOURCES  = DotGraph.cpp
+# dotgraph_bin_CPPFLAGS = -I$(BOOST_INC) $(DWARF_IFLAGS) -I$(LIBELF_INC) -I$(SYMTABAPI_INC)
+# dotgraph_bin_CXXFLAGS = @HOST_CXXFLAGS@
+# dotgraph_bin_LDADD    = -L$(SYMTABAPI_LIB) $(SYMTABAPI_LIB_LIST)
 
 libHPCbanal_la_SOURCES  = $(MYSOURCES)
 libHPCbanal_la_CXXFLAGS = $(MYCXXFLAGS)
