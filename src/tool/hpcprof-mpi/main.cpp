@@ -81,8 +81,6 @@ using std::vector;
 #include <cctype>  // isdigit()
 #include <cstring> // strcpy()
 
-#include <mcheck.h> 
-#include <execinfo.h> 
 
 
 //*************************** User Include Files ****************************
@@ -152,7 +150,7 @@ makeDerivedMetricDescs(Prof::CallPath::Profile& profGbl,
 		       const vector<uint>& groupIdToGroupSizeMap,
 		       int myRank);
 
-static ParallelAnalysis::PackedMetrics *
+static void
 makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		       const string& profileFile,
 		       const Analysis::Args& args, uint groupId, uint groupMax,
@@ -194,13 +192,9 @@ public:
 public:
   MetricAccessorOutOfBand(ParallelAnalysis::PackedMetrics &_pm, int _nodeId) : pm(_pm), nodeId(_nodeId) {}
   double &idx(int metricId, int size = 0) {
-    DIAG_Assert(nodeId < pm.numNodes() && metricId >= 0 && metricId <= pm.numMetrics(), 
-		"accessing packed metric out of bounds");
     return pm.idx(nodeId, metricId);
   }
   double c_idx(int metricId) const {
-    DIAG_Assert(nodeId < pm.numNodes() && metricId >= 0 && metricId <= pm.numMetrics(), 
-		"accessing packed metric out of bounds");
     return pm.idx(nodeId, metricId);
   }
 private:
@@ -214,13 +208,9 @@ public:
   }
   
   virtual double &index(Prof::CCT::ANode *n, uint metricId, uint size) {
-    // std::cerr << "node(" << n->id() << ")[" << metricId << "]" << std::endl;
-    DIAG_Assert(n->id() < pm.numNodes() && metricId >= 0 && metricId <= pm.numMetrics(), 
-		"accessing packed metric out of bounds");
     return pm.idx(n->id(), metricId);
   }
   virtual MetricAccessor *nodeMetricAccessor(Prof::CCT::ANode *n) {
-    DIAG_Assert(n->id() < pm.numNodes(), "accessing packed metrics for node out of bounds");
     return new MetricAccessorOutOfBand(pm, n->id());
   };
 private:
@@ -258,12 +248,6 @@ main(int argc, char* const* argv)
   int ret;
 
   debug_wait();
-
-#if 0
-  void *buffer[100];
-  backtrace(buffer, 100);
-  mtrace();
-#endif
 
   try {
     ret = realmain(argc, argv);
@@ -639,108 +623,6 @@ myNormalizeProfileArgs(const Analysis::Util::StringVec& profileFiles,
   return out;
 }
 
-#if !defined(CILKSCREEN)
-
-static void
-combine(Prof::CallPath::Profile *profGbl,
-	Prof::CCT::TreeMetricAccessor &tma,
-	ParallelAnalysis::PackedMetrics *other)
-{
-  // FIXME johnmc
-  // this should use the derived metric machinery's combine operation to combine the profiles  
-  // for a prototype, we just sum them until we can do better.
-
-  uint mBegId = other->mBegId(); 
-  uint mEndId = other->mEndId();
-  for (Prof::CCT::ANodeIterator it(profGbl->cct()->root()); it.Current(); ++it) {
-    Prof::CCT::ANode* n = it.current();
-    for (uint i = mBegId; i < mEndId; i++) {
-      tma.index(n, i) += other->idx(n->id(), i);
-    }
-  }
-}
-
-static ParallelAnalysis::PackedMetrics *
-spawnSummaryMetrics_Lcl
-(
- Prof::CallPath::Profile *profGbl,
- const Analysis::Args *args,
- const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
- vector<VMAIntervalSet*> *groupIdToGroupMetricsMap,
- int myRank,
- uint lower, 
- uint upper
-)
-{
-  ParallelAnalysis::PackedMetrics *self;
-  if (lower != upper) {
-    uint mid = (lower + upper) >> 1; // midpoint, rounded down
-    ParallelAnalysis::PackedMetrics *other;
-
-#pragma omp task if(1) shared(other)
-    other = spawnSummaryMetrics_Lcl(profGbl, args, nArgs, groupIdToGroupMetricsMap, myRank, lower, mid);
-    self = spawnSummaryMetrics_Lcl(profGbl, args, nArgs, groupIdToGroupMetricsMap, myRank, mid + 1, upper);
-
-#pragma omp taskwait
-    // wait for computation of left to finish, then integrate it into result
-    TreeMetricAccessorOutOfBand tma(*self);
-    combine(profGbl, tma, other);
-    delete other;
-  } else {
-    string& fnm = (*nArgs.paths)[lower];
-    uint groupId = (*nArgs.groupMap)[lower];
-    self = makeSummaryMetrics_Lcl(*profGbl, fnm, *args, groupId, nArgs.groupMax,
-				  *groupIdToGroupMetricsMap, myRank);
-  }
-
-  return self;
-}
-
-static void
-makeSummaryMetrics
-(
- Prof::CallPath::Profile *profGbl,
- const Analysis::Args *args,
- const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
- vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
- int myRank
- )
-{
-  ParallelAnalysis::PackedMetrics *result;
-
-#pragma omp parallel shared(result)
-  {
-#pragma omp master 
-    result = spawnSummaryMetrics_Lcl(profGbl, args, nArgs, &groupIdToGroupMetricsMap, 
-				     myRank, 0, nArgs.paths->size() - 1);
-  }
-  Prof::CCT::TreeMetricAccessorInband tma;
-  combine(profGbl, tma, result);
-  delete result;
-}
-
-#else
-
-static void
-makeSummaryMetrics
-(
- Prof::CallPath::Profile *profGbl,
- const Analysis::Args *args,
- const Analysis::Util::NormalizeProfileArgs_t& nArgs, 
- vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
- int myRank
- )
-{
-  _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
-	string& fnm = (*nArgs.paths)[i];
-	uint groupId = (*nArgs.groupMap)[i];
-	makeSummaryMetrics_Lcl(*profGbl, fnm, *args, groupId, nArgs.groupMax,
-			       groupIdToGroupMetricsMap, myRank);
-  }
-}
-
-#endif
-
 
 //***************************************************************************
 
@@ -774,7 +656,20 @@ makeSummaryMetrics(Prof::CallPath::Profile& profGbl,
   cctRoot->computeMetricsIncr(mMgrGbl, tmai, mDrvdBeg, mDrvdEnd,
 			      Prof::Metric::AExprIncr::FnInit);
 
-  makeSummaryMetrics(&profGbl, &args, nArgs, groupIdToGroupMetricsMap, myRank);
+#pragma omp parallel 
+{
+#pragma omp master 
+  for (uint i = 0; i < nArgs.paths->size(); ++i) {
+    // SPECULATIVE PARALLELISM
+    // #pragma omp task if (0)
+    {
+    const string& fnm = (*nArgs.paths)[i];
+    uint groupId = (*nArgs.groupMap)[i];
+    makeSummaryMetrics_Lcl(profGbl, fnm, args, groupId, nArgs.groupMax,
+			   groupIdToGroupMetricsMap, myRank);
+    }
+  }
+}
 
   // -------------------------------------------------------
   // create summary metrics via reduction (combine function)
@@ -899,6 +794,7 @@ makeThreadMetrics(Prof::CallPath::Profile& profGbl,
 		  const vector<uint>& groupIdToGroupSizeMap,
 		  int myRank, int numRanks, int rootRank)
 {
+
   _Cilk_for (uint i = 0; i < nArgs.paths->size(); ++i) {
 	string& fnm = (*nArgs.paths)[i];
 	uint groupId = (*nArgs.groupMap)[i];
@@ -1009,17 +905,17 @@ makeDerivedMetricDescs(Prof::CallPath::Profile& profGbl,
 // - 'args' contains the correct final experiment database.
 //
 // FIXME: abstract between makeSummaryMetrics_Lcl() & makeThreadMetrics_Lcl()
-static ParallelAnalysis::PackedMetrics *
+static void
 makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
 		       const string& profileFile,
 		       const Analysis::Args& args, uint groupId, uint groupMax,
 		       vector<VMAIntervalSet*>& groupIdToGroupMetricsMap,
 		       int myRank)
 {
+  {
   Prof::Metric::Mgr* mMgrGbl = profGbl.metricMgr();
-#if 0
   Prof::CCT::Tree* cctGbl = profGbl.cct();
-#endif
+  Prof::CCT::ANode* cctRootGbl = cctGbl->root();
 
   Prof::CCT::TreeMetricAccessorInband tmai;
 
@@ -1053,7 +949,7 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   Analysis::CallPath::noteStaticStructureOnLeaves(*prof);
   prof->structure(NULL);
 
-  uint mBeg = prof->match(profGbl, mergeTy, mergeFlg); // [closed begin
+  uint mBeg = profGbl.merge(*prof, mergeTy, mergeFlg); // [closed begin
   uint mEnd = mBeg + prof->metricMgr()->size();        //  open end)
 
   // -------------------------------------------------------
@@ -1074,27 +970,9 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
     }
   }
 
-  ParallelAnalysis::PackedMetrics *packedMetrics = 
-    new ParallelAnalysis::PackedMetrics(profGbl.cct()->maxDenseId() + 1, mBeg, mEnd, mBeg, mEnd);
+  cctRootGbl->aggregateMetricsIncl(ivalsetIncl);
+  cctRootGbl->aggregateMetricsExcl(ivalsetExcl);
 
-  ParallelAnalysis::packMetrics(*prof, *packedMetrics);
-    
-#if DEBUG_PACKED_METRICS
-  packedMetrics->dump();
-#endif
-
-  TreeMetricAccessorOutOfBand packedMetricsAccessor(*packedMetrics);
-  
-  Prof::CCT::ANode* c_cct_root = profGbl.cct()->root(); // canonical cct root
-  c_cct_root->aggregateMetricsIncl(ivalsetIncl, packedMetricsAccessor);
-  c_cct_root->aggregateMetricsExcl(ivalsetExcl, packedMetricsAccessor);
-  
-#if DEBUG_PACKED_METRICS
-  packedMetrics->dump();
-#endif
-
-#if 0
-  // FIXME: not enough space in packed metrics
 
   // 2. Batch compute local derived metrics
   const VMAIntervalSet* ivalsetDrvd = groupIdToGroupMetricsMap[groupId];
@@ -1105,10 +983,9 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
     uint mDrvdEnd = (uint)ival.end();
 
     DIAG_MsgIf(0, "[" << myRank << "] grp " << groupId << ": [" << mDrvdBeg << ", " << mDrvdEnd << ")");
-    c_cct_root->computeMetricsIncr(*mMgrGbl, packedMetricsAccessor, mDrvdBeg, mDrvdEnd,
+    cctRootGbl->computeMetricsIncr(*mMgrGbl, tmai, mDrvdBeg, mDrvdEnd,
 				   Prof::Metric::AExprIncr::FnAccum);
   }
-#endif
 
   // -------------------------------------------------------
   // reinitialize metric values for next time
@@ -1120,11 +997,10 @@ makeSummaryMetrics_Lcl(Prof::CallPath::Profile& profGbl,
   // two; and (b) use a CCT init (which whould initialize using
   // assignment) instead of CCT::merge() (which initializes based on
   // addition against 0).
-  c_cct_root->zeroMetricsDeep(packedMetricsAccessor, mBeg, mEnd); // cf. FnInitSrc
+  cctRootGbl->zeroMetricsDeep(mBeg, mEnd); // cf. FnInitSrc
   
   delete prof;
-
-  return packedMetrics;
+  }
 }
 
 

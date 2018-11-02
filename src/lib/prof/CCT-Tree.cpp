@@ -498,7 +498,7 @@ ANode::ancestorStmt() const
 //***************************************************************************
 
 void
-ANode::zeroMetricsDeep(TreeMetricAccessor &tma, uint mBegId, uint mEndId)
+ANode::zeroMetricsDeep(uint mBegId, uint mEndId)
 {
   if ( !(mBegId < mEndId) ) {
     return; // short circuit
@@ -506,9 +506,7 @@ ANode::zeroMetricsDeep(TreeMetricAccessor &tma, uint mBegId, uint mEndId)
 
   for (ANodeIterator it(this); it.Current(); ++it) {
     ANode* n = it.current();
-    for (uint i = mBegId; i< mEndId; i++) {
-      tma.index(n, i) = 0;
-    }
+    n->zeroMetrics(mBegId, mEndId);
   }
 }
 
