@@ -1389,7 +1389,7 @@ class Stmt
 class TreeMetricAccessorInband : public TreeMetricAccessor {
 public:
   virtual double &index(ANode *n, uint metricId, uint size = 0) {
-    return n->demandMetric(metricId, size);
+    return n->idx(metricId, size);
   }
   virtual MetricAccessor *nodeMetricAccessor(ANode *n) {
     return new MetricAccessorInband(*n); 

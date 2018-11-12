@@ -9,11 +9,10 @@ public:
   MetricAccessorInband(Prof::Metric::IData &_mdata) : mdata(_mdata) {}
   ~MetricAccessorInband() {}
   double &idx(int mId, int size = 0) {
-  double &idx(int mId, int size = 0) {
-    return mdata.demandMetric(mId, size);
+    return mdata.idx(mId, size);
   }
   double c_idx(int mId) const {
-    return mdata.metric(mId);
+    return mdata.c_idx(mId);
   }
 private:
   Prof::Metric::IData &mdata;
