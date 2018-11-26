@@ -83,7 +83,7 @@ using std::set;
 
 #include "CCT-Tree.hpp"
 #include "CallPath-Profile.hpp" // for CCT::Tree::metadata()
-#include "MetricAccessorInband.hpp" 
+#include "MetricAccessorInterval.hpp" 
 
 #include <lib/xml/xml.hpp> 
 
@@ -738,7 +738,8 @@ ANode::computeMetricsIncrMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, ui
     const Metric::DerivedIncrDesc* mm =
       dynamic_cast<const Metric::DerivedIncrDesc*>(m);
     if (mm && mm->expr()) {
-      MetricAccessor *nma = tma.nodeMetricAccessor(this);
+      MetricAccessorInterval tma(*this);
+      MetricAccessor *nma = &tma;
       const Metric::AExprIncr* expr = mm->expr();
       switch (fn) {
         case Metric::AExprIncr::FnInit:
