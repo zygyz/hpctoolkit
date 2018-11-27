@@ -381,6 +381,8 @@ const string ANode::NodeNames[ANode::TyNUMBER] = {
 };
 
 
+std::vector<MetricAccessor *> ANode::s_allMetrics;
+
 const string&
 ANode::ANodeTyToName(ANodeTy tp)
 {
@@ -506,7 +508,9 @@ ANode::zeroMetricsDeep(uint mBegId, uint mEndId)
 
   for (ANodeIterator it(this); it.Current(); ++it) {
     ANode* n = it.current();
-    n->zeroMetrics(mBegId, mEndId);
+    MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
+    for (unsigned int i = ma->idx_ge(mBegId); i < mEndId; i = ma->idx_ge(i+1))
+      ma->idx(i) = 0.;
   }
 }
 
@@ -546,10 +550,11 @@ ANode::aggregateMetricsIncl(const VMAIntervalSet& ivalset, TreeMetricAccessor &t
 	   it1 != ivalset.end(); ++it1) {
 	const VMAInterval& ival = *it1;
 	uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
+	MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
 
-	for (uint mId = mBegId; mId < mEndId; ++mId) {
-	  tma.index(n_parent, mId, mEndId/*size*/) += 
-	    tma.index(n, mId, mEndId/*size*/);
+	for (uint mId = ma->idx_ge(mBegId); mId < mEndId; mId = ma->idx_ge(mId+1)) {
+	  double mVal = ma->c_idx(mId);
+	  CCT::ANode::metric_accessor(n_parent->id())->idx(mId) += mVal;
 	}
       }
     }
@@ -649,7 +654,7 @@ ANode::aggregateMetricsExcl(AProcNode* frame, const VMAIntervalSet& ivalset, Tre
       const VMAInterval& ival = *it;
       uint mBegId = (uint)ival.beg(), mEndId = (uint)ival.end();
 
-      for (uint mId = mBegId; mId < mEndId; ++mId) {
+      for (uint mId = tma.idx_ge(n, mBegId); mId < mEndId; mId = tma.idx_ge(n, mId+1)) {
 	double mVal = tma.index(n, mId, mEndId); 
 	tma.index(n_parent, mId, mEndId/*size*/) += mVal;
 	if (frame && frame != n_parent) {
@@ -694,7 +699,7 @@ ANode::computeMetricsMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint m
 {
   uint numMetrics = mMgr.size();
 
-  for (uint mId = mBegId; mId < mEndId; ++mId) {
+  for (uint mId = tma.idx_ge(this, mBegId); mId < mEndId; mId = tma.idx_ge(this, mId+1)) {
     const Metric::ADesc* m = mMgr.metric(mId);
     const Metric::DerivedDesc* mm = dynamic_cast<const Metric::DerivedDesc*>(m);
     if (mm && mm->expr()) {
@@ -733,7 +738,7 @@ void
 ANode::computeMetricsIncrMe(const Metric::Mgr& mMgr, TreeMetricAccessor &tma, uint mBegId, uint mEndId,
 			    Metric::AExprIncr::FnTy fn)
 {
-  for (uint mId = mBegId; mId < mEndId; ++mId) {
+  for (uint mId = tma.idx_ge(this, mBegId); mId < mEndId; mId = tma.idx_ge(this, mId+1)) {
     const Metric::ADesc* m = mMgr.metric(mId);
     const Metric::DerivedIncrDesc* mm =
       dynamic_cast<const Metric::DerivedIncrDesc*>(m);
@@ -1124,16 +1129,11 @@ MergeEffect
 ANode::mergeMe(const ANode& y, MergeContext* GCC_ATTR_UNUSED mrgCtxt,
 	       uint metricBegIdx, bool mayConflict)
 {
-  ANode* x = this;
+  MetricAccessor *me = metric_accessor(id());
+  MetricAccessor *they = metric_accessor(y.id());
   
-  uint x_end = metricBegIdx + y.numMetrics(); // open upper bound
-  if ( !(x_end <= x->numMetrics()) ) {
-    ensureMetricsSize(x_end);
-  }
-
-  for (uint x_i = metricBegIdx, y_i = 0; x_i < x_end; ++x_i, ++y_i) {
-    x->metric(x_i) += y.metric(y_i);
-  }
+  for (uint y_i = they->idx_ge(0); y_i < INT_MAX; y_i = they->idx_ge(y_i + 1))
+    me->idx(metricBegIdx + y_i) += they->c_idx(y_i);
   
   MergeEffect noopEffect;
   return noopEffect;

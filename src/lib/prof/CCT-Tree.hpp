@@ -85,6 +85,7 @@
 #include "Metric-IData.hpp"
 
 #include "MetricAccessorInband.hpp"
+#include "MetricAccessorInterval.hpp"
 
 #include "Struct-Tree.hpp"
 
@@ -134,6 +135,7 @@ class ANode;
 class TreeMetricAccessor {
 public:
   virtual double &index(ANode *n, uint metricId, uint size = 0) = 0;
+  virtual int idx_ge(ANode *n, uint metricId) = 0;
   virtual MetricAccessor *nodeMetricAccessor(ANode *n) = 0;
 };
 
@@ -329,8 +331,19 @@ public:
 private:
   static const std::string NodeNames[TyNUMBER];
 
+  static std::vector<MetricAccessor*> s_allMetrics;
 
 public:
+  static MetricAccessor *metric_accessor(uint id)
+  {
+    id /= 2;			// cf. HPCRUN_FMT_RetainIdFlag
+    if (id >= s_allMetrics.size())
+      s_allMetrics.resize(id+1);
+    if (s_allMetrics[id] == NULL)
+      s_allMetrics[id] = new MetricAccessorInterval;
+    return s_allMetrics[id];
+  }
+
   ANode(ANodeTy type, ANode* parent, Struct::ACodeNode* strct = NULL)
     : NonUniformDegreeTreeNode(parent),
       Metric::IData(),
@@ -1390,6 +1403,10 @@ class TreeMetricAccessorInband : public TreeMetricAccessor {
 public:
   virtual double &index(ANode *n, uint metricId, uint size = 0) {
     return n->idx(metricId, size);
+  }
+  virtual int idx_ge(ANode *n, uint metricId) {
+      MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
+      return ma->idx_ge(metricId);
   }
   virtual MetricAccessor *nodeMetricAccessor(ANode *n) {
     return new MetricAccessorInband(*n); 
