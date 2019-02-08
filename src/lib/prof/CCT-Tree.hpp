@@ -81,6 +81,7 @@
 #include "CCT-Merge.hpp"
 
 #include "Metric-Mgr.hpp"
+#include "MetricAccessorInterval.hpp"
 #include "Metric-ADesc.hpp"
 #include "Metric-IData.hpp"
 
@@ -304,7 +305,6 @@ class Stmt;
 // ---------------------------------------------------------
 class ANode
   : public NonUniformDegreeTreeNode,
-    public Metric::IData,
     public Unique
 {
 public:
@@ -346,7 +346,6 @@ public:
 
   ANode(ANodeTy type, ANode* parent, Struct::ACodeNode* strct = NULL)
     : NonUniformDegreeTreeNode(parent),
-      Metric::IData(),
       m_type(type), m_id(threaded_unique_id(2)), m_strct(strct)
   {
     // pass 2 to threaded_unique_id to keep lower bit clear for 
@@ -356,7 +355,6 @@ public:
   ANode(ANodeTy type,
 	ANode* parent, Struct::ACodeNode* strct, const Metric::IData& metrics)
     : NonUniformDegreeTreeNode(parent),
-      Metric::IData(metrics),
       m_type(type), m_id(threaded_unique_id(2)), m_strct(strct)
   {
     // pass 2 to threaded_unique_id to keep lower bit clear for 
@@ -369,7 +367,6 @@ public:
   // deep copy of internals (but without children)
   ANode(const ANode& x)
     : NonUniformDegreeTreeNode(NULL),
-      Metric::IData(x),
       m_type(x.m_type), /*m_id: skip*/ m_strct(x.m_strct)
   {
     zeroLinks();
@@ -384,7 +381,6 @@ public:
   {
     if (this != &x) {
       //NonUniformDegreeTreeNode::operator=(x);
-      Metric::IData::operator=(x);
       m_type = x.m_type;
       // m_id: skip
       m_strct = x.m_strct;
@@ -1402,14 +1398,16 @@ class Stmt
 class TreeMetricAccessorInband : public TreeMetricAccessor {
 public:
   virtual double &index(ANode *n, uint metricId, uint size = 0) {
-    return n->idx(metricId, size);
+    MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
+    return ma->idx(metricId, size);
   }
   virtual int idx_ge(ANode *n, uint metricId) {
-      MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
-      return ma->idx_ge(metricId);
+    MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
+    return ma->idx_ge(metricId);
   }
   virtual MetricAccessor *nodeMetricAccessor(ANode *n) {
-    return new MetricAccessorInband(*n); 
+    MetricAccessor *ma = CCT::ANode::metric_accessor(n->id());
+    return new MetricAccessorInband(ma); 
   };
 };
 

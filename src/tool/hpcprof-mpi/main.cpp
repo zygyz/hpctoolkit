@@ -197,7 +197,7 @@ public:
     return pm.idx(nodeId, metricId);
   }
   int idx_ge(int metricId) const {
-    return metricId;
+    return metricId < pm.mEndId() ? metricId : INT_MAX;
   }
 private:
   ParallelAnalysis::PackedMetrics &pm;

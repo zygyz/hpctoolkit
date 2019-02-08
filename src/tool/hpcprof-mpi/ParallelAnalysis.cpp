@@ -388,19 +388,18 @@ packMetrics(const Prof::CallPath::Profile& profile,
 #endif
   for (Prof::CCT::ANodeIterator it(cct.root()); it.Current(); ++it) {
     Prof::CCT::ANode* n = it.current();
-    if (n->numMetrics() != 0) { 
-      for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
+    for (uint mId1 = 0, mId2 = mDrvdBeg; mId2 < mDrvdEnd; ++mId1, ++mId2) {
 #if DEBUG_PACKED_METRICS
-	if (n->metric(mId2) != 0) 
-	  std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
+      if (n->metric(mId2) != 0) 
+	std::cerr << "  node(" << n->id() << ")[" << mId1 << "]=" << n->metric(mId2) << std::endl;
 #endif
-	// FIXME? 
-	//   Some nodes in a thread profile have no corresponding match to a
-	//   node in the global CCT. For now, ignore them by refusing to record
-	//   metrics for a node with an id that is out of bounds. 
-	//   This may need to be revisited.
-	packedMetrics.idxSet(n->id(), mId1, n->metric(mId2));
-      }
+      // FIXME? 
+      //   Some nodes in a thread profile have no corresponding match to a
+      //   node in the global CCT. For now, ignore them by refusing to record
+      //   metrics for a node with an id that is out of bounds. 
+      //   This may need to be revisited.
+      MetricAccessor *ma = Prof::CCT::ANode::metric_accessor(n->id());
+      packedMetrics.idx(n->id(), mId1) = ma->c_idx(mId1 + mDrvdBeg);
     }
   }
 }
@@ -421,9 +420,9 @@ unpackMetrics(Prof::CallPath::Profile& profile,
   DIAG_Assert(packedMetrics.numMetrics() == mEndId - mBegId, "");
 
   for (uint nodeId = 1; nodeId < packedMetrics.numNodes(); ++nodeId) {
-    for (uint mId1 = 0, mId2 = mBegId; mId2 < mEndId; ++mId1, ++mId2) {
+    for (uint mId1 = 0; mId1 + mBegId < mEndId; ++mId1) {
       Prof::CCT::ANode* n = cct.findNode(nodeId);
-      tma.index(n, mId2) = packedMetrics.idx(nodeId, mId1);
+      tma.index(n, mId1+mBegId) = packedMetrics.idx(nodeId, mId1);
     }
   }
 

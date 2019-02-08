@@ -934,6 +934,7 @@ Driver::computeDerivedBatch(Prof::Struct::Tree& structure,
 			    const Prof::Metric::AExpr** mExprVec,
 			    uint mBegId, uint mEndId)
 {
+#if 0
   // N.B. pre-order walk assumes point-wise metrics
   // Cf. Prof::CCT::ANode::computeMetrics() && computeMetricsIncr().
 
@@ -951,6 +952,7 @@ Driver::computeDerivedBatch(Prof::Struct::Tree& structure,
       }
     }
   }
+#endif
 }
 
 
