@@ -129,6 +129,10 @@ static int DEBUG_NO_LONGJMP = 0;
 #define MYDBG 0
 
 
+
+static bool 
+unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor);
+
 static void 
 update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset);
 
@@ -690,6 +694,38 @@ t2_dbg_unw_step(hpcrun_unw_cursor_t* cursor)
 // private operations
 //****************************************************************************
 
+static bool
+unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor) 
+{
+  void** bp = cursor->bp;
+  void** sp = cursor->sp;
+  void** dyninst_frame_locator = bp + DYNINST_FRAME_LOCATOR_OFFSET;
+  void** next_bp = (void**)*bp;
+  void** next_sp = NULL;
+  void** next_pc = NULL;
+  void** ra_loc = NULL;
+  if ((uintptr_t)(*dyninst_frame_locator) == DYNINST_FRAME_LOCATOR_VALUE) {
+    EMSG("dyninst frame locator is at %p, value is %p", dyninst_frame_locator,
+          *dyninst_frame_locator);
+    uint64_t frame_size = (uint64_t)((uintptr_t)bp - (uintptr_t)sp); 
+    if (frame_size > DYNINST_INST_FRAME_SIZE_LIMIT) {
+      EMSG("stack frame size is too large to be instrumentation frame:%lu", 
+              frame_size);
+      return false; 
+    }
+    ra_loc = (void**)*(bp + DYNINST_USER_FRAME_SP_OFFSET);
+  } else {
+    // try frame pointer based unwinding, in this case, return address is one
+    // word above frame pointer address 
+    ra_loc = bp + 1;
+  }
+  next_pc = (void**)*ra_loc;
+  next_sp = ra_loc + 1;
+  save_registers(cursor, next_pc, next_bp, next_sp, ra_loc);
+  compute_normalized_ips(cursor);
+  return true;
+}
+
 static void
 update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
 {
@@ -734,6 +770,9 @@ update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
     // fall through for error handling
   }
   else {
+    if (unwind_dyninst_frame(cursor)) {
+      return; // success
+    }
     TMSG(TROLL, "Troll failed: dropping sample, cursor pc = %p", 
 	 cursor->pc_unnorm);
     TMSG(TROLL,"TROLL FAILURE pc = %p", cursor->pc_unnorm);

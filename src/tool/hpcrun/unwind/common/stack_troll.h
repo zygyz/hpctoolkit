@@ -59,6 +59,11 @@ typedef enum {
   TROLL_INVALID     // all trolled-for addresses were invalid
 } troll_status;
 
+#define DYNINST_FRAME_LOCATOR_VALUE 0XBEEFDEAD
+#define DYNINST_FRAME_LOCATOR_OFFSET 2
+#define DYNINST_USER_FRAME_SP_OFFSET 3
+#define DYNINST_INST_FRAME_SIZE_LIMIT 500 * sizeof(uintptr_t)
+
 #include "validate_return_addr.h"
   troll_status stack_troll(void **start_sp, uint *ra_pos, validate_addr_fn_t validate_addr, void *generic_arg);
 
