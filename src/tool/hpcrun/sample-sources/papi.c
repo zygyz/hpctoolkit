@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2019, Rice University
+// Copyright ((c)) 2002-2020, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -401,13 +401,13 @@ METHOD_FN(process_event_list, int lush_metrics)
 
   hpcrun_pre_allocate_metrics(nevents + num_lush_metrics);
 
+  kind_info_t *papi_kind = hpcrun_metrics_new_kind();
+
   some_derived = 0;
   some_overflow = 0;
   for (i = 0; i < nevents; i++) {
     char buffer[PAPI_MAX_STR_LEN + 10];
-    int metric_id = hpcrun_new_metric(); /* weight */
     metric_desc_properties_t prop = metric_property_none;
-    METHOD_CALL(self, store_metric_id, i, metric_id);
     PAPI_event_code_to_name(self->evl.events[i].event, buffer);
     TMSG(PAPI, "metric for event %d = %s", i, buffer);
     // blame shifting needs to know if there is a cycles metric
@@ -432,23 +432,30 @@ METHOD_FN(process_event_list, int lush_metrics)
       some_overflow = 1;
     }
 
-    hpcrun_set_metric_info_and_period(metric_id, strdup(buffer),
-				      MetricFlags_ValFmt_Int,
-				      self->evl.events[i].thresh, prop);
+    int metric_id = /* weight */
+      hpcrun_set_new_metric_info_and_period(
+        papi_kind,
+        strdup(buffer),
+        MetricFlags_ValFmt_Int,
+        self->evl.events[i].thresh, prop);
+    METHOD_CALL(self, store_metric_id, i, metric_id);
 
     // FIXME:LUSH: need a more flexible metric interface
     if (num_lush_metrics > 0 && strcmp(buffer, "PAPI_TOT_CYC") == 0) {
       // there should be one lush metric; its source is the last event
+      int mid_idleness =
+        hpcrun_set_new_metric_info_and_period(
+          papi_kind,
+          "idleness",
+          MetricFlags_ValFmt_Real,
+          self->evl.events[i].thresh, prop);
       assert(num_lush_metrics == 1 && (i == (nevents - 1)));
-      int mid_idleness = hpcrun_new_metric();
       lush_agents->metric_time = metric_id;
       lush_agents->metric_idleness = mid_idleness;
-
-      hpcrun_set_metric_info_and_period(mid_idleness, "idleness",
-					MetricFlags_ValFmt_Real,
-					self->evl.events[i].thresh, prop);
     }
   }
+
+  hpcrun_close_kind(papi_kind);
 
   if (! some_overflow) {
     hpcrun_ssfail_all_derived("PAPI");

@@ -13,7 +13,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2019, Rice University
+// Copyright ((c)) 2002-2020, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -690,7 +690,7 @@ ppc64_build_intervals(char *beg_insn, unsigned int len)
     cur_insn++;
   }
 
-  UWI_END_ADDR(ui) = end_insn;
+  UWI_END_ADDR(ui) = (uintptr_t) end_insn;
 
   btuwi_status_t stat;
   stat.first_undecoded_ins = NULL;
