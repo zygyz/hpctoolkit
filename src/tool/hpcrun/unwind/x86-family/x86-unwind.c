@@ -714,6 +714,7 @@ unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor)
       return false; 
     }
     ra_loc = (void**)*(bp + DYNINST_USER_FRAME_SP_OFFSET);
+    EEMSG("locator based %lx return addr: %lx", ra_loc, *ra_loc);
   } else {
     // try frame pointer based unwinding, in this case, return address is one
     // word above frame pointer address 
