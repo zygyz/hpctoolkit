@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2020, Rice University
+// Copyright ((c)) 2002-2019, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,6 @@
 
 #include "Metric-IData.hpp"
 
-#include <lib/isa/ISA.hpp>
 #include <lib/binutils/VMAInterval.hpp>
 
 #include <lib/support/diagnostics.h>
@@ -1102,15 +1101,17 @@ public:
   codeName() const
   { return name(); }
 
+  const char *
+  pretty_name() const
+  { return m_pretty_name.c_str(); }
+
+  void
+  pretty_name(const char *nm)
+  { m_pretty_name = nm; }
+
   std::string
   baseName() const
   { return FileUtil::basename(m_name); }
-
-  void
-  pretty_name(const std::string& new_name)
-  {
-    m_pretty_name = new_name;
-  }
 
 
   // --------------------------------------------------------
@@ -1264,7 +1265,7 @@ protected:
 private:
   std::string m_name; // the load module name
 
-  // for pseudo modules, this will be set
+  // for pseudo module, this will be set
   // keep this in addition to m_name to avoid disturbing other
   // things that depend upon a full path
   std::string m_pretty_name;
@@ -1755,19 +1756,14 @@ private:
 // --------------------------------------------------------------------------
 class Stmt: public ACodeNode {
 public:
-  enum StmtType {
-    STMT_STMT,
-    STMT_CALL
-  };
 
   // --------------------------------------------------------
   // Create/Destroy
   // --------------------------------------------------------
   Stmt(ACodeNode* parent, SrcFile::ln begLn, SrcFile::ln endLn,
-       VMA begVMA = 0, VMA endVMA = 0,
-       StmtType stmt_type = STMT_STMT)
+       VMA begVMA = 0, VMA endVMA = 0)
     : ACodeNode(TyStmt, parent, begLn, endLn, begVMA, endVMA),
-      m_stmt_type(stmt_type), m_sortId((int)begLn)
+      m_sortId((int)begLn)
   {
     ANodeTy t = (parent) ? parent->type() : TyANY;
     DIAG_Assert((parent == NULL) || (t == TyGroup) || (t == TyFile)
@@ -1816,30 +1812,6 @@ public:
   sortId(int x)
   { m_sortId = x; }
 
-  // a handle for differentiating a CALL and a STMT
-  StmtType
-  stmtType()
-  { return m_stmt_type; }
-
-  void
-  stmtType(StmtType type)
-  { m_stmt_type = type; }
-
-  VMA &
-  target()
-  { return m_target; }
-
-  void
-  target(VMA x)
-  { m_target = x; }
-
-  std::string
-  device()
-  { return m_device; }
-
-  void
-  device(const std::string &device)
-  { m_device = device; }
 
   // --------------------------------------------------------
   // Output
@@ -1853,9 +1825,6 @@ public:
 	 const char* pre = "") const;
 
 private:
-  StmtType m_stmt_type;
-  std::string m_device;
-  VMA m_target;
   int m_sortId;
 };
 

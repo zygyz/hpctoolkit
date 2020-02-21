@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2020, Rice University
+// Copyright ((c)) 2002-2019, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -93,10 +93,6 @@ using std::endl;
 #include "Proc.hpp"
 #include "SimpleSymbolsFactories.hpp"
 #include "Dbg-LM.hpp"
-#include "RelocateCubin.hpp"
-#include "Fatbin.hpp"
-#include "ElfHelper.hpp"
-#include "InputFile.hpp"
 
 //***************************************************************************
 // macros
@@ -382,13 +378,9 @@ BinUtil::LM::~LM()
   delete[] m_bfdSymTabSort;
   m_bfdSymTabSort = NULL; 
 
-  delete[] m_bfdDynSymTab;
-  m_bfdDynSymTab = NULL;
-
   m_bfdSymTabSz = 0;
   m_bfdSymTabSortSz = 0;
   m_bfdSynthTabSz = 0;
-  m_bfdDynSymTabSz = 0;
   
   // reset isa
   delete isa;
@@ -408,19 +400,6 @@ BinUtil::LM::open(const char* filenm)
   if (simpleSymbolsFactories.find(filenm)) {
     m_name = filenm;
     return;
-  }
-
-  // Write relocated cubins and reopen them
-  InputFile input_file;
-  std::string file_name = std::string(filenm);
-  if (input_file.openFile(file_name)) {
-    // We only relocate individual cubins, with filevector size 1
-    ElfFile *elf_file = (*input_file.fileVector())[0];
-    if (isCubin(elf_file->getElf())) {
-      file_name = elf_file->getFileName() + ".relocate";
-      writeElfFile(elf_file, ".relocate");
-      filenm = file_name.c_str();
-    }
   }
 
   // -------------------------------------------------------
@@ -443,7 +422,7 @@ BinUtil::LM::open(const char* filenm)
   
   m_name = filenm;
   m_realpathMgr.realpath(m_name);
-
+  
   // -------------------------------------------------------
   // 2. Collect data from BFD
   // -------------------------------------------------------
@@ -548,7 +527,7 @@ BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
     return STATUS;
   }
 
-  if (m_bfdSymTabSortSz == 0) { 
+  if (!m_bfdSymTab) { 
     return STATUS; 
   }
   
@@ -572,11 +551,9 @@ BinUtil::LM::findSrcCodeInfo(VMA vma, ushort opIndex,
   // Obtain the source line information.
   const char *bfd_func = NULL, *bfd_file = NULL;
   uint bfd_line = 0;
-
   bfd_boolean fnd = 
-    bfd_find_nearest_line(m_bfd, bfdSeg, m_bfdSymTabSort,
+    bfd_find_nearest_line(m_bfd, bfdSeg, m_bfdSymTab,
 			  opVMA - base, &bfd_file, &bfd_func, &bfd_line);
-
   if (fnd) {
     STATUS = (bfd_file && bfd_func && SrcFile::isValid(bfd_line));
     
@@ -692,20 +669,6 @@ BinUtil::LM::findProcSrcCodeInfo(VMA vma, ushort opIndex,
 	     << ival.toString() << " = " << line);
 
   return isfound;
-}
-
-
-bool
-BinUtil::LM::findSimpleFunction(VMA vma, string& func)
-{
-  bool STATUS = false;
-  func = "";
-
-  if (m_simpleSymbols) {
-    STATUS = m_simpleSymbols->findEnclosingFunction(vma, func);
-  }
-
-  return STATUS;
 }
 
 
@@ -896,18 +859,12 @@ BinUtil::LM::readSymbolTables()
     DIAG_Msg(2, "'" << name() << "': No synthetic symbols found.");
   }
 
-  m_bfdSymTabSort = new asymbol*[m_bfdSymTabSz + m_bfdDynSymTabSz + m_bfdSynthTabSz + 1];
-  int sort_offset = 0;
-  for (int i = 0; i < m_bfdSymTabSz; i++) {
-    m_bfdSymTabSort[sort_offset++] = m_bfdSymTab[i];
-  }
-  for (int i = 0; i < m_bfdDynSymTabSz; i++) {
-    m_bfdSymTabSort[sort_offset++] = m_bfdDynSymTab[i];
-  }
+  m_bfdSymTabSort = new asymbol*[m_bfdSymTabSz + m_bfdSynthTabSz + 1];
+  memcpy(m_bfdSymTabSort, m_bfdSymTab, m_bfdSymTabSz * sizeof(asymbol *));
   for (int i = 0; i < m_bfdSynthTabSz; i++) {
-    m_bfdSymTabSort[sort_offset++] = &m_bfdSynthTab[i];
+    m_bfdSymTabSort[m_bfdSymTabSz + i] = &m_bfdSynthTab[i];
   }
-  m_bfdSymTabSortSz = m_bfdSymTabSz + m_bfdDynSymTabSz + m_bfdSynthTabSz;
+  m_bfdSymTabSortSz = m_bfdSymTabSz + m_bfdSynthTabSz;
   m_bfdSymTabSort[m_bfdSymTabSortSz] = NULL;
 
   // -------------------------------------------------------
@@ -1134,15 +1091,6 @@ BinUtil::LM::dumpSymTab(std::ostream& o, const char* pre) const
       dumpASymbol(o, m_bfdSymTab[i], p1);
     }
   }
-
-  o << p << "--------------- Symbol Table Dump (Dynamic) ----------------\n";
-
-  if (m_bfdDynSymTabSz) {
-    for (int i = 0; i < m_bfdDynSymTabSz; i++) {
-      dumpASymbol(o, m_bfdDynSymTab[i], p1);
-    }
-  }
-
 
   o << p << "--------------- Symbol Table Dump (Synthetic) -------------\n";
 

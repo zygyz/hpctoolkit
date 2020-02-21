@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2020, Rice University
+// Copyright ((c)) 2002-2019, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -108,9 +108,8 @@ namespace Prof {
 
 extern std::map<uint, uint> m_mapFileIDs;      // map between file IDs
 extern std::map<uint, uint> m_mapProcIDs;      // map between proc IDs
-extern std::map<uint, uint> m_mapLoadModuleIDs;      // map between load module IDs
 
-
+extern std::map<uint, uint> m_pairFakeLoadModule;
 
 // local function to convert from the original procedure ID into a 
 // a "compact" id to reduce redundancy if the procedure of the same
@@ -134,10 +133,9 @@ static uint
 getLoadModuleFromMap(uint lm_id)
 {
   uint id = lm_id;
-  std::map<uint, uint>::iterator it = m_mapLoadModuleIDs.find(lm_id);
-  if (it != Prof::m_mapLoadModuleIDs.end()) {
-    // the file ID should redirected to another file ID which has 
-    // exactly the same filename
+  std::map<uint, uint>::iterator it = Prof::m_pairFakeLoadModule.find(lm_id);
+
+  if (it != Prof::m_pairFakeLoadModule.end()) {
     id = it->second;
   }
   return id;
@@ -1315,12 +1313,12 @@ Loop::toStringMe(uint oFlags) const
   uint file_id = getFileIdFromMap(fileId());
   string fnm = xml::MakeAttrNum(file_id);
   string self = ANode::toStringMe(oFlags) + " f" + fnm;
- 
-  // Write vma of loops for trace analysis 
-  VMAIntervalSet &vma = m_strct->vmaSet();
-  VMA addr = vma.begin()->beg();
-  self += " v=\"" + StrUtil::toStr(addr, 16) + "\"";
- 
+
+  int dbg_level = Diagnostics_GetDiagnosticFilterLevel();
+  if (dbg_level > 2) {
+    VMAIntervalSet &vma = m_strct->vmaSet();
+    self += " v=\"" + vma.toString() + "\"";
+  }
   if ((oFlags & CCT::Tree::OFlg_StructId) && structure() != NULL) {
     self += " str" + xml::MakeAttrNum(structure()->m_origId);
   }
@@ -1337,24 +1335,6 @@ Call::toStringMe(uint oFlags) const
   if ((oFlags & Tree::OFlg_Debug) || (oFlags & Tree::OFlg_DebugAll)) {
     self += " n=\"" + nameDyn() + "\"";
   }
-
-  // Write vma of calls for trace analysis 
-  self += " v=\"" + StrUtil::toStr(lmRA(), 16) + "\"";
-
-  if ((oFlags & CCT::Tree::OFlg_StructId) && structure() != NULL) {
-    self += " str" + xml::MakeAttrNum(structure()->m_origId);
-  }
-
-  return self;
-}
-
-
-string 
-SCC::toStringMe(uint oFlags) const
-{
-  uint file_id = getFileIdFromMap(fileId());
-  string fnm = xml::MakeAttrNum(file_id);
-  string self = ANode::toStringMe(oFlags) + " f" + fnm;
 
   int dbg_level = Diagnostics_GetDiagnosticFilterLevel();
   if (dbg_level > 2) {

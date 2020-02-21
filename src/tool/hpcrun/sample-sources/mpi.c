@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2020, Rice University
+// Copyright ((c)) 2002-2019, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -150,16 +150,13 @@ METHOD_FN(supports_event,const char *ev_str)
 static void
 METHOD_FN(process_event_list,int lush_metrics)
 {
-  kind_info_t *mpi_kind = hpcrun_metrics_new_kind();
-  hpmpi_metric_id = hpcrun_set_new_metric_info(mpi_kind, "MPI_MSG(B)");
-  hpcrun_close_kind(mpi_kind);
+  hpmpi_metric_id = hpcrun_new_metric();
+
   TMSG(MPI, "Setting up metrics for MPI: %d", hpmpi_metric_id);
+
+  hpcrun_set_metric_info(hpmpi_metric_id, "MPI_MSG(B)");
 }
 
-static void
-METHOD_FN(finalize_event_list)
-{
-}
 
 //
 // Event sets not relevant for this sample source

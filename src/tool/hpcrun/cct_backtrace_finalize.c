@@ -25,7 +25,7 @@ cct_backtrace_finalize_register(
   cct_backtrace_finalize_entry_t *e
 )
 {
-  // wfq_enqueue finalizer on list
+  // enqueue finalizer on list
   e->next = finalizers;
   finalizers = e;
 }

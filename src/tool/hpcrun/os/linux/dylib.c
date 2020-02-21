@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2020, Rice University
+// Copyright ((c)) 2002-2019, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,6 @@
 #include <dlfcn.h> // dladdr
 
 
-
 //*****************************************************************************
 // local includes
 //*****************************************************************************
@@ -65,9 +64,7 @@
 #include "dylib.h"
 #include "fnbounds_interface.h"
 
-#include <lib/prof-lean/vdso.h>
 #include <messages/messages.h>
-
 
 
 //*****************************************************************************
@@ -127,14 +124,7 @@ dylib_find_module_containing_addr_callback(struct dl_phdr_info *info,
 void 
 dylib_map_open_dsos()
 {
-  char *vdso_start = (char *) vdso_segment_addr();
-  dl_iterate_phdr(dylib_map_open_dsos_callback, (void *) vdso_start);
-  if (vdso_start) {
-    char *vdso_end = vdso_start + vdso_segment_len();
-    // create a real file for vdso in our measurements directory and
-    // process bounds on that
-    fnbounds_ensure_mapped_dso(get_saved_vdso_path(), vdso_start, vdso_end);
-  }
+  dl_iterate_phdr(dylib_map_open_dsos_callback, (void *)0);
 }
 
 
@@ -286,18 +276,12 @@ dylib_get_segment_bounds(struct dl_phdr_info *info,
 
 static int
 dylib_map_open_dsos_callback(struct dl_phdr_info *info, size_t size, 
-			     void *vdso_start)
+			     void *unused)
 {
   if (strcmp(info->dlpi_name,"") != 0) {
     struct dylib_seg_bounds_s bounds;
     dylib_get_segment_bounds(info, &bounds);
-
-    // the file name provided by dl_iterate_phdr for the vdso segment 
-    // is a pseudo-file, so we can't process it directly below, which 
-    // expects a real file
-    if (bounds.start != vdso_start) {
-      fnbounds_ensure_mapped_dso(info->dlpi_name, bounds.start, bounds.end);
-    }
+    fnbounds_ensure_mapped_dso(info->dlpi_name, bounds.start, bounds.end);
   }
 
   return 0;
