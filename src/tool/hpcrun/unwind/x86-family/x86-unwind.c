@@ -705,11 +705,11 @@ unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor)
   void** next_pc = NULL;
   void** ra_loc = NULL;
   if ((uintptr_t)(*dyninst_frame_locator) == DYNINST_FRAME_LOCATOR_VALUE) {
-    EMSG("dyninst frame locator is at %p, value is %p", dyninst_frame_locator,
+    EEMSG("dyninst frame locator is at %p, value is %p", dyninst_frame_locator,
           *dyninst_frame_locator);
     uint64_t frame_size = (uint64_t)((uintptr_t)bp - (uintptr_t)sp); 
     if (frame_size > DYNINST_INST_FRAME_SIZE_LIMIT) {
-      EMSG("stack frame size is too large to be instrumentation frame:%lu", 
+      EEMSG("stack frame size is too large to be instrumentation frame:%lu", 
               frame_size);
       return false; 
     }
@@ -718,7 +718,7 @@ unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor)
     // try frame pointer based unwinding, in this case, return address is one
     // word above frame pointer address 
     ra_loc = bp + 1;
-    EMSG("try frame pointer based unwinding: %lx %lx", 
+    EEMSG("try frame pointer based unwinding: %lx %lx", 
               ra_loc, bp);
   }
   next_pc = (void**)*ra_loc;
