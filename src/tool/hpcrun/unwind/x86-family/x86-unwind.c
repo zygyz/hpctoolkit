@@ -718,6 +718,8 @@ unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor)
     // try frame pointer based unwinding, in this case, return address is one
     // word above frame pointer address 
     ra_loc = bp + 1;
+    EMSG("try frame pointer based unwinding: %lx %lx", 
+              ra_loc, bp);
   }
   next_pc = (void**)*ra_loc;
   next_sp = ra_loc + 1;
