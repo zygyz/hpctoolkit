@@ -172,6 +172,8 @@ compute_normalized_ips(hpcrun_unw_cursor_t* cursor)
 
   cursor->pc_norm = hpcrun_normalize_ip(cursor->pc_unnorm, lm);
   cursor->the_function = hpcrun_normalize_ip(func_start_pc, lm);
+  EEMSG("compute_normalized_ips - unnorm: %p norm: %p", cursor->pc_unnorm,
+		  cursor->pc_norm);
 }
 
 
@@ -714,12 +716,12 @@ unwind_dyninst_frame(hpcrun_unw_cursor_t* cursor)
       return false; 
     }
     ra_loc = (void**)*(bp + DYNINST_USER_FRAME_SP_OFFSET);
-    EEMSG("locator based %lx return addr: %lx", ra_loc, *ra_loc);
+    EEMSG("locator based %p return addr: %p", ra_loc, *ra_loc);
   } else {
     // try frame pointer based unwinding, in this case, return address is one
     // word above frame pointer address 
     ra_loc = bp + 1;
-    EEMSG("try frame pointer based unwinding: %lx %lx return addr: %lx", 
+    EEMSG("try frame pointer based unwinding: %p %p return addr: %p", 
               ra_loc, bp, *ra_loc);
   }
   next_pc = (void**)*ra_loc;
