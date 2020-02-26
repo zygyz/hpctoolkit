@@ -82,12 +82,8 @@ string
 demangleProcName(const std::string& name)
 {
   string ans = name;
-  // remove _dyninst suffix before demangling
-  auto pos = ans.find("_dyninst");
-  if (pos != std::string::npos) {
-    ans.erase(pos, std::string::npos); 
-  }
-  char *str = hpctoolkit_demangle(ans.c_str());
+
+  char *str = hpctoolkit_demangle(name.c_str());
 
   if (str != NULL) {
     ans = str;
