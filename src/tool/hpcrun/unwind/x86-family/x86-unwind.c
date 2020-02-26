@@ -162,7 +162,6 @@ save_registers(hpcrun_unw_cursor_t* cursor, void **pc, void **bp, void *sp,
   cursor->bp        = bp;
   cursor->sp        = sp;
   cursor->ra_loc    = ra_loc;
-  EEMSG("save_registers: pc:%p bp:%p sp:%p ra_loc:%p", pc, bp, sp, ra_loc);
 }
 
 static void
@@ -764,7 +763,7 @@ update_cursor_with_troll(hpcrun_unw_cursor_t* cursor, int offset)
       TMSG(TROLL,"Trolling advances cursor to pc = %p, sp = %p", 
 	   next_pc, next_sp);
       TMSG(TROLL,"TROLL SUCCESS pc = %p", cursor->pc_unnorm);
-      EEMSG("Trolling advances cursor to pc = %p sp = %p", next_pc, next_sp);
+
       assert(ra_loc == (void *)(next_sp - 1));
       save_registers(cursor, next_pc, next_bp, next_sp, ra_loc);
       compute_normalized_ips(cursor);
