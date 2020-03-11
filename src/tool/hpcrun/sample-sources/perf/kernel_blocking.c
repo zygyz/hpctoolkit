@@ -9,7 +9,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2019, Rice University
+// Copyright ((c)) 2002-2020, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,8 @@
 #include <assert.h>
 #include <include/linux_info.h>
 
+#include <hpcrun/metrics.h>
+
 #include "kernel_blocking.h"
 
 #include "perf-util.h"    // u64, u32 and perf_mmap_data_t
@@ -67,13 +69,14 @@
  *****************************************************************************/
 
 #define KERNEL_BLOCKING_DEBUG 0
+#define METRIC_HIDDEN         0
 
 // -----------------------------------------------------
 // Predefined events
 // -----------------------------------------------------
 
 #define EVNAME_KERNEL_BLOCK     "BLOCKTIME"
-#define EVNAME_CONTEXT_SWITCHES "CS"
+#define EVNAME_CONTEXT_SWITCHES "CNTXT_SWTCH"
 
 
 //******************************************************************************
@@ -208,24 +211,32 @@ kernel_block_handler( event_thread_t *current_event, sample_val_t sv,
  * - context switch metric to store the number of context switches
  ****************************************************************/
 static void
-register_blocking(event_info_t *event_desc)
+register_blocking(kind_info_t *kb_kind, event_info_t *event_desc)
 {
   // ------------------------------------------
   // create metric to compute blocking time
   // ------------------------------------------
-  event_desc->metric_custom->metric_index = hpcrun_new_metric();
-  event_desc->metric_custom->metric_desc  = hpcrun_set_metric_info_and_period(
-      event_desc->metric_custom->metric_index, EVNAME_KERNEL_BLOCK,
+  event_desc->metric_custom->metric_index = 
+    hpcrun_set_new_metric_info_and_period(
+      kb_kind, EVNAME_KERNEL_BLOCK,
       MetricFlags_ValFmt_Int, 1 /* period */, metric_property_none);
+
+  event_desc->metric_custom->metric_desc = 
+    hpcrun_id2metric_linked(event_desc->metric_custom->metric_index);  
 
   metric_blocking_index = event_desc->metric_custom->metric_index;
   // ------------------------------------------
   // create metric to store context switches
   // ------------------------------------------
-  event_desc->metric      = hpcrun_new_metric();
-  event_desc->metric_desc = hpcrun_set_metric_info_and_period(
-      event_desc->metric, EVNAME_CONTEXT_SWITCHES,
+  event_desc->hpcrun_metric_id = 
+    hpcrun_set_new_metric_info_and_period(
+      kb_kind, EVNAME_CONTEXT_SWITCHES,
       MetricFlags_ValFmt_Real, 1 /* period*/, metric_property_none);
+
+  event_desc->metric_desc = 
+    hpcrun_id2metric_linked(event_desc->hpcrun_metric_id); 
+
+  event_desc->metric_desc->flags.fields.show = METRIC_HIDDEN;
 
   // ------------------------------------------
   // set context switch event description to be used when creating

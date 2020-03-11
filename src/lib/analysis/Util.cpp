@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2019, Rice University
+// Copyright ((c)) 2002-2020, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -92,6 +92,7 @@ using std::string;
 #include <lib/support/realpath.h>
 
 #define DEBUG_DEMAND_STRUCT  0
+#define TMP_BUFFER_LEN 1024
 
 //***************************************************************************
 
@@ -337,7 +338,17 @@ demandStructure(VMA vma, Prof::Struct::LM* lmStruct,
       stmt = BAnal::Struct::makeStructureSimple(lmStruct, lm, vma);
     }
     else {
+      char tmp_buf[TMP_BUFFER_LEN];
       string unknown_proc = (unknownProcNm) ? *unknownProcNm : string(UNKNOWN_PROC);
+      if (unknown_proc == UNKNOWN_PROC) {
+        snprintf(tmp_buf, TMP_BUFFER_LEN, " 0x%lx", vma);
+        unknown_proc += tmp_buf;
+        if (lmStruct != NULL) {
+          std::string base = FileUtil::basename(lmStruct->name().c_str());
+          snprintf(tmp_buf, TMP_BUFFER_LEN, " [%s]", base.c_str());
+          unknown_proc += tmp_buf;
+        }
+      }
       Struct::File * fileStruct = Struct::File::demand(lmStruct, UNKNOWN_FILE);
       Struct::Proc * procStruct = Struct::Proc::demand(fileStruct, unknown_proc);
 

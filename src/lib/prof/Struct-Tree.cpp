@@ -12,7 +12,7 @@
 // HPCToolkit is at 'hpctoolkit.org' and in 'README.Acknowledgments'.
 // --------------------------------------------------------------------------
 //
-// Copyright ((c)) 2002-2019, Rice University
+// Copyright ((c)) 2002-2020, Rice University
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -80,6 +80,7 @@ using std::string;
 #include <include/gcc-attr.h>
 #include <include/uint.h>
 
+#include "LoadMap.hpp"
 #include "Struct-Tree.hpp"
 
 #include <lib/xml/xml.hpp>
@@ -321,6 +322,7 @@ Group::demand(Root* pgm, const string& nm, ANode* parent)
 RealPathMgr& LM::s_realpathMgr = RealPathMgr::singleton();
 #endif
 
+
 void
 LM::Ctor(const char* nm, ANode* parent)
 {
@@ -329,8 +331,6 @@ LM::Ctor(const char* nm, ANode* parent)
   DIAG_Assert((parent == NULL) || (t == TyRoot) || (t == TyGroup), "");
 
   m_name = nm;
-  m_pretty_name = nm;
-
   m_fileMap = new FileMap();
   m_procMap = NULL;
   m_stmtMap = NULL;
