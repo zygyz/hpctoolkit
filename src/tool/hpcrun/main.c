@@ -92,7 +92,6 @@
 #include "hpcrun_options.h"
 #include "hpcrun_return_codes.h"
 #include "hpcrun_stats.h"
-#include "hpcrun_flag_stacks.h"
 #include "name.h"
 #include "start-stop.h"
 #include "custom-init.h"
@@ -147,11 +146,26 @@
 #include <messages/messages.h>
 #include <messages/debug-flag.h>
 
+#include <loadmap.h>
 
 extern void hpcrun_set_retain_recursion_mode(bool mode);
-#ifndef USE_LIBUNW
+
+#ifdef HPCRUN_HAVE_CUSTOM_UNWINDER
 extern void hpcrun_dump_intervals(void* addr);
-#endif // ! USE_LIBUNW
+#endif
+
+
+//***************************************************************************
+// macros
+//***************************************************************************
+
+#define MONITOR_INITIALIZE 1
+
+#if  MONITOR_INITIALIZE == 0
+#define monitor_initialize() \
+    assert(0 && "entry into hpctoolkit prior to initialization");
+#endif
+
 
 //***************************************************************************
 // local data types. Primarily for passing data between pre_PHASE, PHASE, and post_PHASE
@@ -197,6 +211,8 @@ __attribute__ ((unused));
 
 int lush_metrics = 0; // FIXME: global variable for now
 
+bool hpcrun_no_unwind = false;
+
 /******************************************************************************
  * (public declaration) thread-local variables
  *****************************************************************************/
@@ -229,14 +245,20 @@ static char execname[PATH_MAX] = {'\0'};
 // Interface functions for suppressing samples
 //***************************************************************************
 
+static spinlock_t dl_op_lock = SPINLOCK_UNLOCKED;
+
 void hpcrun_dlfunction_begin()
 {
+  if (hpcrun_thread_dl_operation == 0)
+    spinlock_lock(&dl_op_lock);
   hpcrun_thread_dl_operation += 1;
 }
 
 void hpcrun_dlfunction_end()
 {
   hpcrun_thread_dl_operation -= 1;
+  if (hpcrun_thread_dl_operation == 0)
+    spinlock_unlock(&dl_op_lock);
 }
 
 bool hpcrun_dlfunction_is_active()
@@ -414,7 +436,7 @@ hpcrun_set_abort_timeout()
 
 siglongjmp_fcn* hpcrun_get_real_siglongjmp(void);
 
-#ifndef USE_LIBUNW
+#ifdef HPCRUN_HAVE_CUSTOM_UNWINDER
 static sigjmp_buf ivd_jb;
 
 static int
@@ -465,7 +487,7 @@ hpcrun_init_internal(bool is_child)
 
   // Decide whether to retain full single recursion, or collapse recursive calls to
   // first instance of recursive call
-  hpcrun_set_retain_recursion_mode(getenv("HPCRUN_RETAIN_RECURSION") != NULL);
+  hpcrun_set_retain_recursion_mode(hpcrun_get_env_bool("HPCRUN_RETAIN_RECURSION"));
 
   // Initialize logical unwinding agents (LUSH)
   if (opts.lush_agent_paths[0] != '\0') {
@@ -486,7 +508,7 @@ hpcrun_init_internal(bool is_child)
   hpcrun_setup_segv();
 
 
-#ifndef USE_LIBUNW
+#ifdef HPCRUN_HAVE_CUSTOM_UNWINDER
   if (getenv("HPCRUN_ONLY_DUMP_INTERVALS")) {
     fnbounds_table_t table = fnbounds_fetch_executable_table();
     TMSG(INTERVALS_PRINT, "table data = %p", table.table);
@@ -508,7 +530,7 @@ hpcrun_init_internal(bool is_child)
     }
     exit(0);
   }
-#endif // ! USE_LIBUNW
+#endif  // HPCRUN_HAVE_CUSTOM_UNWINDER
 
   hpcrun_stats_reinit();
   hpcrun_start_stop_internal_init();
@@ -756,10 +778,14 @@ hpcrun_thread_init(int id, local_thread_data_t* local_thread_data) // cct_ctxt_t
 
   td->inside_hpcrun = 1;  // safe enter, disable signals
 
-  if (! thr_ctxt) EMSG("Thread id %d passes null context", id);
   
-  if (ENABLED(THREAD_CTXT))
-    hpcrun_walk_path(thr_ctxt->context, logit, (cct_op_arg_t) (intptr_t) id);
+  if (ENABLED(THREAD_CTXT)) {
+    if (thr_ctxt) {
+      hpcrun_walk_path(thr_ctxt->context, logit, (cct_op_arg_t) (intptr_t) id);
+    } else {
+      EMSG("Thread id %d passes null context", id);
+    }
+  }
 
   epoch_t* epoch = TD_GET(core_profile_trace_data.epoch);
 
@@ -833,7 +859,8 @@ hpcrun_continue()
 void 
 hpcrun_wait()
 {
-  const char* HPCRUN_WAIT = getenv("HPCRUN_WAIT");
+  bool HPCRUN_WAIT = hpcrun_get_env_bool("HPCRUN_WAIT");
+
   if (HPCRUN_WAIT) {
     while (HPCRUN_DEBUGGER_WAIT);
 
@@ -906,6 +933,10 @@ monitor_init_process(int *argc, char **argv, void* data)
     if (seconds > 0) alarm((unsigned int) seconds);
   }
 
+  // see if unwinding has been turned off
+  // the same setting governs whether or not fnbounds is needed or used.
+  hpcrun_no_unwind = hpcrun_get_env_bool("HPCRUN_NO_UNWIND");
+
   char* s = getenv(HPCRUN_EVENT_LIST);
 
   if (! is_child) {
@@ -963,9 +994,10 @@ static fork_data_t from_fork;
 void*
 monitor_pre_fork(void)
 {
-  if (! hpcrun_is_initialized()) {
-    return NULL;
+  if (!hpcrun_is_initialized()) {
+    monitor_initialize();
   }
+
   hpcrun_safe_enter();
 
   TMSG(PRE_FORK,"pre_fork call");
@@ -1020,6 +1052,10 @@ monitor_post_fork(pid_t child, void* data)
 void
 monitor_mpi_pre_init(void)
 {
+  if (!hpcrun_is_initialized()) {
+    monitor_initialize();
+  }
+
   hpcrun_safe_enter();
 
   TMSG(MPI, "Pre MPI_Init");
@@ -1622,18 +1658,12 @@ MONITOR_EXT_WRAP_NAME(pthread_cond_broadcast)(pthread_cond_t* cond)
 void
 monitor_pre_dlopen(const char* path, int flags)
 {
-  hpcrun_dlfunction_begin();
-  if (! hpcrun_dlopen_forced) {
-    if (! hpcrun_is_initialized()) {
-      hpcrun_dlopen_flags_push(false);
-      return;
-    }
-    if (! hpcrun_safe_enter()) {
-      hpcrun_dlopen_flags_push(false);
-      return;
-    }
+  if (!hpcrun_is_initialized()) {
+    monitor_initialize();
   }
-  hpcrun_dlopen_flags_push(true);
+
+  hpcrun_dlfunction_begin();
+  hpcrun_safe_enter();
   hpcrun_pre_dlopen(path, flags);
   hpcrun_safe_exit();
 }
@@ -1642,20 +1672,10 @@ monitor_pre_dlopen(const char* path, int flags)
 void
 monitor_dlopen(const char *path, int flags, void* handle)
 {
-  hpcrun_dlfunction_end();
-  if (!hpcrun_dlopen_flags_pop()) {
-    return;
-  }
-  if (! hpcrun_dlopen_forced) {
-    if (! hpcrun_is_initialized()) {
-      return;
-    }
-    if (! hpcrun_safe_enter()) {
-      return;
-    }
-  }
+  hpcrun_safe_enter();
   hpcrun_dlopen(path, flags, handle);
   hpcrun_safe_exit();
+  hpcrun_dlfunction_end();
 }
 
 
@@ -1663,11 +1683,6 @@ void
 monitor_dlclose(void* handle)
 {
   hpcrun_dlfunction_begin();
-  if (! hpcrun_is_initialized()) {
-    hpcrun_dlclose_flags_push(false);
-    return;
-  }
-  hpcrun_dlclose_flags_push(true);
   hpcrun_safe_enter();
   hpcrun_dlclose(handle);
   hpcrun_safe_exit();
@@ -1677,16 +1692,10 @@ monitor_dlclose(void* handle)
 void
 monitor_post_dlclose(void* handle, int ret)
 {
-  hpcrun_dlfunction_end();
-  if (! hpcrun_dlclose_flags_pop()) {
-    return;
-  }
-  if (! hpcrun_is_initialized()) {
-    return;
-  }
   hpcrun_safe_enter();
   hpcrun_post_dlclose(handle, ret);
   hpcrun_safe_exit();
+  hpcrun_dlfunction_end();
 }
 
 #endif /* ! HPCRUN_STATIC_LINK */

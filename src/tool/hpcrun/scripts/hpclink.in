@@ -30,13 +30,10 @@ hpcfnbounds_dir='libexec/hpctoolkit'
 libhpcrun_dir='lib/hpctoolkit'
 libmonitor_dir='@LIBMONITOR_RUN_DIR@'
 
-# Absolute path or empty.
-papi_dir='@OPT_PAPI_LIBPATH@'
-papi_extra_libs='@papi_extra_libs@'
+internal_wrap_names='poll select ppoll pselect'
+external_wrap_names='@LIBMONITOR_WRAP_NAMES@  @hpclink_extra_wrap_names@'
 
-upc_libs='@OPT_UPC_LDFLAGS@'
-
-hpctk_wrap_names='@LIBMONITOR_WRAP_NAMES@  @hpclink_extra_wrap_names@'
+hpctk_wrap_names="${internal_wrap_names}  ${external_wrap_names}"
 
 extra_wrap_names=
 extra_hpc_files=
@@ -151,6 +148,10 @@ Options: Linking
                        for the back-end libraries and use <dir> for the install
                        directory (prefix) of the front-end tools (hpcfnbounds).
 
+  -fnb <path>, --fnbounds <path>
+                       Use <path> as alternate hpcfnbounds command.
+                       (mostly for developers)
+
   --io                 Include the IO bytes read and written library.
 
   --ga                 Include GA (Global Arrays) wrappers.
@@ -201,6 +202,7 @@ export LD_LIBRARY_PATH
 
 double_wrap=no
 front_end_dir=no
+alt_fnbounds=
 my_plugin_list=
 verbose=no
 verb=:
@@ -220,6 +222,11 @@ do
 	    front_end_dir="$2"
 	    shift ; shift
 	    ;;
+        -fnb | --fnbounds )
+	    test "x$2" != x || die "missing argument for --fnbounds"
+	    alt_fnbounds="$2"
+            shift ; shift
+            ;;
 	-io | --io )
 	    io_wrap="${libhpcrun_dir}/libhpcrun_io_wrap.a"
 	    test -f "$io_wrap" || die "unable to find: $io_wrap"
@@ -292,9 +299,13 @@ if test "$front_end_dir" != no ; then
     fi
 fi
 
-hpcfnbounds_dir="${HPCTOOLKIT}/${hpcfnbounds_dir}"
-hpcfnbounds="${hpcfnbounds_dir}/hpcfnbounds"
-test -x "$hpcfnbounds" || die "missing hpcfnbounds: $hpcfnbounds"
+case "$alt_fnbounds" in
+    '' ) hpcfnbounds="${HPCTOOLKIT}/${hpcfnbounds_dir}/hpcfnbounds2" ;;
+    /* ) hpcfnbounds="$alt_fnbounds" ;;
+    * )  hpcfnbounds="${HPCTOOLKIT}/${hpcfnbounds_dir}/${alt_fnbounds}" ;;
+esac
+
+test -x "$hpcfnbounds" || die "unable to execute hpcfnbounds: $hpcfnbounds"
 
 #
 # Add plugin files: hpclink --plugin name
@@ -412,13 +423,8 @@ done
 libhpcrun="${libhpcrun_dir}/libhpcrun.o"
 test -f "$libhpcrun" || die "no such file: $libhpcrun"
 
-# FIXME: add LZMA static library at the end of libhpcrun.o
-# Ideally the library is included in libhpcrun.o, but somwehow not all
-# routines are included
-liblzma="${ext_libs_dir}/liblzma.a"
-libmbedtls="${ext_libs_dir}/libmbedcrypto.a"
 libelf="${ext_libs_dir}/libelf.a"
-set -- $undef_args $wrap_args $libhpcrun "$liblzma" "$libmbedtls" "$libelf" "$@" 
+set -- $undef_args $wrap_args $libhpcrun "$libelf" "$@" 
 set -- "$@" "${nm_addrs}.o"
 
 libhpcrun_wrap="${libhpcrun_dir}/libhpcrun_wrap.a"
@@ -429,11 +435,7 @@ libmonitor="${libmonitor_dir}/libmonitor_wrap.a"
 test -f "$libmonitor" || die "no such file: $libmonitor"
 set -- "$@" "$libmonitor" $extra_plugin_files
 
-if test -d "$papi_dir" ; then
-    set -- "$@" "-L${papi_dir}" -lpapi $papi_extra_libs
-fi
-
-set -- "$@" $upc_libs
+set -- "$@" "${ext_libs_dir}/libz.a"
 
 # FIXME: shouldn't always need pthread, and shoudn't ever need dl.
 set -- "$@" -ldl -lrt -lpthread

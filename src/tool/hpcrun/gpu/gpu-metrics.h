@@ -61,7 +61,7 @@
 //*****************************************************************************
 
 
-enum {
+typedef enum {
   GPU_INST_STALL_ANY                   = 0
 } gpu_inst_stall_all_t;
 
@@ -202,15 +202,15 @@ typedef enum {
 
 
 #define FORALL_GSYNC(macro)					\
-  macro("GSYNC:UNK (us)",         GPU_SYNC_UNKNOWN,		\
+  macro("GSYNC:UNK (sec)",         GPU_SYNC_UNKNOWN,		\
 	"GPU synchronizations: unknown kind")			\
-  macro("GSYNC:EVT (us)",         GPU_SYNC_EVENT,		\
+  macro("GSYNC:EVT (sec)",         GPU_SYNC_EVENT,		\
 	"GPU synchronizations: event")				\
-  macro("GSYNC:STRE (us)",        GPU_SYNC_STREAM_EVENT_WAIT,	\
+  macro("GSYNC:STRE (sec)",        GPU_SYNC_STREAM_EVENT_WAIT,	\
 	"GPU synchronizations: stream event wait")		\
-  macro("GSYNC:STR (us)",         GPU_SYNC_STREAM,		\
+  macro("GSYNC:STR (sec)",         GPU_SYNC_STREAM,		\
 	"GPU synchronizations: stream")				\
-  macro("GSYNC:CTX (us)",         GPU_SYNC_CONTEXT,		\
+  macro("GSYNC:CTX (sec)",         GPU_SYNC_CONTEXT,		\
 	"GPU synchronizations: context")     \
   macro("GSYNC:COUNT",           GPU_SYNC_COUNT, \
         "GPU synchronizations: count")
@@ -322,8 +322,8 @@ typedef enum {
 	"GPU kernel: block local memory (bytes)")			\
   macro("GKER:COUNT",             GPU_KINFO_COUNT,  			\
 	"GPU kernel: launch count")					\
-  macro("GKER:OCC",               GPU_KINFO_OCCUPANCY,			\
-	"GPU kernel: occupancy")          \
+  macro("GKER:OCC_THR",               GPU_KINFO_OCCUPANCY_THR,		\
+	"GPU kernel: theoretical occupancy (FGP_ACT / FGP_MAX)")          \
   
 
 // gpu implicit copy

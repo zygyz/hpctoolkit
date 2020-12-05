@@ -158,7 +158,8 @@ am__objects_1 = libHPCprof_lean_la-hpcrun-fmt.lo \
 	libHPCprof_lean_la-generic_pair.lo \
 	libHPCprof_lean_la-procmaps.lo libHPCprof_lean_la-vdso.lo \
 	libHPCprof_lean_la-randomizer.lo \
-	libHPCprof_lean_la-splay-uint64.lo
+	libHPCprof_lean_la-splay-uint64.lo \
+	libHPCprof_lean_la-elf-helper.lo
 am_libHPCprof_lean_la_OBJECTS = $(am__objects_1)
 libHPCprof_lean_la_OBJECTS = $(am_libHPCprof_lean_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -282,6 +283,9 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77_SYMBOLS = @F77_SYMBOLS@
 FGREP = @FGREP@
+GOTCHA_IFLAGS = @GOTCHA_IFLAGS@
+GOTCHA_LDFLAGS = @GOTCHA_LDFLAGS@
+GOTCHA_LIBDIR = @GOTCHA_LIBDIR@
 GREP = @GREP@
 HOST_AR = @HOST_AR@
 HOST_CFLAGS = @HOST_CFLAGS@
@@ -321,27 +325,23 @@ LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
-LIBUNWIND_COPY = @LIBUNWIND_COPY@
-LIBUNWIND_CPPFLAGS_DYN = @LIBUNWIND_CPPFLAGS_DYN@
-LIBUNWIND_CPPFLAGS_STAT = @LIBUNWIND_CPPFLAGS_STAT@
 LIBUNWIND_IFLAGS = @LIBUNWIND_IFLAGS@
 LIBUNWIND_LDFLAGS_DYN = @LIBUNWIND_LDFLAGS_DYN@
 LIBUNWIND_LDFLAGS_STAT = @LIBUNWIND_LDFLAGS_STAT@
-LIBUNWIND_LIB = @LIBUNWIND_LIB@
+LIBUNWIND_LIB_DIR = @LIBUNWIND_LIB_DIR@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 LZMA_COPY = @LZMA_COPY@
-LZMA_INC = @LZMA_INC@
+LZMA_IFLAGS = @LZMA_IFLAGS@
 LZMA_LDFLAGS_DYN = @LZMA_LDFLAGS_DYN@
 LZMA_LDFLAGS_STAT = @LZMA_LDFLAGS_STAT@
-LZMA_LIB = @LZMA_LIB@
+LZMA_LIB_DIR = @LZMA_LIB_DIR@
 LZMA_PROF_MPI_LIBS = @LZMA_PROF_MPI_LIBS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MBEDTLS_COPY = @MBEDTLS_COPY@
 MBEDTLS_IFLAGS = @MBEDTLS_IFLAGS@
 MBEDTLS_LIB = @MBEDTLS_LIB@
 MBEDTLS_LIBS = @MBEDTLS_LIBS@
@@ -353,6 +353,7 @@ MPI_INC = @MPI_INC@
 MPI_PROTO_FILE = @MPI_PROTO_FILE@
 NM = @NM@
 NMEDIT = @NMEDIT@
+OBJCOPY = @OBJCOPY@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPENMP_FLAG = @OPENMP_FLAG@
@@ -362,11 +363,11 @@ OPT_CUDA_LDFLAGS = @OPT_CUDA_LDFLAGS@
 OPT_CUPTI = @OPT_CUPTI@
 OPT_CUPTI_IFLAGS = @OPT_CUPTI_IFLAGS@
 OPT_CUPTI_LDFLAGS = @OPT_CUPTI_LDFLAGS@
-OPT_OBJCOPY = @OPT_OBJCOPY@
 OPT_PAPI = @OPT_PAPI@
 OPT_PAPI_IFLAGS = @OPT_PAPI_IFLAGS@
 OPT_PAPI_LDFLAGS = @OPT_PAPI_LDFLAGS@
 OPT_PAPI_LIBPATH = @OPT_PAPI_LIBPATH@
+OPT_PAPI_LIBS_STAT = @OPT_PAPI_LIBS_STAT@
 OPT_ROCM = @OPT_ROCM@
 OPT_ROCM_IFLAGS = @OPT_ROCM_IFLAGS@
 OPT_ROCM_LDFLAGS = @OPT_ROCM_LDFLAGS@
@@ -398,6 +399,7 @@ TBB_IFLAGS = @TBB_IFLAGS@
 TBB_LFLAGS = @TBB_LFLAGS@
 TBB_LIB_DIR = @TBB_LIB_DIR@
 TBB_PROXY_LIB = @TBB_PROXY_LIB@
+VALGRIND_IFLAGS = @VALGRIND_IFLAGS@
 VERSION = @VERSION@
 XED2_COPY = @XED2_COPY@
 XED2_HPCLINK_LIBS = @XED2_HPCLINK_LIBS@
@@ -465,7 +467,7 @@ mkdir_p = @mkdir_p@
 my_pkglibdir = @my_pkglibdir@
 my_pkglibexecdir = @my_pkglibexecdir@
 oldincludedir = @oldincludedir@
-papi_extra_libs = @papi_extra_libs@
+path_objcopy = @path_objcopy@
 pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
@@ -505,6 +507,7 @@ HPCLIB_Prof = $(top_builddir)/src/lib/prof/libHPCprof.la
 HPCLIB_ProfXML = $(top_builddir)/src/lib/profxml/libHPCprofxml.la
 HPCLIB_ProfLean = $(top_builddir)/src/lib/prof-lean/libHPCprof-lean.la
 HPCLIB_Binutils = $(top_builddir)/src/lib/binutils/libHPCbinutils.la
+HPCLIB_gettext = $(top_builddir)/src/lib/binutils/libHPCgettext.la
 HPCLIB_ISA = $(top_builddir)/src/lib/isa/libHPCisa.la
 HPCLIB_XML = $(top_builddir)/src/lib/xml/libHPCxml.la
 HPCLIB_Support = $(top_builddir)/src/lib/support/libHPCsupport.la
@@ -554,7 +557,8 @@ MYSOURCES = \
 	procmaps.h procmaps.c \
 	vdso.h vdso.c \
 	randomizer.h randomizer.c \
-	splay-uint64.h splay-uint64.c
+	splay-uint64.h splay-uint64.c \
+	elf-helper.h elf-helper.c
 
 MYCFLAGS = @HOST_CFLAGS@ $(HPC_IFLAGS) $(MBEDTLS_IFLAGS)  -I$(LIBELF_INC)
 @IS_HOST_AR_FALSE@MYAR = $(AR) cru
@@ -663,6 +667,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-bistack.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-crypto-hash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-cskiplist.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-elf-helper.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-generic_pair.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-hpcfmt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libHPCprof_lean_la-hpcio-buffer.Plo@am__quote@
@@ -881,6 +886,13 @@ libHPCprof_lean_la-splay-uint64.lo: splay-uint64.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='splay-uint64.c' object='libHPCprof_lean_la-splay-uint64.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCprof_lean_la_CFLAGS) $(CFLAGS) -c -o libHPCprof_lean_la-splay-uint64.lo `test -f 'splay-uint64.c' || echo '$(srcdir)/'`splay-uint64.c
+
+libHPCprof_lean_la-elf-helper.lo: elf-helper.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCprof_lean_la_CFLAGS) $(CFLAGS) -MT libHPCprof_lean_la-elf-helper.lo -MD -MP -MF $(DEPDIR)/libHPCprof_lean_la-elf-helper.Tpo -c -o libHPCprof_lean_la-elf-helper.lo `test -f 'elf-helper.c' || echo '$(srcdir)/'`elf-helper.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libHPCprof_lean_la-elf-helper.Tpo $(DEPDIR)/libHPCprof_lean_la-elf-helper.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='elf-helper.c' object='libHPCprof_lean_la-elf-helper.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libHPCprof_lean_la_CFLAGS) $(CFLAGS) -c -o libHPCprof_lean_la-elf-helper.lo `test -f 'elf-helper.c' || echo '$(srcdir)/'`elf-helper.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
