@@ -148,7 +148,7 @@ endif
 MYCLEAN = @HOST_LIBTREPOSITORY@
 
 GENHEADERS = \
-	cubins-analysis.h \
+	gpubin-analysis.h \
 	usage.h
 
 #----------------------------------------------------------------------
